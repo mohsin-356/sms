@@ -21,7 +21,6 @@ export default function Main() {
   
   return (
     <ReduxWrapper>
-      h
       <ChakraProvider theme={currentTheme}>
         <SidebarContext.Provider
           value={{
