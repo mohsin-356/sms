@@ -231,11 +231,12 @@ function AddStudent() {
         align={{ base: 'start', md: 'center' }}
       >
         <Box>
-          <Heading as="h3" size="lg" mb="4">
+          <Heading as="h3" fontSize={{ base: 'xl', md: '2xl' }} mb="4">
             Add New Student
           </Heading>
-          <Text color="gray.500">Enter student information to register</Text>
+          <Text color="gray.500" fontSize={{ base: 'sm', md: 'md' }}>Enter student information to register</Text>
         </Box>
+        
         <Button
           leftIcon={<MdArrowBack />}
           mt={{ base: 2, md: 0 }}
@@ -247,34 +248,32 @@ function AddStudent() {
       </Flex>
 
       {/* Stepper */}
-      <Card mb="20px" p="20px">
-        <Stepper size="lg" index={currentStep - 1} colorScheme="brand">
-          {steps.map((step, index) => (
-            <Step key={index}>
-              <StepIndicator>
-                <StepStatus
-                  complete={<StepIcon />}
-                  incomplete={<StepNumber />}
-                  active={<StepNumber />}
-                />
-              </StepIndicator>
-              <Box flexShrink="0">
-                <StepTitle>{step.title}</StepTitle>
-                <StepDescription>{step.description}</StepDescription>
-              </Box>
-              <StepSeparator />
-            </Step>
-          ))}
-        </Stepper>
+      <Card mb="20px" p={{ base: 3, md: 4, lg: 5 }}>
+        <Box overflowX="auto" w="100%">
+          <Stepper size={{ base: 'sm', md: 'md', lg: 'lg' }} index={currentStep - 1} colorScheme="brand">
+            {steps.map((step, index) => (
+              <Step key={index} flex="0 0 auto" minW={{ base: '180px', md: '220px' }}>
+                <StepIndicator boxSize={{ base: '28px', md: '32px' }}>
+                  <StepStatus complete={<StepIcon />} incomplete={<StepNumber />} active={<StepNumber />} />
+                </StepIndicator>
+                <Box flexShrink="0">
+                  <StepTitle fontSize={{ base: 'xs', md: 'sm', lg: 'md' }} noOfLines={1} whiteSpace="nowrap">{step.title}</StepTitle>
+                  <StepDescription display={{ base: 'none', md: 'block' }} fontSize={{ base: 'xs', md: 'xs' }}>{step.description}</StepDescription>
+                </Box>
+                <StepSeparator display={{ base: 'none', md: 'block' }} />
+              </Step>
+            ))}
+          </Stepper>
+        </Box>
       </Card>
 
       {/* Form Content */}
-      <Card mb="20px" p={6}>
+      <Card mb="20px" p={{ base: 4, md: 6 }}>
         {renderStepContent()}
       </Card>
 
       {/* Form Controls */}
-      <Card mb="20px" p={6}>
+      <Card mb="20px" p={{ base: 4, md: 6 }}>
         <Flex justify="space-between">
           <Button
             variant="outline"

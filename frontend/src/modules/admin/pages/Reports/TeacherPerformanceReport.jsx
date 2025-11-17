@@ -60,23 +60,33 @@ export default function TeacherPerformanceReport() {
       </SimpleGrid>
 
       <Card p={4} mb={5}>
-        <Flex gap={3} direction={{ base: 'column', md: 'row' }} align={{ md: 'center' }}>
-          <InputGroup maxW='280px'>
-            <InputLeftElement pointerEvents='none'>
-              <MdSearch color='gray.400' />
-            </InputLeftElement>
-            <Input placeholder='Search teacher or ID' value={search} onChange={(e) => setSearch(e.target.value)} />
-          </InputGroup>
-          <Select maxW='220px' value={subject} onChange={(e) => setSubject(e.target.value)}>
-            <option value='all'>All Subjects</option>
-            <option value='math'>Math</option>
-            <option value='science'>Science</option>
-            <option value='english'>English</option>
-          </Select>
-          <Input type='date' maxW='200px' value={from} onChange={(e) => setFrom(e.target.value)} />
-          <Input type='date' maxW='200px' value={to} onChange={(e) => setTo(e.target.value)} />
-          <Button size='sm' onClick={() => applyPreset(7)}>Last 7d</Button>
-          <Button size='sm' onClick={() => applyPreset(30)}>Last 30d</Button>
+        <Flex
+          gap={3}
+          direction={{ base: 'column', md: 'row' }}
+          align={{ md: 'center' }}
+          flexWrap={{ base: 'wrap', md: 'wrap' }}
+          rowGap={3}
+        >
+          <Flex gap={3} flexWrap='wrap' align='center' flex={{ base: '1 1 100%', md: '1 1 auto' }}>
+            <InputGroup maxW={{ base: '100%', md: '280px' }} w={{ base: '100%', md: 'auto' }}>
+              <InputLeftElement pointerEvents='none'>
+                <MdSearch color='gray.400' />
+              </InputLeftElement>
+              <Input placeholder='Search teacher or ID' value={search} onChange={(e) => setSearch(e.target.value)} />
+            </InputGroup>
+            <Select maxW={{ base: '100%', md: '220px' }} w={{ base: '100%', md: 'auto' }} value={subject} onChange={(e) => setSubject(e.target.value)}>
+              <option value='all'>All Subjects</option>
+              <option value='math'>Math</option>
+              <option value='science'>Science</option>
+              <option value='english'>English</option>
+            </Select>
+            <Input type='date' maxW={{ base: '100%', md: '200px' }} w={{ base: '100%', md: 'auto' }} value={from} onChange={(e) => setFrom(e.target.value)} />
+            <Input type='date' maxW={{ base: '100%', md: '200px' }} w={{ base: '100%', md: 'auto' }} value={to} onChange={(e) => setTo(e.target.value)} />
+          </Flex>
+          <Flex gap={2} flexShrink={0} w={{ base: '100%', md: 'auto' }} justify={{ base: 'flex-end', md: 'flex-start' }} flexWrap='wrap'>
+            <Button size='sm' onClick={() => applyPreset(7)}>Last 7d</Button>
+            <Button size='sm' variant='outline' onClick={() => applyPreset(30)}>Last 30d</Button>
+          </Flex>
         </Flex>
       </Card>
 

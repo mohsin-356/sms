@@ -99,9 +99,21 @@ export default function Syllabus() {
       </Flex>
 
       <Card mb={5}>
-        <Flex p={4} justifyContent="space-between" alignItems="center" direction={{ base: 'column', md: 'row' }} gap={4}>
-          <HStack>
-            <InputGroup maxW='260px'>
+        <Flex
+          p={4}
+          justifyContent="space-between"
+          alignItems="center"
+          direction={{ base: 'column', md: 'row' }}
+          gap={4}
+          flexWrap={{ base: 'wrap', md: 'wrap' }}
+          rowGap={3}
+        >
+          <HStack
+            flex={{ base: '1 1 100%', md: '1 1 auto' }}
+            flexWrap='wrap'
+            spacing={3}
+          >
+            <InputGroup maxW={{ base: '100%', md: '260px' }} w={{ base: '100%', md: 'auto' }}>
               <InputLeftElement pointerEvents='none'>
                 <MdSearch color='gray.400' />
               </InputLeftElement>
@@ -120,7 +132,13 @@ export default function Syllabus() {
               <option>Behind</option>
             </Select>
           </HStack>
-          <HStack>
+          <HStack
+            flexShrink={0}
+            spacing={3}
+            w={{ base: '100%', md: 'auto' }}
+            justifyContent={{ base: 'flex-end', md: 'flex-start' }}
+            flexWrap='wrap'
+          >
             <Button leftIcon={<MdUpdate />} colorScheme="blue">Update Coverage</Button>
             <Button leftIcon={<MdAssignment />} variant="outline" colorScheme="blue">Generate Report</Button>
           </HStack>

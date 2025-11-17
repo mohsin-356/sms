@@ -49,24 +49,29 @@ export default function Default(props) {
         align='center'
         justify='space-between'
         gap={4}
+        flexWrap='wrap'
+        rowGap={2}
       >
-        <Flex align='center' gap={4}>
+        <Flex align='center' gap={4} minW='0'>
           {startContent}
 
-          <Stat my='auto' ms={startContent ? "4px" : "0px"}>
+          <Stat my='auto' ms={startContent ? "4px" : "0px"} minW='0'>
             <StatLabel
               lineHeight='100%'
               color={textColorSecondary}
               fontSize={{
-                base: "md",
+                base: "sm",
+                md: "md",
               }}
+              noOfLines={1}
             >
               {name}
             </StatLabel>
             <StatNumber
               color={textColor}
               fontSize={{
-                base: "3xl",
+                base: "2xl",
+                md: "3xl",
               }}
             >
               {value}
@@ -84,12 +89,12 @@ export default function Default(props) {
             <Text color='green.500' fontSize='sm' fontWeight='700'>
               {growth}
             </Text>
-            <Text color='secondaryGray.600' fontSize='xs' fontWeight='400'>
+            <Text color='secondaryGray.600' fontSize='xs' fontWeight='400' display={{ base: 'none', md: 'block' }}>
               since last month
             </Text>
           </Flex>
         ) : (
-          <Flex ms='auto'>{endContent}</Flex>
+          <Flex ms='auto' display={{ base: 'none', md: 'flex' }}>{endContent}</Flex>
         )}
       </Flex>
 

@@ -61,22 +61,32 @@ export default function FeeCollection() {
       </SimpleGrid>
 
       <Card p={4} mb={5}>
-        <Flex gap={3} direction={{ base: 'column', md: 'row' }} align={{ md: 'center' }}>
-          <Select maxW='220px' value={range} onChange={(e) => setRange(e.target.value)}>
-            <option value='this-month'>This Month</option>
-            <option value='last-month'>Last Month</option>
-            <option value='last-90'>Last 90 Days</option>
-          </Select>
-          <InputGroup maxW='240px'>
-            <InputLeftElement pointerEvents='none'>
-              <MdSearch color='gray.400' />
-            </InputLeftElement>
-            <Input placeholder='Search class' value={search} onChange={(e) => setSearch(e.target.value)} />
-          </InputGroup>
-          <Input type='date' maxW='200px' value={from} onChange={(e) => setFrom(e.target.value)} />
-          <Input type='date' maxW='200px' value={to} onChange={(e) => setTo(e.target.value)} />
-          <Button size='sm' onClick={() => applyPreset(7)}>Last 7d</Button>
-          <Button size='sm' onClick={() => applyPreset(30)}>Last 30d</Button>
+        <Flex
+          gap={3}
+          direction={{ base: 'column', md: 'row' }}
+          align={{ md: 'center' }}
+          flexWrap={{ base: 'wrap', md: 'wrap' }}
+          rowGap={3}
+        >
+          <Flex gap={3} flexWrap='wrap' align='center' flex={{ base: '1 1 100%', md: '1 1 auto' }}>
+            <Select maxW={{ base: '100%', md: '220px' }} w={{ base: '100%', md: 'auto' }} value={range} onChange={(e) => setRange(e.target.value)}>
+              <option value='this-month'>This Month</option>
+              <option value='last-month'>Last Month</option>
+              <option value='last-90'>Last 90 Days</option>
+            </Select>
+            <InputGroup maxW={{ base: '100%', md: '240px' }} w={{ base: '100%', md: 'auto' }}>
+              <InputLeftElement pointerEvents='none'>
+                <MdSearch color='gray.400' />
+              </InputLeftElement>
+              <Input placeholder='Search class' value={search} onChange={(e) => setSearch(e.target.value)} />
+            </InputGroup>
+            <Input type='date' maxW={{ base: '100%', md: '200px' }} w={{ base: '100%', md: 'auto' }} value={from} onChange={(e) => setFrom(e.target.value)} />
+            <Input type='date' maxW={{ base: '100%', md: '200px' }} w={{ base: '100%', md: 'auto' }} value={to} onChange={(e) => setTo(e.target.value)} />
+          </Flex>
+          <Flex gap={2} flexShrink={0} w={{ base: '100%', md: 'auto' }} justify={{ base: 'flex-end', md: 'flex-start' }} flexWrap='wrap'>
+            <Button size='sm' onClick={() => applyPreset(7)}>Last 7d</Button>
+            <Button size='sm' variant='outline' onClick={() => applyPreset(30)}>Last 30d</Button>
+          </Flex>
         </Flex>
       </Card>
 

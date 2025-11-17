@@ -125,36 +125,38 @@ export default function AttendanceHeatmaps() {
 
       {/* Heatmap */}
       <Card p={4}>
-        <SimpleGrid columns={periods.length + 1} spacing={2}>
-          <Box />
-          {periods.map((p) => (
-            <Box key={p} textAlign='center' fontWeight='600'>{p}</Box>
-          ))}
-          {days.map((d, i) => (
-            <React.Fragment key={d}>
-              <Box fontWeight='600'>{d}</Box>
-              {heatMap[i].map((v, j) => (
-                <Tooltip key={`t-${i}-${j}`} label={`${d} ${periods[j]}: ${v || '-'}%`}>
-                  <Box
-                    key={`${i}-${j}`}
-                    h='40px'
-                    borderRadius='md'
-                    bg={getColor(v)}
-                    display='flex'
-                    alignItems='center'
-                    justifyContent='center'
-                    color='white'
-                    fontWeight='700'
-                    cursor={v === 0 ? 'not-allowed' : 'pointer'}
-                    onClick={()=> v !== 0 && setCell({ open: true, dayIndex: i, periodIndex: j, value: v })}
-                  >
-                    {v ? `${v}%` : '-'}
-                  </Box>
-                </Tooltip>
-              ))}
-            </React.Fragment>
-          ))}
-        </SimpleGrid>
+        <Box overflowX='auto' w='100%'>
+          <Box display='grid' gridTemplateColumns={`repeat(${periods.length + 1}, minmax(80px, 1fr))`} gap={2}>
+            <Box />
+            {periods.map((p) => (
+              <Box key={p} textAlign='center' fontWeight='600' whiteSpace='nowrap'>{p}</Box>
+            ))}
+            {days.map((d, i) => (
+              <React.Fragment key={d}>
+                <Box fontWeight='600' whiteSpace='nowrap'>{d}</Box>
+                {heatMap[i].map((v, j) => (
+                  <Tooltip key={`t-${i}-${j}`} label={`${d} ${periods[j]}: ${v || '-'}%`}>
+                    <Box
+                      key={`${i}-${j}`}
+                      h={{ base: '36px', md: '40px' }}
+                      borderRadius='md'
+                      bg={getColor(v)}
+                      display='flex'
+                      alignItems='center'
+                      justifyContent='center'
+                      color='white'
+                      fontWeight='700'
+                      cursor={v === 0 ? 'not-allowed' : 'pointer'}
+                      onClick={()=> v !== 0 && setCell({ open: true, dayIndex: i, periodIndex: j, value: v })}
+                    >
+                      {v ? `${v}%` : '-'}
+                    </Box>
+                  </Tooltip>
+                ))}
+              </React.Fragment>
+            ))}
+          </Box>
+        </Box>
         <Flex mt={4} gap={4} align='center'>
           <Text fontSize='sm' color={textColorSecondary}>Legend:</Text>
           <Badge colorScheme='green'>{'>=95%'}</Badge>

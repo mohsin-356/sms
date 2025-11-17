@@ -56,105 +56,107 @@ export default function AdminDashboard() {
       </Text>
 
       {/* KPI Cards */}
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 3, '2xl': 4 }} gap='20px' mb='20px'>
-        <MiniStatistics
-          startContent={
-            <IconBox
-              w='56px'
-              h='56px'
-              bg='linear-gradient(90deg, #4481EB 0%, #04BEFE 100%)'
-              icon={<Icon w='28px' h='28px' as={MdPerson} color='white' />}
-            />
-          }
-          name='Total Students'
-          value={formatNumber(mockStats.totalStudents)}
-          growth='+5%'
-          trendData={[900, 1000, 1100, 1150, 1200, 1225, mockStats.totalStudents]}
-          trendColor='#4481EB'
-          endContent={
-            <Flex me='16px' mt='10px'>
-              <Text color='green.500' fontSize='sm' fontWeight='700' me='5px'>
-                +5%
-              </Text>
-              <Text color='secondaryGray.600' fontSize='sm' fontWeight='500'>
-                since last month
-              </Text>
-            </Flex>
-          }
-        />
-        
-        <MiniStatistics
-          startContent={
-            <IconBox
-              w='56px'
-              h='56px'
-              bg='linear-gradient(90deg, #868CFF 0%, #4318FF 100%)'
-              icon={<Icon w='28px' h='28px' as={MdPeople} color='white' />}
-            />
-          }
-          name='Total Teachers'
-          value={formatNumber(mockStats.totalTeachers)}
-          growth='+2%'
-          trendData={[60, 65, 70, 72, 78, 82, mockStats.totalTeachers]}
-          trendColor='#868CFF'
-          endContent={
-            <Flex me='16px' mt='10px'>
-              <Text color='green.500' fontSize='sm' fontWeight='700' me='5px'>
-                +2%
-              </Text>
-              <Text color='secondaryGray.600' fontSize='sm' fontWeight='500'>
-                since last month
-              </Text>
-            </Flex>
-          }
-        />
-        
-        <MiniStatistics
-          startContent={
-            <IconBox
-              w='56px'
-              h='56px'
-              bg='linear-gradient(90deg, #00C6FB 0%, #005BEA 100%)'
-              icon={<Icon w='28px' h='28px' as={MdDirectionsBus} color='white' />}
-            />
-          }
-          name='Active Buses'
-          value={formatNumber(mockStats.activeBuses)}
-          trendData={[8, 9, 10, 11, 12, 11, mockStats.activeBuses]}
-          trendColor='#00C6FB'
-          endContent={
-            <Badge colorScheme='green' fontSize='sm' mt='10px'>
-              All Operational
-            </Badge>
-          }
-        />
-        
-        <MiniStatistics
-          startContent={
-            <IconBox
-              w='56px'
-              h='56px'
-              bg='linear-gradient(90deg, #00F260 0%, #0575E6 100%)'
-              icon={<Icon w='28px' h='28px' as={MdCheckCircle} color='white' />}
-            />
-          }
-          name="Today's Attendance"
-          value={`${mockStats.todayAttendance}%`}
-          growth='+3%'
-          trendData={[80, 85, 88, 90, 91, 92, mockStats.todayAttendance]}
-          trendColor='#00F260'
-          endContent={
-            <Flex me='16px' mt='10px'>
-              <Text color='green.500' fontSize='sm' fontWeight='700' me='5px'>
-                +3%
-              </Text>
-              <Text color='secondaryGray.600' fontSize='sm' fontWeight='500'>
-                from yesterday
-              </Text>
-            </Flex>
-          }
-        />
-      </SimpleGrid>
+      <Box overflowX='auto' mb='20px'>
+        <SimpleGrid minChildWidth='260px' spacing='20px'>
+          <MiniStatistics
+            startContent={
+              <IconBox
+                w='56px'
+                h='56px'
+                bg='linear-gradient(90deg, #4481EB 0%, #04BEFE 100%)'
+                icon={<Icon w='28px' h='28px' as={MdPerson} color='white' />}
+              />
+            }
+            name='Total Students'
+            value={formatNumber(mockStats.totalStudents)}
+            growth='+5%'
+            trendData={[900, 1000, 1100, 1150, 1200, 1225, mockStats.totalStudents]}
+            trendColor='#4481EB'
+            endContent={
+              <Flex me='16px' mt='10px'>
+                <Text color='green.500' fontSize='sm' fontWeight='700' me='5px'>
+                  +5%
+                </Text>
+                <Text color='secondaryGray.600' fontSize='sm' fontWeight='500'>
+                  since last month
+                </Text>
+              </Flex>
+            }
+          />
+          
+          <MiniStatistics
+            startContent={
+              <IconBox
+                w='56px'
+                h='56px'
+                bg='linear-gradient(90deg, #868CFF 0%, #4318FF 100%)'
+                icon={<Icon w='28px' h='28px' as={MdPeople} color='white' />}
+              />
+            }
+            name='Total Teachers'
+            value={formatNumber(mockStats.totalTeachers)}
+            growth='+2%'
+            trendData={[60, 65, 70, 72, 78, 82, mockStats.totalTeachers]}
+            trendColor='#868CFF'
+            endContent={
+              <Flex me='16px' mt='10px'>
+                <Text color='green.500' fontSize='sm' fontWeight='700' me='5px'>
+                  +2%
+                </Text>
+                <Text color='secondaryGray.600' fontSize='sm' fontWeight='500'>
+                  since last month
+                </Text>
+              </Flex>
+            }
+          />
+          
+          <MiniStatistics
+            startContent={
+              <IconBox
+                w='56px'
+                h='56px'
+                bg='linear-gradient(90deg, #00C6FB 0%, #005BEA 100%)'
+                icon={<Icon w='28px' h='28px' as={MdDirectionsBus} color='white' />}
+              />
+            }
+            name='Active Buses'
+            value={formatNumber(mockStats.activeBuses)}
+            trendData={[8, 9, 10, 11, 12, 11, mockStats.activeBuses]}
+            trendColor='#00C6FB'
+            endContent={
+              <Badge colorScheme='green' fontSize='sm' mt='10px'>
+                All Operational
+              </Badge>
+            }
+          />
+          
+          <MiniStatistics
+            startContent={
+              <IconBox
+                w='56px'
+                h='56px'
+                bg='linear-gradient(90deg, #00F260 0%, #0575E6 100%)'
+                icon={<Icon w='28px' h='28px' as={MdCheckCircle} color='white' />}
+              />
+            }
+            name="Today's Attendance"
+            value={`${mockStats.todayAttendance}%`}
+            growth='+3%'
+            trendData={[80, 85, 88, 90, 91, 92, mockStats.todayAttendance]}
+            trendColor='#00F260'
+            endContent={
+              <Flex me='16px' mt='10px'>
+                <Text color='green.500' fontSize='sm' fontWeight='700' me='5px'>
+                  +3%
+                </Text>
+                <Text color='secondaryGray.600' fontSize='sm' fontWeight='500'>
+                  from yesterday
+                </Text>
+              </Flex>
+            }
+          />
+        </SimpleGrid>
+      </Box>
 
       {/* Main Content Row */}
       <SimpleGrid columns={{ base: 1, xl: 2 }} gap='20px' mb='20px'>
@@ -293,21 +295,23 @@ export default function AdminDashboard() {
           <Text fontSize='lg' fontWeight='bold' mb='20px'>
             Weekly Attendance Trend
           </Text>
-          <SimpleGrid columns={7} gap='12px' alignItems='end'>
-            {mockAttendanceStats.slice(0, 7).map((day) => {
-              const barH = Math.round((day.percentage / 100) * 120);
-              const color = day.percentage >= 90 ? 'green.400' : day.percentage >= 75 ? 'orange.400' : 'red.400';
-              return (
-                <VStack key={day.day} spacing={2} align='center'>
-                  <Box h='120px' w='22px' bg='gray.200' borderRadius='6px' position='relative' overflow='hidden'>
-                    <Box position='absolute' bottom='0' left='0' right='0' m='auto' w='100%' h={`${barH}px`} bg={color} borderRadius='6px' />
-                  </Box>
-                  <Text fontSize='xs' color='gray.600'>{day.day}</Text>
-                  <Text fontSize='xs' color='gray.500'>{day.percentage}%</Text>
-                </VStack>
-              );
-            })}
-          </SimpleGrid>
+          <Box overflowX='auto'>
+            <Box display='grid' gridTemplateColumns='repeat(7, minmax(48px, 1fr))' gap='12px' alignItems='end'>
+              {mockAttendanceStats.slice(0, 7).map((day) => {
+                const barH = Math.round((day.percentage / 100) * 120);
+                const color = day.percentage >= 90 ? 'green.400' : day.percentage >= 75 ? 'orange.400' : 'red.400';
+                return (
+                  <VStack key={day.day} spacing={2} align='center'>
+                    <Box h='120px' w='22px' bg='gray.200' borderRadius='6px' position='relative' overflow='hidden'>
+                      <Box position='absolute' bottom='0' left='0' right='0' m='auto' w='100%' h={`${barH}px`} bg={color} borderRadius='6px' />
+                    </Box>
+                    <Text fontSize='xs' color='gray.600'>{day.day}</Text>
+                    <Text fontSize='xs' color='gray.500'>{day.percentage}%</Text>
+                  </VStack>
+                );
+              })}
+            </Box>
+          </Box>
         </Card>
 
         {/* Fee Collection */}
