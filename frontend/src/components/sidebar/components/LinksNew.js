@@ -10,13 +10,21 @@ import {
   useColorModeValue, 
   Icon,
   Collapse,
-  VStack
+  VStack,
+  Tooltip,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverArrow,
+  PopoverBody,
+  Portal
 } from "@chakra-ui/react";
 import { SidebarContext } from "contexts/SidebarContext";
 import { MdKeyboardArrowDown, MdKeyboardArrowRight } from "react-icons/md";
 
 export function SidebarLinks(props) {
   const [openMenus, setOpenMenus] = useState({});
+  const [collapsedOpen, setCollapsedOpen] = useState({});
   
   //   Chakra color mode
   let location = useLocation();
@@ -115,6 +123,78 @@ export function SidebarLinks(props) {
         const isOpen = openMenus[route.name] || hasActiveChild(route.items);
         const hasActive = hasActiveChild(route.items);
         
+        // Collapsed: show icon with hover popover listing sub-items
+        if (isCollapsed) {
+          return (
+            <Box key={index} mb="4px" position="relative">
+              <Popover isOpen={!!collapsedOpen[route.name]} placement="right-start" isLazy onClose={() => setCollapsedOpen(prev => ({ ...prev, [route.name]: false }))}>
+                <PopoverTrigger>
+                  <Box
+                    as="button"
+                    w="100%"
+                    _hover={{ bg: useColorModeValue("gray.100", "whiteAlpha.100"), borderRadius: "8px" }}
+                    onClick={(e) => { e.preventDefault(); setCollapsedOpen(prev => ({ ...prev, [route.name]: !prev[route.name] })); }}
+                    position="relative"
+                  >
+                    <HStack spacing="22px" py="10px" ps="10px" pe="10px">
+                      <Flex w="100%" alignItems="center" justifyContent="center">
+                        <Box
+                          color={hasActive ? activeIcon : textColor}
+                          me="18px"
+                          p="6px"
+                          borderRadius="md"
+                          bg={hasActive ? useColorModeValue("blue.50", "whiteAlpha.100") : "transparent"}
+                        >
+                          {route.icon}
+                        </Box>
+                      </Flex>
+                    </HStack>
+                    {hasActive && (
+                      <Box
+                        position="absolute"
+                        right="0"
+                        top="8px"
+                        bottom="8px"
+                        w="3px"
+                        bg={brandColor}
+                        borderRadius="5px 0 0 5px"
+                      />
+                    )}
+                  </Box>
+                </PopoverTrigger>
+                <Portal>
+                  <PopoverContent w="220px" _focus={{ boxShadow: "md" }} zIndex={2000}>
+                    <PopoverArrow />
+                    <PopoverBody>
+                      <VStack align="stretch" spacing="4px">
+                        {route.items.map((item, subIndex) => (
+                          <NavLink key={subIndex} to={item.layout + item.path}>
+                            <HStack
+                              spacing="12px"
+                              py="8px"
+                              ps="6px"
+                              _hover={{ bg: useColorModeValue("gray.100", "whiteAlpha.100"), borderRadius: "8px" }}
+                            >
+                              <Text
+                                fontSize="sm"
+                                color={activeRoute(item.path.toLowerCase()) ? activeColor : textColor}
+                                fontWeight={activeRoute(item.path.toLowerCase()) ? "600" : "normal"}
+                              >
+                                {item.name}
+                              </Text>
+                            </HStack>
+                          </NavLink>
+                        ))}
+                      </VStack>
+                    </PopoverBody>
+                  </PopoverContent>
+                </Portal>
+              </Popover>
+            </Box>
+          );
+        }
+
+        // Expanded: normal collapsible list with labels
         return (
           <Box key={index} mb="4px">
             <Box
@@ -205,7 +285,7 @@ export function SidebarLinks(props) {
         route.layout === "/auth" ||
         route.layout === "/rtl"
       ) {
-        return (
+        const linkContent = (
           <NavLink key={index} to={route.layout + route.path}>
             {route.icon ? (
               <Box mb="4px">
@@ -295,6 +375,12 @@ export function SidebarLinks(props) {
             )}
           </NavLink>
         );
+        // Wrap with tooltip in collapsed mode so user sees the label
+        return isCollapsed ? (
+          <Tooltip key={index} label={route.name} placement="right">
+            <Box>{linkContent}</Box>
+          </Tooltip>
+        ) : linkContent;
       }
     });
   };
