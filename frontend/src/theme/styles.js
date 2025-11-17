@@ -82,7 +82,10 @@ export const globalStyles = {
     global: (props) => ({
       body: {
         overflowX: "hidden",
-        bg: mode("secondaryGray.300", "navy.900")(props),
+        bg: mode(
+          "linear-gradient(135deg, #DCE9FF 0%, #e9f0ffff 40%, #E9F3FF 100%)",
+          "linear-gradient(135deg, #050816 0%, #0b1437 40%, #1B254B 100%)"
+        )(props),
         fontFamily: "DM Sans",
         letterSpacing: "-0.5px",
       },

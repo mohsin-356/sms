@@ -69,6 +69,8 @@ export default function AdminDashboard() {
           name='Total Students'
           value={formatNumber(mockStats.totalStudents)}
           growth='+5%'
+          trendData={[900, 1000, 1100, 1150, 1200, 1225, mockStats.totalStudents]}
+          trendColor='#4481EB'
           endContent={
             <Flex me='16px' mt='10px'>
               <Text color='green.500' fontSize='sm' fontWeight='700' me='5px'>
@@ -93,6 +95,8 @@ export default function AdminDashboard() {
           name='Total Teachers'
           value={formatNumber(mockStats.totalTeachers)}
           growth='+2%'
+          trendData={[60, 65, 70, 72, 78, 82, mockStats.totalTeachers]}
+          trendColor='#868CFF'
           endContent={
             <Flex me='16px' mt='10px'>
               <Text color='green.500' fontSize='sm' fontWeight='700' me='5px'>
@@ -116,6 +120,8 @@ export default function AdminDashboard() {
           }
           name='Active Buses'
           value={formatNumber(mockStats.activeBuses)}
+          trendData={[8, 9, 10, 11, 12, 11, mockStats.activeBuses]}
+          trendColor='#00C6FB'
           endContent={
             <Badge colorScheme='green' fontSize='sm' mt='10px'>
               All Operational
@@ -135,6 +141,8 @@ export default function AdminDashboard() {
           name="Today's Attendance"
           value={`${mockStats.todayAttendance}%`}
           growth='+3%'
+          trendData={[80, 85, 88, 90, 91, 92, mockStats.todayAttendance]}
+          trendColor='#00F260'
           endContent={
             <Flex me='16px' mt='10px'>
               <Text color='green.500' fontSize='sm' fontWeight='700' me='5px'>
