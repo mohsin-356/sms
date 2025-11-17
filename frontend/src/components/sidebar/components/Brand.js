@@ -39,12 +39,18 @@ export function SidebarBrand() {
           <Tooltip label={tooltipLabel} placement='right'>
             <IconButton
               aria-label={tooltipLabel}
-              size='sm'
+              size='md'
               variant='ghost'
               borderRadius='full'
-              icon={<ToggleIcon size={18} />}
+              icon={<ToggleIcon size={20} />}
               color={iconColor}
-              _hover={{ bg: useColorModeValue('gray.100','whiteAlpha.100') }}
+              bg={useColorModeValue('whiteAlpha.700','whiteAlpha.100')}
+              borderWidth='1px'
+              borderColor={useColorModeValue('blackAlpha.200','whiteAlpha.300')}
+              transition='all 0.2s ease'
+              _hover={{ bg: useColorModeValue('whiteAlpha.800','whiteAlpha.200'), boxShadow: 'md', transform: 'scale(1.05)' }}
+              _active={{ transform: 'scale(0.98)' }}
+              sx={{ backdropFilter: 'saturate(180%) blur(6px)' }}
               onClick={handleToggle}
             />
           </Tooltip>
