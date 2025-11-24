@@ -248,9 +248,9 @@ export const sidebarPages = [
         icon: <Icon as={MdAttachMoney} width="16px" height="16px" color="inherit" />,
       },
       {
-        name: 'Salary Management',
+        name: 'Payroll',
         layout: '/admin',
-        path: '/finance/salary',
+        path: '/finance/payroll',
         icon: <Icon as={FaDollarSign} width="16px" height="16px" color="inherit" />,
       },
       {

@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Box, Flex, Heading, Text, SimpleGrid, Icon, Badge, Button, ButtonGroup, useColorModeValue, Table, Thead, Tbody, Tr, Th, Td, Select, Input, IconButton, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, FormControl, FormLabel, NumberInput, NumberInputField } from '@chakra-ui/react';
 import { MdAssignment, MdPlaylistAdd, MdEdit, MdSave, MdFileDownload, MdPictureAsPdf, MdRemoveRedEye } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import BarChart from '../../../../components/charts/BarChart';
+import PieChart from '../../../../components/charts/PieChart';
 
 const mockStructures = [
   { class: '10-A', tuition: 8000, transport: 1500, exam: 500, misc: 300, discount: 5 },
@@ -17,14 +19,51 @@ export default function FeeStructure() {
   const [rows, setRows] = useState(mockStructures);
   const viewDisc = useDisclosure();
   const editDisc = useDisclosure();
+  const copyDisc = useDisclosure();
   const [active, setActive] = useState(null);
   const [form, setForm] = useState({ class: '', tuition: 0, transport: 0, exam: 0, misc: 0, discount: 0 });
+  const [copyTarget, setCopyTarget] = useState('');
+  const fileRef = useRef(null);
 
   const totals = useMemo(() => ({
     classes: mockStructures.length,
     avgTuition: Math.round(mockStructures.reduce((s, r) => s + r.tuition, 0) / mockStructures.length),
     transport: mockStructures.reduce((s, r) => s + r.transport, 0),
   }), []);
+
+  const headTotals = useMemo(() => {
+    const t = rows.reduce((acc, r)=>{
+      acc.tuition += r.tuition; acc.transport += r.transport; acc.exam += r.exam; acc.misc += r.misc; return acc;
+    }, { tuition:0, transport:0, exam:0, misc:0 });
+    const gross = t.tuition + t.transport + t.exam + t.misc;
+    const avgDiscount = Math.round(rows.reduce((s,r)=> s + (r.discount||0), 0) / Math.max(1, rows.length));
+    return { ...t, gross, avgDiscount };
+  }, [rows]);
+
+  const exportCSV = () => {
+    const header = ['Class','Tuition','Transport','Exam','Misc','Discount%','Total','Net'];
+    const data = rows.map(r => { const total = r.tuition + r.transport + r.exam + r.misc; const net = Math.round(total * (1 - (r.discount||0)/100)); return [r.class, r.tuition, r.transport, r.exam, r.misc, r.discount||0, total, net]; });
+    const csv = [header, ...data].map(a=>a.join(',')).join('\n');
+    const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='fee_structure.csv'; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const importJSON = async (file) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!Array.isArray(data)) throw new Error('Invalid JSON');
+      const mapped = data.map(d => ({ class: String(d.class), tuition: Number(d.tuition)||0, transport: Number(d.transport)||0, exam: Number(d.exam)||0, misc: Number(d.misc)||0, discount: Number(d.discount)||0 }));
+      setRows(mapped);
+    } catch (e) {
+      console.error('Import error', e);
+    }
+  };
+
+  const exportJSON = () => {
+    const blob = new Blob([JSON.stringify(rows, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='fee_structure.json'; a.click(); URL.revokeObjectURL(url);
+  };
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -35,8 +74,11 @@ export default function FeeStructure() {
         </Box>
         <ButtonGroup>
           <Button leftIcon={<MdPlaylistAdd />} colorScheme='blue' onClick={()=>{ setForm({ class: `Class ${rows.length+1}`, tuition: 0, transport: 0, exam: 0, misc: 0, discount: 0 }); editDisc.onOpen(); }}>Add Structure</Button>
-          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
-          <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue'>Export PDF</Button>
+          <Button variant='outline' onClick={copyDisc.onOpen}>Copy From Class</Button>
+          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue' onClick={exportCSV}>Export CSV</Button>
+          <Button onClick={exportJSON}>Export JSON</Button>
+          <Button colorScheme='purple' onClick={()=> fileRef.current?.click()}>Import JSON</Button>
+          <input ref={fileRef} type='file' accept='application/json' style={{ display:'none' }} onChange={(e)=>{ const f=e.target.files?.[0]; if(f) importJSON(f); }} />
         </ButtonGroup>
       </Flex>
 
@@ -58,10 +100,22 @@ export default function FeeStructure() {
         </Flex>
       </Card>
 
+      <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={5} mb={5}>
+        <Card p={4}>
+          <Heading size='md' mb={3}>Head Totals (All Classes)</Heading>
+          <BarChart height={220} chartData={[{ name:'Amount', data:[headTotals.tuition, headTotals.transport, headTotals.exam, headTotals.misc] }]} chartOptions={{ xaxis:{ categories:['Tuition','Transport','Exam','Misc'] }, colors:['#3182CE'], dataLabels:{ enabled:false } }} />
+        </Card>
+        <Card p={4}>
+          <Heading size='md' mb={3}>Gross vs Discount</Heading>
+          <PieChart chartData={[headTotals.gross, Math.round(headTotals.gross*(headTotals.avgDiscount/100))]} chartOptions={{ labels:['Gross','Discount Est.'], colors:['#01B574','#E53E3E'], legend:{ position:'right' } }} />
+        </Card>
+      </SimpleGrid>
+
       <Card>
-        <Box overflowX='auto'>
+        <Box overflow='hidden'>
+          <Box maxH='420px' overflowY='auto'>
           <Table variant='simple'>
-            <Thead bg={useColorModeValue('gray.50', 'gray.800')}>
+            <Thead position='sticky' top={0} zIndex={1} bg={useColorModeValue('gray.50', 'gray.800')}>
               <Tr>
                 <Th>Class</Th>
                 <Th isNumeric>Tuition</Th>
@@ -98,6 +152,7 @@ export default function FeeStructure() {
               })}
             </Tbody>
           </Table>
+          </Box>
         </Box>
       </Card>
 
@@ -165,6 +220,36 @@ export default function FeeStructure() {
               });
               editDisc.onClose();
             }}>Save</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={copyDisc.isOpen} onClose={copyDisc.onClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Copy From Class</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <FormControl mb={3}>
+              <FormLabel>From</FormLabel>
+              <Select value={copyTarget} onChange={(e)=> setCopyTarget(e.target.value)}>
+                <option value=''>Select class</option>
+                {rows.map(r => <option key={r.class} value={r.class}>{r.class}</option>)}
+              </Select>
+            </FormControl>
+            <FormControl>
+              <FormLabel>To (New Class)</FormLabel>
+              <Input placeholder='e.g., 8-A' value={form.class} onChange={(e)=> setForm(f=>({ ...f, class: e.target.value }))} />
+            </FormControl>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant='ghost' mr={3} onClick={copyDisc.onClose}>Cancel</Button>
+            <Button colorScheme='blue' onClick={()=>{
+              const src = rows.find(r=>r.class===copyTarget); if(!src){ copyDisc.onClose(); return; }
+              const newRow = { ...src, class: form.class || `${src.class}-Copy` };
+              setRows(prev=>[...prev, newRow]);
+              copyDisc.onClose();
+            }}>Copy</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

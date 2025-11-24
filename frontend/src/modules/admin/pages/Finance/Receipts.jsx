@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Flex, Heading, Text, SimpleGrid, Icon, Badge, Button, ButtonGroup, IconButton, useColorModeValue, Table, Thead, Tbody, Tr, Th, Td, InputGroup, Input, InputLeftElement, Select, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, FormControl, FormLabel, NumberInput, NumberInputField } from '@chakra-ui/react';
-import { MdReceiptLong, MdFileDownload, MdSearch, MdPictureAsPdf, MdRemoveRedEye, MdEdit } from 'react-icons/md';
+import { Box, Flex, Heading, Text, SimpleGrid, Icon, Badge, Button, ButtonGroup, IconButton, useColorModeValue, Table, Thead, Tbody, Tr, Th, Td, InputGroup, Input, InputLeftElement, Select, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, FormControl, FormLabel, NumberInput, NumberInputField, Tag, TagLabel, TagCloseButton, Wrap, WrapItem, Textarea } from '@chakra-ui/react';
+import { MdReceiptLong, MdFileDownload, MdSearch, MdPictureAsPdf, MdRemoveRedEye, MdEdit, MdShare } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
@@ -16,10 +16,13 @@ export default function Receipts() {
   const [method, setMethod] = useState('all');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [rows, setRows] = useState(mockReceipts);
+  const [rows, setRows] = useState(mockReceipts.map(r => ({ ...r, locked: false, logs: [{ date: '2025-11-02', event: 'Created' }] })));
   const [selected, setSelected] = useState(null);
   const viewDisc = useDisclosure();
   const editDisc = useDisclosure();
+  const shareDisc = useDisclosure();
+  const cancelDisc = useDisclosure();
+  const [cancel, setCancel] = useState({ id:'', reason:'' });
   const [form, setForm] = useState({ id: '', invoice: '', student: '', amount: 0, method: 'Cash', date: '', txnId: '', receivedBy: '', status: 'Success' });
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
 
@@ -40,6 +43,32 @@ export default function Receipts() {
     });
   }, [rows, search, method, from, to]);
 
+  const exportCSV = () => {
+    const header = ['Receipt','Invoice','Student','Amount','Method','Date','Txn ID','Received By','Status'];
+    const data = filtered.map(r => [r.id, r.invoice, r.student, r.amount, r.method, r.date, r.txnId, r.receivedBy, r.status]);
+    const csv = [header, ...data].map(a=>a.join(',')).join('\n');
+    const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='receipts.csv'; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const exportPDF = () => {
+    const header = ['Receipt','Invoice','Student','Amount','Method','Date','Txn ID','Received By','Status'];
+    const data = filtered.map(r => [r.id, r.invoice, r.student, `Rs. ${r.amount.toLocaleString()}`, r.method, r.date, r.txnId, r.receivedBy, r.status]);
+    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Receipts</title>
+      <style>body{font-family:Arial,Helvetica,sans-serif;padding:24px} table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px;font-size:12px}th{background:#f5f5f5}</style>
+      </head><body><h1>Receipts</h1>
+      <table><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${data.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>
+      <script>window.onload=()=>{window.print();}</script></body></html>`;
+    const w = window.open('', '_blank'); if(!w) return; w.document.open(); w.document.write(html); w.document.close();
+  };
+
+  const duplicateReceipt = (r) => {
+    const nextId = `RCPT-${Math.floor(3000 + Math.random()*7000)}`;
+    const copy = { ...r, id: nextId, logs: [...(r.logs||[]), { date: new Date().toISOString().slice(0,10), event: 'Duplicated' }] };
+    setRows(prev => [copy, ...prev]);
+  };
+
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
       <Flex mb={5} justify="space-between" align="center">
@@ -48,8 +77,8 @@ export default function Receipts() {
           <Text color={textColorSecondary}>Download and manage receipts</Text>
         </Box>
         <ButtonGroup>
-          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
-          <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue'>Export PDF</Button>
+          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue' onClick={exportCSV}>Export CSV</Button>
+          <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue' onClick={exportPDF}>Export PDF</Button>
         </ButtonGroup>
       </Flex>
 
@@ -75,12 +104,21 @@ export default function Receipts() {
           <Input type='date' maxW='180px' value={from} onChange={(e) => setFrom(e.target.value)} />
           <Input type='date' maxW='180px' value={to} onChange={(e) => setTo(e.target.value)} />
         </Flex>
+        {(!!search || method!=='all' || !!from || !!to) && (
+          <Wrap mt={3} spacing={2}>
+            {search && (<WrapItem><Tag size='sm' variant='subtle' colorScheme='blue'><TagLabel>Search: {search}</TagLabel><TagCloseButton onClick={()=> setSearch('')} /></Tag></WrapItem>)}
+            {method!=='all' && (<WrapItem><Tag size='sm' variant='subtle' colorScheme='purple'><TagLabel>Method: {method}</TagLabel><TagCloseButton onClick={()=> setMethod('all')} /></Tag></WrapItem>)}
+            {from && (<WrapItem><Tag size='sm' variant='subtle' colorScheme='teal'><TagLabel>From: {from}</TagLabel><TagCloseButton onClick={()=> setFrom('')} /></Tag></WrapItem>)}
+            {to && (<WrapItem><Tag size='sm' variant='subtle' colorScheme='teal'><TagLabel>To: {to}</TagLabel><TagCloseButton onClick={()=> setTo('')} /></Tag></WrapItem>)}
+          </Wrap>
+        )}
       </Card>
 
       <Card>
         <Box overflowX='auto'>
-          <Table variant='simple'>
-            <Thead bg={useColorModeValue('gray.50', 'gray.800')}>
+          <Box maxH='420px' overflowY='auto'>
+          <Table size='sm' variant='simple'>
+            <Thead position='sticky' top={0} zIndex={1} bg={useColorModeValue('gray.50', 'gray.800')}>
               <Tr>
                 <Th>Receipt</Th>
                 <Th>Invoice</Th>
@@ -105,18 +143,23 @@ export default function Receipts() {
                   <Td><Text color={textColorSecondary}>{r.date}</Text></Td>
                   <Td><Text fontFamily='mono'>{r.txnId}</Text></Td>
                   <Td>{r.receivedBy}</Td>
-                  <Td><Badge colorScheme='green'>{r.status}</Badge></Td>
+                  <Td><Badge colorScheme={r.locked ? 'purple' : 'green'}>{r.locked ? 'Locked' : r.status}</Badge></Td>
                   <Td>
                     <Flex gap={1}>
                       <IconButton aria-label='View' icon={<MdRemoveRedEye />} size='sm' variant='ghost' onClick={()=>{ setSelected(r); viewDisc.onOpen(); }} />
                       <IconButton aria-label='Edit' icon={<MdEdit />} size='sm' variant='ghost' onClick={()=>{ setSelected(r); setForm({ ...r }); editDisc.onOpen(); }} />
-                      <Button size='sm' leftIcon={<MdFileDownload />}>PDF</Button>
+                      <Button size='sm' leftIcon={<MdFileDownload />} onClick={()=>{ const html = `<!doctype html><html><head><meta charset='utf-8'/><title>Receipt ${r.id}</title></head><body><h1>Receipt ${r.id}</h1><p>Student: ${r.student}</p><p>Invoice: ${r.invoice}</p><p>Amount: Rs. ${r.amount.toLocaleString()}</p><p>Date: ${r.date}</p><script>window.onload=()=>{window.print();}</script></body></html>`; const w=window.open('','_blank'); if(!w) return; w.document.open(); w.document.write(html); w.document.close(); }}>PDF</Button>
+                      <Button size='sm' variant='outline' onClick={()=> duplicateReceipt(r)}>Duplicate</Button>
+                      <Button size='sm' leftIcon={<MdShare />} variant='ghost' onClick={()=>{ setSelected(r); shareDisc.onOpen(); }}>Share</Button>
+                      {!r.locked && <Button size='sm' variant='outline' onClick={()=> setRows(prev => prev.map(x=> x.id===r.id ? { ...x, locked:true, logs:[...(x.logs||[]), { date:new Date().toISOString().slice(0,10), event:'Locked' }] } : x))}>Lock</Button>}
+                      <Button size='sm' colorScheme='red' variant='outline' onClick={()=>{ setCancel({ id:r.id, reason:'' }); cancelDisc.onOpen(); }}>Cancel</Button>
                     </Flex>
                   </Td>
                 </Tr>
               ))}
             </Tbody>
           </Table>
+          </Box>
         </Box>
       </Card>
 
@@ -137,7 +180,13 @@ export default function Receipts() {
                 <Text><strong>Date:</strong> {selected.date}</Text>
                 <Text><strong>Txn ID:</strong> {selected.txnId}</Text>
                 <Text><strong>Received By:</strong> {selected.receivedBy}</Text>
-                <Text><strong>Status:</strong> {selected.status}</Text>
+                <Text><strong>Status:</strong> {selected.locked ? 'Locked' : selected.status}</Text>
+                {!!selected.logs && (
+                  <Box mt={3}>
+                    <Text fontWeight='600' mb={1}>Audit Trail</Text>
+                    {selected.logs.map((l,idx)=>(<Text key={idx} color={textColorSecondary}>• {l.date}: {l.event}</Text>))}
+                  </Box>
+                )}
               </Box>
             )}
           </ModalBody>
@@ -178,7 +227,48 @@ export default function Receipts() {
           </ModalBody>
           <ModalFooter>
             <Button variant='ghost' mr={3} onClick={editDisc.onClose}>Cancel</Button>
-            <Button colorScheme='blue' onClick={()=>{ setRows(prev => prev.map(r => r.id===form.id ? { ...r, amount: form.amount, method: form.method, date: form.date, txnId: form.txnId, receivedBy: form.receivedBy } : r)); editDisc.onClose(); }}>Save</Button>
+            <Button colorScheme='blue' onClick={()=>{ setRows(prev => prev.map(r => r.id===form.id ? { ...r, amount: form.amount, method: form.method, date: form.date, txnId: form.txnId, receivedBy: form.receivedBy, logs:[...(r.logs||[]), { date:new Date().toISOString().slice(0,10), event:'Edited' }] } : r)); editDisc.onClose(); }}>Save</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Share Modal */}
+      <Modal isOpen={shareDisc.isOpen} onClose={shareDisc.onClose} size='md'>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Share Receipt</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Text mb={2}>Choose a channel to send the receipt link/message.</Text>
+            <Button mr={3}>SMS</Button>
+            <Button mr={3}>Email</Button>
+            <Button>WhatsApp</Button>
+            <Text mt={4} color={textColorSecondary}>Note: Hook these to your SMS/Email/WhatsApp gateway later.</Text>
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={shareDisc.onClose}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Cancel Modal */}
+      <Modal isOpen={cancelDisc.isOpen} onClose={cancelDisc.onClose} size='md'>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Cancel Receipt</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <FormControl>
+              <FormLabel>Reason</FormLabel>
+              <Textarea rows={4} value={cancel.reason} onChange={(e)=> setCancel(c=>({ ...c, reason: e.target.value }))} />
+            </FormControl>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant='ghost' mr={3} onClick={cancelDisc.onClose}>Close</Button>
+            <Button colorScheme='red' onClick={()=>{
+              setRows(prev => prev.map(r => r.id===cancel.id ? { ...r, status:'Cancelled', logs:[...(r.logs||[]), { date:new Date().toISOString().slice(0,10), event:`Cancelled: ${cancel.reason||'No reason'}` }] } : r));
+              cancelDisc.onClose();
+            }}>Cancel Receipt</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

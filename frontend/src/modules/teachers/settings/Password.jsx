@@ -18,8 +18,10 @@ import {
   Switch,
   Tooltip,
 } from '@chakra-ui/react';
-import { MdRefresh, MdSave, MdVisibility, MdVisibilityOff } from 'react-icons/md';
+import { MdRefresh, MdSave, MdVisibility, MdVisibilityOff, MdSecurity, MdVerifiedUser, MdListAlt } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 
 export default function Password() {
   const textSecondary = useColorModeValue('gray.600', 'gray.400');
@@ -52,11 +54,13 @@ export default function Password() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Password</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Update your password and security preferences</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Strength</Text><Text fontSize='3xl' fontWeight='800'>{strength}%</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>2FA</Text><Text fontSize='3xl' fontWeight='800'>{twoFA ? 'Enabled' : 'Disabled'}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Requirements</Text><Text fontSize='3xl' fontWeight='800'>8+ chars</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdSecurity color='white' />} />} name='Strength' value={`${strength}%`} trendData={[25,50,75,100]} trendColor='#4481EB' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdVerifiedUser color='white' />} />} name='2FA' value={twoFA ? 'Enabled' : 'Disabled'} trendData={[0,1,0,1]} trendColor='#01B574' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdListAlt color='white' />} />} name='Requirements' value='8+ chars' trendData={[1,1,1,1]} trendColor='#B721FF' />
+        </Flex>
+      </Box>
 
       <Card p='16px'>
         <VStack align='stretch' spacing={4}>

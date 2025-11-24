@@ -29,9 +29,12 @@ import {
   ModalBody,
   ModalFooter,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch, MdAssignment, MdSubject, MdSchedule } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 
 const sampleSchedule = [
   { id: 1, date: '2024-03-15', time: '09:00', subject: 'Mathematics', cls: '10', section: 'A', room: '201' },
@@ -90,11 +93,34 @@ export default function ExamSchedule() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Exam Schedule</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Manage upcoming exams</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total Exams</Text><Text fontSize='3xl' fontWeight='800'>{kpis.total}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Subjects</Text><Text fontSize='3xl' fontWeight='800'>{kpis.subjects}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Next Exam</Text><Text fontSize='3xl' fontWeight='800'>{kpis.next}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdAssignment color='white' />} />}
+            name='Total Exams'
+            value={String(kpis.total)}
+            trendData={[1,2,2,3,2,3]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdSubject color='white' />} />}
+            name='Subjects'
+            value={String(kpis.subjects)}
+            trendData={[1,1,2,2,3,3]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdSchedule color='white' />} />}
+            name='Next Exam'
+            value={String(kpis.next)}
+            trendData={[0,1,0,1,0,1]}
+            trendColor='#B721FF'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' justify='space-between' align='center'>
@@ -153,11 +179,20 @@ export default function ExamSchedule() {
         </Box>
       </Card>
 
-      <Card p='16px'>
-        <Box>
-          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Exams by Subject</Text>
+            <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Subject Share</Text>
+            <PieChart height={240} chartData={Object.values(countsBySubject)} chartOptions={{ labels: Object.keys(countsBySubject), legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+      </SimpleGrid>
 
       <Modal isOpen={isOpen} onClose={onClose} size='md' isCentered>
         <ModalOverlay />

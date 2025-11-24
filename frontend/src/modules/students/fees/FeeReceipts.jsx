@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Text, SimpleGrid, VStack, HStack, Table, Thead, Tbody, Tr, Th, Td, Button, Icon, useColorModeValue, Badge, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure } from '@chakra-ui/react';
-import { MdFileDownload, MdPrint, MdVisibility } from 'react-icons/md';
+import { Box, Text, SimpleGrid, VStack, HStack, Table, Thead, Tbody, Tr, Th, Td, Button, Icon, useColorModeValue, Badge, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure, Flex } from '@chakra-ui/react';
+import { MdFileDownload, MdPrint, MdVisibility, MdAttachMoney, MdEvent } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import { mockStudents } from '../../../utils/mockData';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -59,11 +61,34 @@ export default function FeeReceipts(){
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Fee Receipts</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>{student.name} • Roll {student.rollNumber} • Class {classSection}</Text>
 
-      <SimpleGrid columns={{ base:1, md:3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total Receipts</Text><Text fontSize='3xl' fontWeight='800'>{receipts.length}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total Paid</Text><Text fontSize='3xl' fontWeight='800'>{formatCurrency(receipts.reduce((s,r)=>s+r.amount,0))}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Last Paid</Text><Text fontSize='3xl' fontWeight='800'>{formatDate(receipts.slice().sort((a,b)=>b.paidDate-a.paidDate)[0].paidDate)}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdFileDownload} w='22px' h='22px' color='white' />} />}
+            name='Total Receipts'
+            value={String(receipts.length)}
+            trendData={[1,1,2,3,receipts.length]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdAttachMoney} w='22px' h='22px' color='white' />} />}
+            name='Total Paid'
+            value={formatCurrency(receipts.reduce((s,r)=>s+r.amount,0))}
+            trendData={[1,2,2,3,4]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#805AD5 0%,#D53F8C 100%)' icon={<Icon as={MdEvent} w='22px' h='22px' color='white' />} />}
+            name='Last Paid'
+            value={formatDate(receipts.slice().sort((a,b)=>b.paidDate-a.paidDate)[0].paidDate)}
+            trendData={[1,1,1,1,1]}
+            trendColor='#805AD5'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <HStack spacing={3}>

@@ -3,6 +3,7 @@ import { Box, Text, Flex, HStack, SimpleGrid, Select, Input, Button, useColorMod
 import { MdRefresh, MdFileDownload, MdVisibility, MdEdit } from 'react-icons/md';
 import Card from '../../../components/card/Card';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 import { mockExamResults, mockStudents } from '../../../utils/mockData';
 
 export default function StudentPerformance() {
@@ -38,6 +39,19 @@ export default function StudentPerformance() {
     dataLabels: { enabled: false },
     colors: ['#805AD5'],
   }), []);
+
+  const gradeBuckets = useMemo(() => {
+    const buckets = { '≥90%': 0, '80-89%': 0, '<80%': 0 };
+    filtered.forEach(r => {
+      if (r.percentage >= 90) buckets['≥90%'] += 1;
+      else if (r.percentage >= 80) buckets['80-89%'] += 1;
+      else buckets['<80%'] += 1;
+    });
+    return {
+      labels: Object.keys(buckets),
+      values: Object.values(buckets),
+    };
+  }, [filtered]);
 
   const exportCSV = () => {
     const header = ['Name','Roll','Class','Section','Overall %'];
@@ -100,12 +114,16 @@ export default function StudentPerformance() {
         </Box>
       </Card>
 
-      {/* Small chart at the end */}
-      <Card p='16px'>
-        <Box>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Average Subject Scores</Text>
           <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+        </Card>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Grade Distribution</Text>
+          <PieChart height={240} chartData={gradeBuckets.values} chartOptions={{ labels: gradeBuckets.labels, legend: { position: 'right' } }} />
+        </Card>
+      </SimpleGrid>
     </Box>
   );
 }

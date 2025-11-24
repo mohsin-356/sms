@@ -24,11 +24,14 @@ import {
   ModalBody,
   ModalFooter,
   useDisclosure,
+  Flex,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdAccessTime, MdDateRange, MdClass } from 'react-icons/md';
 import Card from '../../../components/card/Card';
 import BarChart from '../../../components/charts/BarChart';
 import { mockTodayClasses } from '../../../utils/mockData';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 
 const days = ['Mon','Tue','Wed','Thu','Fri'];
 const periods = ['08:00','09:00','10:00','11:00','12:00','02:00'];
@@ -84,11 +87,34 @@ export default function WeeklyTimetable() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Weekly Timetable</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Your schedule for class {myClass}</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total Periods/Day</Text><Text fontSize='3xl' fontWeight='800'>{periods.length}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, teal.400, green.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Days/Week</Text><Text fontSize='3xl' fontWeight='800'>{days.length}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Class</Text><Text fontSize='3xl' fontWeight='800'>{myClass}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#805AD5 0%,#D53F8C 100%)' icon={<Icon as={MdAccessTime} w='22px' h='22px' color='white' />} />}
+            name='Total Periods/Day'
+            value={String(periods.length)}
+            trendData={[4,5,5,6,periods.length]}
+            trendColor='#805AD5'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdDateRange} w='22px' h='22px' color='white' />} />}
+            name='Days/Week'
+            value={String(days.length)}
+            trendData={[5,5,5,5,days.length]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdClass} w='22px' h='22px' color='white' />} />}
+            name='Class'
+            value={myClass}
+            trendData={[1,1,1,1,1]}
+            trendColor='#4481EB'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <HStack justify='space-between' flexWrap='wrap' rowGap={3}>

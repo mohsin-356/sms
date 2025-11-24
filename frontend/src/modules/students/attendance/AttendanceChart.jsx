@@ -1,10 +1,13 @@
 import React, { useMemo } from 'react';
-import { Box, Text, SimpleGrid, VStack, useColorModeValue } from '@chakra-ui/react';
+import { Box, Text, SimpleGrid, VStack, useColorModeValue, Flex, Icon } from '@chakra-ui/react';
 import Card from '../../../components/card/Card';
 import LineChart from '../../../components/charts/LineChart';
 import BarChart from '../../../components/charts/BarChart';
 import { mockStudents } from '../../../utils/mockData';
 import { useAuth } from '../../../contexts/AuthContext';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
+import { MdCheckCircle, MdAccessTime, MdCancel } from 'react-icons/md';
 
 export default function AttendanceChart() {
   const textSecondary = useColorModeValue('gray.600', 'gray.400');
@@ -50,11 +53,34 @@ export default function AttendanceChart() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Attendance Charts</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>{student.name} • Roll {student.rollNumber} • Class {student.class}{student.section}</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, teal.400, green.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Present (30d)</Text><Text fontSize='3xl' fontWeight='800'>{counts.present}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, yellow.400, orange.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Late (30d)</Text><Text fontSize='3xl' fontWeight='800'>{counts.late}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, red.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Absent (30d)</Text><Text fontSize='3xl' fontWeight='800'>{counts.absent}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdCheckCircle} w='22px' h='22px' color='white' />} />}
+            name='Present (30d)'
+            value={String(counts.present)}
+            trendData={[10,12,14,15,counts.present]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<Icon as={MdAccessTime} w='22px' h='22px' color='white' />} />}
+            name='Late (30d)'
+            value={String(counts.late)}
+            trendData={[2,3,4,4,counts.late]}
+            trendColor='#FD7853'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<Icon as={MdCancel} w='22px' h='22px' color='white' />} />}
+            name='Absent (30d)'
+            value={String(counts.absent)}
+            trendData={[1,1,1,2,counts.absent]}
+            trendColor='#f5576c'
+          />
+        </Flex>
+      </Box>
 
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing='16px'>
         <Card p='16px'>

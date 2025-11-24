@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Text, SimpleGrid, VStack, HStack, Button, Icon, useColorModeValue, FormControl, FormLabel, Switch, Select, Input, Checkbox, useToast, Divider, Badge } from '@chakra-ui/react';
-import { MdSave, MdRefresh, MdFileDownload, MdNotificationsActive } from 'react-icons/md';
+import { Box, Text, SimpleGrid, VStack, HStack, Button, Icon, useColorModeValue, FormControl, FormLabel, Switch, Select, Input, Checkbox, useToast, Divider, Badge, Flex } from '@chakra-ui/react';
+import { MdSave, MdRefresh, MdFileDownload, MdNotificationsActive, MdSettings, MdSchedule } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import { mockStudents, mockNotifications } from '../../../utils/mockData';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -61,11 +63,34 @@ export default function Notifications(){
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Notifications</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>{student.name} • Roll {student.rollNumber} • Class {classSection}</Text>
 
-      <SimpleGrid columns={{ base:1, md:3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Unread</Text><HStack><Icon as={MdNotificationsActive} /><Text fontSize='3xl' fontWeight='800'>{unread}</Text></HStack></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Channels</Text><Text fontSize='3xl' fontWeight='800'>{[prefs.email,prefs.sms,prefs.push].filter(Boolean).length}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Digest</Text><Text fontSize='3xl' fontWeight='800'>{prefs.digest}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<Icon as={MdNotificationsActive} w='22px' h='22px' color='white' />} />}
+            name='Unread'
+            value={String(unread)}
+            trendData={[1,1,2,2,3]}
+            trendColor='#B721FF'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdSettings} w='22px' h='22px' color='white' />} />}
+            name='Channels'
+            value={String([prefs.email,prefs.sms,prefs.push].filter(Boolean).length)}
+            trendData={[1,1,2,2,2]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdSchedule} w='22px' h='22px' color='white' />} />}
+            name='Digest'
+            value={String(prefs.digest)}
+            trendData={[1,1,1,1,1]}
+            trendColor='#4481EB'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <HStack spacing={3}>

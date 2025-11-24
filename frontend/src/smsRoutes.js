@@ -77,10 +77,6 @@ export const adminRoutes = [
     component: lazy(() => import('./modules/admin/pages/Finance/FeeDashboard')),
   },
   {
-    path: 'finance/structure',
-    component: lazy(() => import('./modules/admin/pages/Finance/FeeStructure')),
-  },
-  {
     path: 'finance/payments',
     component: lazy(() => import('./modules/admin/pages/Finance/Payments')),
   },

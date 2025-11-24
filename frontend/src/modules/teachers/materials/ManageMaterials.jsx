@@ -23,9 +23,12 @@ import {
   useToast,
   Checkbox,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch, MdDelete, MdPublish } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch, MdDelete, MdPublish, MdLibraryBooks, MdDescription, MdVideoLibrary, MdDoneAll } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import LineChart from '../../../components/charts/LineChart';
+import PieChart from '../../../components/charts/PieChart';
 
 const sampleItems = [
   { id: 1, type: 'Note', title: 'Algebra Basics.pdf', subject: 'Mathematics', cls: '10', section: 'A', status: 'Published', metric: 34, date: '2024-03-01' },
@@ -65,6 +68,14 @@ export default function ManageMaterials() {
   const chartData = useMemo(() => ([{ name: 'Items Added', data: seriesData }]), [seriesData]);
   const chartOptions = useMemo(() => ({ xaxis: { categories: dates }, stroke: { curve: 'smooth' }, colors: ['#2B6CB0'] }), [dates]);
 
+  const typeDistribution = useMemo(() => {
+    const map = {};
+    filtered.forEach(i => { map[i.type] = (map[i.type] || 0) + 1; });
+    const labels = Object.keys(map);
+    const values = labels.map(l => map[l]);
+    return { labels, values };
+  }, [filtered]);
+
   const exportCSV = () => {
     const header = ['Type','Title','Subject','Class','Section','Status','Metric','Date'];
     const rows = filtered.map(i => [i.type, i.title, i.subject, i.cls, i.section, i.status, i.metric, i.date]);
@@ -84,12 +95,14 @@ export default function ManageMaterials() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Manage Materials</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Organize and control your notes and videos</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 4 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total</Text><Text fontSize='3xl' fontWeight='800'>{kpis.total}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Notes</Text><Text fontSize='3xl' fontWeight='800'>{kpis.notes}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Videos</Text><Text fontSize='3xl' fontWeight='800'>{kpis.videos}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, yellow.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Published</Text><Text fontSize='3xl' fontWeight='800'>{kpis.published}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdLibraryBooks color='white' />} />} name='Total' value={String(kpis.total)} trendData={[2,3,4,4,5,6]} trendColor='#4481EB' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdDescription color='white' />} />} name='Notes' value={String(kpis.notes)} trendData={[1,1,2,2,3,3]} trendColor='#01B574' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdVideoLibrary color='white' />} />} name='Videos' value={String(kpis.videos)} trendData={[1,2,2,2,3,3]} trendColor='#B721FF' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdDoneAll color='white' />} />} name='Published' value={String(kpis.published)} trendData={[1,1,1,2,2,3]} trendColor='#FD7853' />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' justify='space-between' align='center'>
@@ -172,11 +185,20 @@ export default function ManageMaterials() {
         </Flex>
       </Card>
 
-      <Card p='16px'>
-        <Box>
-          <LineChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Items Added Over Time</Text>
+            <LineChart chartData={chartData} chartOptions={chartOptions} height={220} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Type Distribution</Text>
+            <PieChart height={240} chartData={typeDistribution.values} chartOptions={{ labels: typeDistribution.labels, legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+      </SimpleGrid>
     </Box>
   );
 }

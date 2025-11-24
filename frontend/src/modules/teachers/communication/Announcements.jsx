@@ -29,9 +29,12 @@ import {
   ModalFooter,
   useColorModeValue,
 } from '@chakra-ui/react';
-import { MdAdd, MdRefresh, MdFileDownload, MdPrint, MdVisibility, MdEdit, MdDelete } from 'react-icons/md';
+import { MdAdd, MdRefresh, MdFileDownload, MdPrint, MdVisibility, MdEdit, MdDelete, MdAnnouncement, MdSchedule, MdDrafts } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 
 const initialAnnouncements = [
   { id: 1, title: 'Parent-Teacher Meeting', audience: 'All', status: 'Sent', date: '2025-11-10' },
@@ -71,6 +74,14 @@ export default function Announcements() {
   const chartData = useMemo(() => ([{ name: 'Announcements', data: [kpis.total, kpis.scheduled, kpis.drafts] }]), [kpis]);
   const chartOptions = useMemo(() => ({ xaxis: { categories: ['Total', 'Scheduled', 'Drafts'] }, colors: ['#3182CE'] }), []);
 
+  const statusDistribution = useMemo(() => {
+    const map = { Draft: 0, Scheduled: 0, Sent: 0 };
+    filtered.forEach(r => { map[r.status] = (map[r.status] || 0) + 1; });
+    const labels = Object.keys(map);
+    const values = labels.map(l => map[l]);
+    return { labels, values };
+  }, [filtered]);
+
   const exportCSV = () => {
     const header = ['Title', 'Audience', 'Status', 'Date'];
     const csv = [header, ...filtered.map(r => [r.title, r.audience, r.status, r.date])]
@@ -99,11 +110,34 @@ export default function Announcements() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Announcements</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Create and manage announcements</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total</Text><Text fontSize='3xl' fontWeight='800'>{kpis.total}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, yellow.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Scheduled</Text><Text fontSize='3xl' fontWeight='800'>{kpis.scheduled}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Drafts</Text><Text fontSize='3xl' fontWeight='800'>{kpis.drafts}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdAnnouncement color='white' />} />}
+            name='Total'
+            value={String(kpis.total)}
+            trendData={[2,3,3,4,3,5]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdSchedule color='white' />} />}
+            name='Scheduled'
+            value={String(kpis.scheduled)}
+            trendData={[0,1,1,2,1,2]}
+            trendColor='#FD7853'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdDrafts color='white' />} />}
+            name='Drafts'
+            value={String(kpis.drafts)}
+            trendData={[1,1,1,1,2,2]}
+            trendColor='#B721FF'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' align='center' justify='space-between'>
@@ -168,9 +202,16 @@ export default function Announcements() {
         </Table>
       </Card>
 
-      <Card p='16px'>
-        <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Totals Overview</Text>
+          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+        </Card>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Status Distribution</Text>
+          <PieChart height={240} chartData={statusDistribution.values} chartOptions={{ labels: statusDistribution.labels, legend:{ position:'right' } }} />
+        </Card>
+      </SimpleGrid>
 
       {/* Create/Edit Modal */}
       <Modal isOpen={isOpen} onClose={onClose} isCentered size='lg'>

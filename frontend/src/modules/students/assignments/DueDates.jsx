@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Text, SimpleGrid, VStack, HStack, Select, Table, Thead, Tbody, Tr, Th, Td, Badge, Button, Icon, useColorModeValue, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure } from '@chakra-ui/react';
-import { MdFileDownload, MdVisibility, MdRefresh } from 'react-icons/md';
+import { Box, Text, SimpleGrid, VStack, HStack, Select, Table, Thead, Tbody, Tr, Th, Td, Badge, Button, Icon, useColorModeValue, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure, Flex } from '@chakra-ui/react';
+import { MdFileDownload, MdVisibility, MdRefresh, MdDateRange, MdNextWeek, MdError, MdPendingActions } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
 import { mockAssignments, mockTeachers, mockStudents } from '../../../utils/mockData';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -73,12 +75,42 @@ export default function DueDates(){
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Due Dates</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>{student.name} • Roll {student.rollNumber} • Class {student.class}{student.section}</Text>
 
-      <SimpleGrid columns={{ base:1, md:4 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, teal.400, green.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>This Week</Text><Text fontSize='3xl' fontWeight='800'>{kpis.thisWeek}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Next Week</Text><Text fontSize='3xl' fontWeight='800'>{kpis.nextWeek}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, red.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Overdue</Text><Text fontSize='3xl' fontWeight='800'>{kpis.overdue}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Pending</Text><Text fontSize='3xl' fontWeight='800'>{kpis.totalPending}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdDateRange} w='22px' h='22px' color='white' />} />}
+            name='This Week'
+            value={String(kpis.thisWeek)}
+            trendData={[1,1,2,2,3]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#667eea 0%,#764ba2 100%)' icon={<Icon as={MdNextWeek} w='22px' h='22px' color='white' />} />}
+            name='Next Week'
+            value={String(kpis.nextWeek)}
+            trendData={[0,1,1,2,2]}
+            trendColor='#667eea'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<Icon as={MdError} w='22px' h='22px' color='white' />} />}
+            name='Overdue'
+            value={String(kpis.overdue)}
+            trendData={[0,1,1,1,2]}
+            trendColor='#f5576c'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<Icon as={MdPendingActions} w='22px' h='22px' color='white' />} />}
+            name='Pending'
+            value={String(kpis.totalPending)}
+            trendData={[1,1,2,2,2]}
+            trendColor='#FD7853'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <HStack spacing={3} flexWrap='wrap' rowGap={3}>

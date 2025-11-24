@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Text, SimpleGrid, VStack, HStack, Table, Thead, Tbody, Tr, Th, Td, Badge, Button, Icon, useColorModeValue, Select, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure } from '@chakra-ui/react';
-import { MdFileDownload, MdPrint, MdSchedule, MdVisibility } from 'react-icons/md';
+import { Box, Text, SimpleGrid, VStack, HStack, Table, Thead, Tbody, Tr, Th, Td, Badge, Button, Icon, useColorModeValue, Select, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure, Flex } from '@chakra-ui/react';
+import { MdFileDownload, MdPrint, MdSchedule, MdVisibility, MdDateRange, MdListAlt } from 'react-icons/md';
 import Card from '../../../components/card/Card';
 import BarChart from '../../../components/charts/BarChart';
 import { mockTeachers, mockStudents } from '../../../utils/mockData';
 import { useAuth } from '../../../contexts/AuthContext';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 
 function addDays(base, n){ const d = new Date(base); d.setDate(d.getDate()+n); d.setHours(0,0,0,0); return d; }
 function fmt(d){ return d.toLocaleDateString(undefined, { weekday:'short', day:'2-digit', month:'short' }); }
@@ -69,11 +71,34 @@ export default function ExamTimetable(){
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Exam Timetable</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>{student.name} • Roll {student.rollNumber} • Class {classSection}</Text>
 
-      <SimpleGrid columns={{ base:1, md:3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total Exams</Text><Text fontSize='3xl' fontWeight='800'>{kpis.total}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, teal.400, green.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>This Week</Text><Text fontSize='3xl' fontWeight='800'>{kpis.thisWeek}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Next Exam</Text><Text fontSize='3xl' fontWeight='800'>{kpis.nextExam ? fmt(kpis.nextExam) : '-'}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#805AD5 0%,#D53F8C 100%)' icon={<Icon as={MdListAlt} w='22px' h='22px' color='white' />} />}
+            name='Total Exams'
+            value={String(kpis.total)}
+            trendData={[1,2,2,3,kpis.total]}
+            trendColor='#805AD5'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdDateRange} w='22px' h='22px' color='white' />} />}
+            name='This Week'
+            value={String(kpis.thisWeek)}
+            trendData={[0,1,1,2,kpis.thisWeek]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdSchedule} w='22px' h='22px' color='white' />} />}
+            name='Next Exam'
+            value={kpis.nextExam ? fmt(kpis.nextExam) : '-'}
+            trendData={[0,1,1,1,1]}
+            trendColor='#4481EB'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <HStack justify='space-between' flexWrap='wrap' rowGap={3}>

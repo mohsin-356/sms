@@ -382,12 +382,6 @@ export const getSMSRoutes = () => {
           component: lazy(() => import('./modules/admin/pages/Finance/FeeDashboard')),
         },
         {
-          name: 'Fee Structure',
-          layout: '/admin',
-          path: '/finance/structure',
-          component: lazy(() => import('./modules/admin/pages/Finance/FeeStructure')),
-        },
-        {
           name: 'Invoices',
           layout: '/admin',
           path: '/finance/invoices',
@@ -416,6 +410,18 @@ export const getSMSRoutes = () => {
           layout: '/admin',
           path: '/finance/outstanding',
           component: lazy(() => import('./modules/admin/pages/Finance/OutstandingFees')),
+        },
+        {
+          name: 'Expenses',
+          layout: '/admin',
+          path: '/finance/expenses',
+          component: lazy(() => import('./modules/admin/pages/Finance/Expenses')),
+        },
+        {
+          name: 'Payroll',
+          layout: '/admin',
+          path: '/finance/payroll',
+          component: lazy(() => import('./modules/admin/pages/Finance/Payroll')),
         },
       ],
     },

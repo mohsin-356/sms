@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Text, SimpleGrid, VStack, HStack, Table, Thead, Tbody, Tr, Th, Td, Badge, Button, Icon, useColorModeValue, Select, Input } from '@chakra-ui/react';
-import { MdPayment, MdFileDownload, MdPrint } from 'react-icons/md';
+import { Box, Text, SimpleGrid, VStack, HStack, Table, Thead, Tbody, Tr, Th, Td, Badge, Button, Icon, useColorModeValue, Select, Input, Flex } from '@chakra-ui/react';
+import { MdPayment, MdFileDownload, MdPrint, MdAttachMoney, MdPendingActions, MdDateRange } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import { mockStudents } from '../../../utils/mockData';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -57,11 +59,34 @@ export default function DueFee(){
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Due Fee</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>{student.name} • Roll {student.rollNumber} • Class {classSection}</Text>
 
-      <SimpleGrid columns={{ base:1, md:3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, red.400, orange.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total Due</Text><Text fontSize='3xl' fontWeight='800'>{formatCurrency(totalDue)}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Pending Items</Text><Text fontSize='3xl' fontWeight='800'>{filtered.length}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Nearest Due</Text><Text fontSize='3xl' fontWeight='800'>{filtered.sort((a,b)=>a.dueDate-b.dueDate)[0]? formatDate(filtered.sort((a,b)=>a.dueDate-b.dueDate)[0].dueDate):'—'}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<Icon as={MdAttachMoney} w='22px' h='22px' color='white' />} />}
+            name='Total Due'
+            value={formatCurrency(totalDue)}
+            trendData={[0,1,1,2,2]}
+            trendColor='#f5576c'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#805AD5 0%,#D53F8C 100%)' icon={<Icon as={MdPendingActions} w='22px' h='22px' color='white' />} />}
+            name='Pending Items'
+            value={String(filtered.length)}
+            trendData={[1,1,2,2,filtered.length]}
+            trendColor='#805AD5'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdDateRange} w='22px' h='22px' color='white' />} />}
+            name='Nearest Due'
+            value={filtered.sort((a,b)=>a.dueDate-b.dueDate)[0]? formatDate(filtered.sort((a,b)=>a.dueDate-b.dueDate)[0].dueDate):'—'}
+            trendData={[1,1,1,1,1]}
+            trendColor='#4481EB'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <HStack spacing={3} flexWrap='wrap' rowGap={3}>

@@ -31,9 +31,12 @@ import {
   NumberInput,
   NumberInputField,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch, MdSave } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch, MdSave, MdPeople, MdTrendingUp, MdBook } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 import { mockStudents, mockExamResults } from '../../../utils/mockData';
 
 export default function UploadMarks() {
@@ -79,6 +82,16 @@ export default function UploadMarks() {
     colors: ['#3182CE'],
   }), [filtered]);
 
+  const gradeBuckets = useMemo(() => {
+    const buckets = { '≥85': 0, '70-84': 0, '<70': 0 };
+    filtered.forEach(r => {
+      if (r.marks >= 85) buckets['≥85'] += 1;
+      else if (r.marks >= 70) buckets['70-84'] += 1;
+      else buckets['<70'] += 1;
+    });
+    return { labels: Object.keys(buckets), values: Object.values(buckets) };
+  }, [filtered]);
+
   const exportCSV = () => {
     const header = ['Student','Roll','Class','Section','Subject','Marks'];
     const data = filtered.map(r => [r.name, r.roll, r.cls, r.section, subject, r.marks]);
@@ -92,11 +105,13 @@ export default function UploadMarks() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Upload Marks</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Enter and update marks</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Students</Text><Text fontSize='3xl' fontWeight='800'>{totals.count}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Average</Text><Text fontSize='3xl' fontWeight='800'>{totals.avg}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Subject</Text><Text fontSize='3xl' fontWeight='800'>{subject}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdPeople color='white' />} />} name='Students' value={String(totals.count)} trendData={[10,12,14,13,15,16]} trendColor='#4481EB' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdTrendingUp color='white' />} />} name='Average' value={String(totals.avg)} trendData={[70,72,74,76,78,80]} trendColor='#01B574' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdBook color='white' />} />} name='Subject' value={String(subject)} trendData={[1,1,1,1,1,1]} trendColor='#B721FF' />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' justify='space-between' align='center'>
@@ -158,12 +173,16 @@ export default function UploadMarks() {
         </Box>
       </Card>
 
-      {/* Small chart at the end */}
-      <Card p='16px'>
-        <Box>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Marks (Top 8)</Text>
           <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+        </Card>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Grade Distribution</Text>
+          <PieChart height={240} chartData={gradeBuckets.values} chartOptions={{ labels: gradeBuckets.labels, legend:{ position:'right' } }} />
+        </Card>
+      </SimpleGrid>
 
       <Modal isOpen={isOpen} onClose={onClose} size='md' isCentered>
         <ModalOverlay />

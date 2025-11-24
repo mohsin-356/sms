@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { Box, Text, useColorModeValue, Flex, Select, Input, Table, Thead, Tbody, Tr, Th, Td, Badge, HStack, Tooltip, IconButton, Icon, Button, SimpleGrid, VStack } from '@chakra-ui/react';
-import { MdVisibility, MdEdit } from 'react-icons/md';
+import { MdVisibility, MdEdit, MdClass, MdMenuBook, MdAccessTime } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 
 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const periods = ['8:00', '9:00', '10:00', '11:00', '12:00', '2:00'];
@@ -29,6 +32,7 @@ export default function ClassTimetable() {
   const headerBg = useColorModeValue('white', 'gray.800');
   const hoverBg = useColorModeValue('gray.50', 'whiteAlpha.100');
   const gridColor = useColorModeValue('#EDF2F7','#2D3748');
+  const hoverShadow = useColorModeValue('lg', 'dark-lg');
   const [cls, setCls] = useState('7A');
   const [q, setQ] = useState('');
 
@@ -63,31 +67,57 @@ export default function ClassTimetable() {
     };
   }, [data, gridColor]);
 
+  const subjectShare = useMemo(() => {
+    const counts = {};
+    Object.values(data).forEach(arr => {
+      (arr || []).forEach(s => { if (s && s !== 'Break') counts[s] = (counts[s] || 0) + 1; });
+    });
+    const labels = Object.keys(counts);
+    const values = labels.map(l => counts[l]);
+    return { labels, values };
+  }, [data]);
+
+  const periodsByDay = useMemo(() => {
+    const labels = days;
+    const values = labels.map(d => (data[d] || []).filter(s => s && s !== 'Break').length);
+    return { labels, values };
+  }, [data]);
+
   return (
-    <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+    <Box pt={{ base: '130px', md: '80px', xl: '80px' }}
+      sx={{ '.responsive-card': { transition: 'transform .15s ease, box-shadow .15s ease' }, '.responsive-card:hover': { transform: 'translateY(-4px)', boxShadow: hoverShadow } }}
+    >
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Class Timetable</Text>
       <Text fontSize='md' color={textSecondary} mb='18px'>Daily and weekly schedule</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Periods</Text>
-            <Text fontSize='3xl' fontWeight='800'>{stats.periods}</Text>
-          </VStack>
-        </Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Subjects</Text>
-            <Text fontSize='3xl' fontWeight='800'>{stats.subjects}</Text>
-          </VStack>
-        </Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, pink.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Breaks</Text>
-            <Text fontSize='3xl' fontWeight='800'>{stats.breaks}</Text>
-          </VStack>
-        </Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdClass color='white' />} />}
+            name='Periods'
+            value={String(stats.periods)}
+            trendData={[2,3,2,3,3,4]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdMenuBook color='white' />} />}
+            name='Subjects'
+            value={String(stats.subjects)}
+            trendData={[1,1,2,2,3,3]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdAccessTime color='white' />} />}
+            name='Breaks'
+            value={String(stats.breaks)}
+            trendData={[0,1,1,1,0,1]}
+            trendColor='#FD7853'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap'>
@@ -99,17 +129,26 @@ export default function ClassTimetable() {
         </Flex>
       </Card>
 
-      <Card p='16px' mb='16px'>
-        <Box>
-          <BarChart chartData={chart.series} chartOptions={chart.options} height={320} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={5} mb='16px'>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Subject Distribution</Text>
+            <PieChart height={240} chartData={subjectShare.values} chartOptions={{ labels: subjectShare.labels, legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Periods by Day</Text>
+            <BarChart chartData={[{ name: 'Periods', data: periodsByDay.values }]} chartOptions={{ ...chart.options, xaxis:{ categories: periodsByDay.labels } }} height={220} />
+          </Box>
+        </Card>
+      </SimpleGrid>
 
       <Card p='0'>
         <Box overflowX='auto'>
           <Box minW='880px'>
-            <Table size='sm' variant='striped' colorScheme='gray'>
-              <Thead bg={headerBg} position='sticky' top={0} zIndex={1} boxShadow='sm'>
+            <Table size='sm' variant='simple'>
+              <Thead bg={headerBg} position='sticky' top={0} zIndex={1}>
                 <Tr>
                   <Th>Day / Period</Th>
                   {periods.map(p => <Th key={p}>{p}</Th>)}
@@ -125,21 +164,17 @@ export default function ClassTimetable() {
                       const visible = q ? subj.toLowerCase().includes(q.toLowerCase()) : true;
                       const isBreak = subj === 'Break';
                       return (
-                        <Td key={`${d}-${p}`}>
-                          <Tooltip label={subj} hasArrow>
-                            <Badge colorScheme={isBreak ? 'gray' : 'blue'} variant={isBreak ? 'subtle' : 'solid'}>{visible ? subj : '-'}</Badge>
-                          </Tooltip>
+                        <Td key={`${d}-${p}`} py={2}>
+                          <Text fontSize='sm' color={isBreak ? textSecondary : undefined} fontWeight={isBreak ? 'normal' : '600'}>
+                            {visible ? (isBreak ? '-' : subj) : '-'}
+                          </Text>
                         </Td>
                       );
                     })}
-                    <Td textAlign='right'>
-                      <HStack justify='flex-end' spacing={2}>
-                        <Tooltip label='View day'>
-                          <IconButton aria-label='View' size='sm' variant='outline' icon={<Icon as={MdVisibility} />} />
-                        </Tooltip>
-                        <Tooltip label='Edit day'>
-                          <IconButton aria-label='Edit' size='sm' colorScheme='blue' variant='solid' icon={<Icon as={MdEdit} />} />
-                        </Tooltip>
+                    <Td textAlign='right' py={2}>
+                      <HStack justify='flex-end' spacing={3}>
+                        <Button variant='link' size='sm'>View</Button>
+                        <Button variant='link' size='sm' colorScheme='blue'>Edit</Button>
                       </HStack>
                     </Td>
                   </Tr>

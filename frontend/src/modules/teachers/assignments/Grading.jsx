@@ -31,9 +31,12 @@ import {
   NumberInput,
   NumberInputField,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch, MdAssignment, MdCheckCircle, MdPending } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 import { mockStudents, mockAssignments } from '../../../utils/mockData';
 
 export default function Grading() {
@@ -83,6 +86,14 @@ export default function Grading() {
     colors: ['#805AD5'],
   }), []);
 
+  const subjectDistribution = useMemo(() => {
+    const map = {};
+    filtered.forEach(r => { map[r.subject] = (map[r.subject] || 0) + 1; });
+    const labels = Object.keys(map);
+    const values = labels.map(l => map[l]);
+    return { labels, values };
+  }, [filtered]);
+
   const exportCSV = () => {
     const header = ['Student','Roll','Class','Section','Subject','Marks','Status'];
     const data = filtered.map(r => [r.student, r.roll, r.cls, r.section, r.subject, r.marks, r.status]);
@@ -98,11 +109,34 @@ export default function Grading() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Grading</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Review and update marks</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total</Text><Text fontSize='3xl' fontWeight='800'>{kpis.total}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Graded</Text><Text fontSize='3xl' fontWeight='800'>{kpis.graded}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, pink.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Pending</Text><Text fontSize='3xl' fontWeight='800'>{kpis.pending}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdAssignment color='white' />} />}
+            name='Total'
+            value={String(kpis.total)}
+            trendData={[5,6,7,6,8,9]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdCheckCircle color='white' />} />}
+            name='Graded'
+            value={String(kpis.graded)}
+            trendData={[2,3,4,4,5,6]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdPending color='white' />} />}
+            name='Pending'
+            value={String(kpis.pending)}
+            trendData={[3,3,3,2,2,1]}
+            trendColor='#FD7853'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' justify='space-between' align='center'>
@@ -162,12 +196,20 @@ export default function Grading() {
         </Box>
       </Card>
 
-      {/* Small chart at the end */}
-      <Card p='16px'>
-        <Box>
-          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Graded vs Pending</Text>
+            <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Subjects Distribution</Text>
+            <PieChart height={240} chartData={subjectDistribution.values} chartOptions={{ labels: subjectDistribution.labels, legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+      </SimpleGrid>
 
       <Modal isOpen={isOpen} onClose={onClose} size='md' isCentered>
         <ModalOverlay />

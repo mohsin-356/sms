@@ -60,7 +60,8 @@ export default function Default(props) {
           <Stat my='auto' ms={startContent ? "4px" : "0px"} minW='0'>
             <StatLabel
               lineHeight='100%'
-              color={textColorSecondary}
+              color={textColor}
+              fontWeight='600'
               fontSize={{
                 base: "sm",
                 md: "md",

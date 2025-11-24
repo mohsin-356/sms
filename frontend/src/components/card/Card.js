@@ -7,6 +7,8 @@ function Card(props) {
     <Box
       __css={styles}
       className={`${className ? className + " " : ""}responsive-card`}
+      transition="transform .15s ease, box-shadow .15s ease"
+      _hover={{ transform: 'translateY(-4px)', boxShadow: 'lg' }}
       {...rest}
     >
       {children}

@@ -27,9 +27,12 @@ import {
   ModalBody,
   ModalFooter,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdPrint, MdVisibility, MdEdit } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdPrint, MdVisibility, MdEdit, MdClass, MdAlarm, MdBook } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 import { useAuth } from '../../../contexts/AuthContext';
 
 // Sample demo data
@@ -202,6 +205,12 @@ export default function DailyTimetable() {
   const chartData = useMemo(() => ([{ name: 'Lectures', data: periods.map(p => (dayEntriesByTime[p]?.length || 0)) }]), [dayEntriesByTime]);
   const chartOptions = useMemo(() => ({ xaxis: { categories: periods }, dataLabels: { enabled: false }, colors: ['#3182CE'] }), []);
 
+  const totals = useMemo(() => {
+    const lectures = periods.reduce((s,p)=> s + (dayEntriesByTime[p]?.length || 0), 0);
+    const breaks = Array.from(breakTimes).length;
+    return { lectures, breaks };
+  }, [dayEntriesByTime, breakTimes]);
+
   const rows = useMemo(() => periods.map(p => {
     const arr = dayEntriesByTime[p] || [];
     if (arr.length > 0) {
@@ -255,14 +264,37 @@ export default function DailyTimetable() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Daily Timetable</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>View and manage today's schedule</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Periods Today</Text><Text fontSize='3xl' fontWeight='800'>{kpis.total}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, yellow.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Breaks</Text><Text fontSize='3xl' fontWeight='800'>{kpis.breaks}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Unique Subjects</Text><Text fontSize='3xl' fontWeight='800'>{kpis.subjects}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdClass color='white' />} />}
+            name='Periods Today'
+            value={String(kpis.total)}
+            trendData={[1,2,1,3,2,3]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdAlarm color='white' />} />}
+            name='Breaks'
+            value={String(kpis.breaks)}
+            trendData={[0,1,1,1,0,1]}
+            trendColor='#FD7853'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdBook color='white' />} />}
+            name='Unique Subjects'
+            value={String(kpis.subjects)}
+            trendData={[1,1,2,2,3,3]}
+            trendColor='#01B574'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
-        <Flex gap={3} flexWrap='wrap' align='center' justify='space-between'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
           <HStack spacing={3} flexWrap='wrap' rowGap={3}>
             <Select value={cls} onChange={e=>setCls(e.target.value)} size='sm' maxW='140px'>
               <option>9</option><option>10</option>
@@ -349,11 +381,20 @@ export default function DailyTimetable() {
         </Table>
       </Card>
 
-      <Card p='16px'>
-        <Box>
-          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Lectures by Time</Text>
+            <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Lectures vs Breaks</Text>
+            <PieChart height={240} chartData={[totals.lectures, totals.breaks]} chartOptions={{ labels:['Lectures','Breaks'], legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+      </SimpleGrid>
 
       <Modal isOpen={isOpen} onClose={onClose} isCentered size='md'>
         <ModalOverlay />

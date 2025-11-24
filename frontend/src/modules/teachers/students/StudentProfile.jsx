@@ -15,9 +15,12 @@ import {
   Tooltip,
   Icon,
 } from '@chakra-ui/react';
-import { MdRefresh, MdEdit, MdMessage, MdPhone, MdEmail } from 'react-icons/md';
+import { MdRefresh, MdEdit, MdMessage, MdPhone, MdEmail, MdPerson } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import LineChart from '../../../components/charts/LineChart';
+import PieChart from '../../../components/charts/PieChart';
 import { mockStudents, mockAttendanceStats } from '../../../utils/mockData';
 
 export default function StudentProfile() {
@@ -48,6 +51,16 @@ export default function StudentProfile() {
     colors: ['#3182CE'],
     grid: { borderColor: gridColor },
   }), [gridColor]);
+
+  const attendanceBuckets = useMemo(() => {
+    const buckets = { '≥90%': 0, '80-89%': 0, '<80%': 0 };
+    mockAttendanceStats.forEach(x => {
+      if (x.percentage >= 90) buckets['≥90%'] += 1;
+      else if (x.percentage >= 80) buckets['80-89%'] += 1;
+      else buckets['<80%'] += 1;
+    });
+    return { labels: Object.keys(buckets), values: Object.values(buckets) };
+  }, []);
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -93,26 +106,26 @@ export default function StudentProfile() {
             </Flex>
           </Card>
 
-          <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-            <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'>
-              <VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Parent</Text><Text fontSize='xl' fontWeight='800'>{selected.parentName}</Text></VStack>
-            </Card>
-            <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'>
-              <VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Phone</Text><Text fontSize='xl' fontWeight='800'>{selected.parentPhone}</Text></VStack>
-            </Card>
-            <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white' boxShadow='md'>
-              <VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Email</Text><Text fontSize='xl' fontWeight='800'>{selected.email}</Text></VStack>
-            </Card>
-          </SimpleGrid>
+          <Box mb='16px'>
+            <Flex gap='16px' w='100%' wrap='nowrap'>
+              <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdPerson color='white' />} />} name='Parent' value={String(selected.parentName)} trendData={[1,1,1,1,1,1]} trendColor='#4481EB' />
+              <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdPhone color='white' />} />} name='Phone' value={String(selected.parentPhone)} trendData={[1,1,1,1,1,1]} trendColor='#01B574' />
+              <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdEmail color='white' />} />} name='Email' value={String(selected.email)} trendData={[1,1,1,1,1,1]} trendColor='#B721FF' />
+            </Flex>
+          </Box>
         </>
       )}
 
-      {/* small chart at the end */}
-      <Card p='16px'>
-        <Box>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Attendance Trend</Text>
           <LineChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+        </Card>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Attendance Buckets</Text>
+          <PieChart height={240} chartData={attendanceBuckets.values} chartOptions={{ labels: attendanceBuckets.labels, legend:{ position:'right' } }} />
+        </Card>
+      </SimpleGrid>
     </Box>
   );
 }

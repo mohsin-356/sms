@@ -23,11 +23,15 @@ import {
   ModalBody,
   ModalFooter,
   useDisclosure,
+  Flex,
 } from '@chakra-ui/react';
 import Card from '../../../components/card/Card';
-import { MdSchool } from 'react-icons/md';
+import { MdSchool, MdLibraryBooks, MdClass, MdDateRange } from 'react-icons/md';
 import { mockTeachers, mockTodayClasses } from '../../../utils/mockData';
 import BarChart from '../../../components/charts/BarChart';
+import LineChart from '../../../components/charts/LineChart';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 
 export default function ClassList() {
   const textSecondary = useColorModeValue('gray.600', 'gray.400');
@@ -68,11 +72,26 @@ export default function ClassList() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>My Class ({myClass})</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Subjects you have this term with assigned teachers</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Subjects</Text><Text fontSize='3xl' fontWeight='800'>{subjects.length}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Class</Text><Text fontSize='3xl' fontWeight='800'>{myClass}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, teal.400, green.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Session</Text><Text fontSize='3xl' fontWeight='800'>2025</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdLibraryBooks} w='22px' h='22px' color='white' />} />}
+            name='Subjects'
+            value={String(subjects.length)}
+            trendData={[1,2,2,3,subjects.length]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#805AD5 0%,#D53F8C 100%)' icon={<Icon as={MdClass} w='22px' h='22px' color='white' />} />}
+            name='Class'
+            value={myClass}
+            trendData={[1,1,1,1,1]}
+            trendColor='#805AD5'
+          />
+        </Flex>
+      </Box>
 
       <Card p='0'>
         <Table size='sm' variant='striped' colorScheme='gray'>
@@ -104,10 +123,16 @@ export default function ClassList() {
         </Table>
       </Card>
 
-      <Card p='16px' mt='16px'>
-        <Text fontSize='md' fontWeight='bold' mb='8px'>Weekly Periods by Subject</Text>
-        <BarChart chartData={chartData} chartOptions={chartOptions} height={240} />
-      </Card>
+      <SimpleGrid columns={{ base:1, lg:2 }} spacing='16px' mt='16px'>
+        <Card p='16px'>
+          <Text fontSize='md' fontWeight='bold' mb='8px'>Weekly Periods by Subject</Text>
+          <BarChart chartData={chartData} chartOptions={{ ...chartOptions, tooltip:{ enabled:true } }} height={240} />
+        </Card>
+        <Card p='16px'>
+          <Text fontSize='md' fontWeight='bold' mb='8px'>Subjects Trend</Text>
+          <LineChart chartData={[{ name:'Lessons', data: subjects.map((_, i) => 3 + (i % 4)) }]} chartOptions={{ xaxis:{ categories: subjects.map(s=>s.subject) }, colors:['#01B574'], dataLabels:{ enabled:false }, stroke:{ curve:'smooth', width:3 }, tooltip:{ enabled:true } }} height={240} />
+        </Card>
+      </SimpleGrid>
 
       <Modal isOpen={isOpen} onClose={onClose} isCentered>
         <ModalOverlay />

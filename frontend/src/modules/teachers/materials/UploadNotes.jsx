@@ -23,9 +23,12 @@ import {
   Icon,
   useToast,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch, MdUpload, MdSave } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch, MdUpload, MdSave, MdInsertDriveFile, MdPictureAsPdf, MdLibraryBooks } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 
 const sampleNotes = [
   { id: 1, title: 'Algebra Basics.pdf', subject: 'Mathematics', cls: '10', section: 'A', size: '1.2 MB', type: 'PDF', uploaded: '2024-03-01' },
@@ -68,6 +71,14 @@ export default function UploadNotes() {
     colors: ['#3182CE'],
   }), [filtered]);
 
+  const subjectDistribution = useMemo(() => {
+    const map = {};
+    filtered.forEach(n => { map[n.subject] = (map[n.subject] || 0) + 1; });
+    const labels = Object.keys(map);
+    const values = labels.map(l => map[l]);
+    return { labels, values };
+  }, [filtered]);
+
   const exportCSV = () => {
     const header = ['Title','Subject','Class','Section','Type','Size','Uploaded'];
     const rows = filtered.map(n => [n.title, n.subject, n.cls, n.section, n.type, n.size, n.uploaded]);
@@ -90,11 +101,34 @@ export default function UploadNotes() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Upload Notes</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Share documents with your class</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total Files</Text><Text fontSize='3xl' fontWeight='800'>{kpis.total}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>PDFs</Text><Text fontSize='3xl' fontWeight='800'>{kpis.pdf}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Subjects</Text><Text fontSize='3xl' fontWeight='800'>{kpis.subjects}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdInsertDriveFile color='white' />} />}
+            name='Total Files'
+            value={String(kpis.total)}
+            trendData={[1,2,2,3,3,4]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#E83E8C 0%,#FF6CAB 100%)' icon={<MdPictureAsPdf color='white' />} />}
+            name='PDFs'
+            value={String(kpis.pdf)}
+            trendData={[0,1,1,1,2,2]}
+            trendColor='#E83E8C'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdLibraryBooks color='white' />} />}
+            name='Subjects'
+            value={String(kpis.subjects)}
+            trendData={[1,1,2,2,3,3]}
+            trendColor='#01B574'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='12px'>
@@ -177,11 +211,20 @@ export default function UploadNotes() {
         </Box>
       </Card>
 
-      <Card p='16px'>
-        <Box>
-          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Files by Subject</Text>
+            <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Subject Distribution</Text>
+            <PieChart height={240} chartData={subjectDistribution.values} chartOptions={{ labels: subjectDistribution.labels, legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+      </SimpleGrid>
     </Box>
   );
 }

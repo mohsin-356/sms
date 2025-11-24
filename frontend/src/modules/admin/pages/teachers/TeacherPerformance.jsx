@@ -26,6 +26,8 @@ import {
   Avatar,
 } from '@chakra-ui/react';
 import Card from 'components/card/Card.js';
+import MiniStatistics from 'components/card/MiniStatistics';
+import IconBox from 'components/icons/IconBox';
 import { 
   MdStarRate, 
   MdTrendingUp, 
@@ -164,56 +166,35 @@ const TeacherPerformance = () => {
         </Select>
       </Flex>
       
-      {/* Performance Overview Cards */}
+      {/* Performance Overview Cards - redesigned */}
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={5} mb={5}>
-        <Card>
-          <Flex direction="column" h="100%" p={5}>
-            <Flex align="center" mb={3}>
-              <Icon as={MdStarRate} boxSize={8} color="blue.500" mr={3} />
-              <Text fontSize="xl" fontWeight="600">Average Rating</Text>
-            </Flex>
-            <Text fontSize="3xl" fontWeight="bold" color="blue.500">
-              {averageOverall.toFixed(1)}/100
-            </Text>
-            <Progress 
-              value={averageOverall} 
-              colorScheme={getColorScheme(averageOverall)}
-              borderRadius="md" 
-              size="sm" 
-              mt={2} 
-            />
-          </Flex>
-        </Card>
-        
-        <Card>
-          <Flex direction="column" h="100%" p={5}>
-            <Flex align="center" mb={3}>
-              <Icon as={MdTrendingUp} boxSize={8} color="green.500" mr={3} />
-              <Text fontSize="xl" fontWeight="600">Excellent Performers</Text>
-            </Flex>
-            <Text fontSize="3xl" fontWeight="bold" color="green.500">
-              {excellentCount}
-            </Text>
-            <Text fontSize="sm" color={textColorSecondary} mt="auto">
-              {Math.round((excellentCount / performanceData.length) * 100)}% of total faculty
-            </Text>
-          </Flex>
-        </Card>
-        
-        <Card>
-          <Flex direction="column" h="100%" p={5}>
-            <Flex align="center" mb={3}>
-              <Icon as={MdTimer} boxSize={8} color="orange.500" mr={3} />
-              <Text fontSize="xl" fontWeight="600">Needs Improvement</Text>
-            </Flex>
-            <Text fontSize="3xl" fontWeight="bold" color="orange.500">
-              {needsImprovementCount || 0}
-            </Text>
-            <Text fontSize="sm" color={textColorSecondary} mt="auto">
-              {Math.round(((needsImprovementCount || 0) / performanceData.length) * 100)}% require attention
-            </Text>
-          </Flex>
-        </Card>
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)' icon={<Icon as={MdStarRate} w='24px' h='24px' color='white' />} />}
+          name='Average Rating'
+          value={`${averageOverall.toFixed(1)}/100`}
+          growth={`${Math.round(averageOverall)}% index`}
+          trendData={[70,75,80,85,averageOverall]}
+          trendColor='#4facfe'
+        />
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)' icon={<Icon as={MdTrendingUp} w='24px' h='24px' color='white' />} />}
+          name='Excellent Performers'
+          value={String(excellentCount)}
+          growth={`${Math.round((excellentCount / performanceData.length) * 100)}% of total`}
+          trendData={[1,2,2,3,excellentCount]}
+          trendColor='#43e97b'
+        />
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#FFB36D 0%,#FD7853 100%)' icon={<Icon as={MdTimer} w='24px' h='24px' color='white' />} />}
+          name='Needs Improvement'
+          value={String(needsImprovementCount || 0)}
+          growth={`${Math.round(((needsImprovementCount || 0) / performanceData.length) * 100)}% require attention`}
+          trendData={[0,1,1,2,needsImprovementCount || 0]}
+          trendColor='#FD7853'
+        />
       </SimpleGrid>
       
       {/* Performance Table */}

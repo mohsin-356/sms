@@ -28,9 +28,12 @@ import {
   ModalFooter,
   useColorModeValue,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdPrint, MdVisibility, MdCancel } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdPrint, MdVisibility, MdCancel, MdCheckCircle, MdSchedule } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 
 const seed = [
   { id: 11, type: 'Sick', from: '2025-11-03', to: '2025-11-03', days: 1, status: 'Approved' },
@@ -65,6 +68,14 @@ export default function LeaveStatus() {
   const chartData = useMemo(() => ([{ name: 'Requests', data: [kpis.approved, kpis.pending, kpis.rejected] }]), [kpis]);
   const chartOptions = useMemo(() => ({ xaxis: { categories: ['Approved','Pending','Rejected'] }, colors: ['#38A169'] }), []);
 
+  const statusDistribution = useMemo(() => {
+    const map = {};
+    filtered.forEach(r => { map[r.status] = (map[r.status] || 0) + 1; });
+    const labels = Object.keys(map);
+    const values = labels.map(l => map[l]);
+    return { labels, values };
+  }, [filtered]);
+
   const exportCSV = () => {
     const header = ['Type','From','To','Days','Status'];
     const csv = [header, ...filtered.map(r => [r.type, r.from, r.to, r.days, r.status])]
@@ -84,11 +95,13 @@ export default function LeaveStatus() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Leave Status</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Track your pending and approved requests</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Approved</Text><Text fontSize='3xl' fontWeight='800'>{kpis.approved}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, yellow.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Pending</Text><Text fontSize='3xl' fontWeight='800'>{kpis.pending}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, red.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Rejected</Text><Text fontSize='3xl' fontWeight='800'>{kpis.rejected}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdCheckCircle color='white' />} />} name='Approved' value={String(kpis.approved)} trendData={[1,2,2,3,3,4]} trendColor='#01B574' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdSchedule color='white' />} />} name='Pending' value={String(kpis.pending)} trendData={[1,1,1,2,1,2]} trendColor='#FD7853' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<MdCancel color='white' />} />} name='Rejected' value={String(kpis.rejected)} trendData={[0,1,1,1,1,1]} trendColor='#f5576c' />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' align='center' justify='space-between'>
@@ -143,9 +156,16 @@ export default function LeaveStatus() {
         </Table>
       </Card>
 
-      <Card p='16px'>
-        <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Requests Summary</Text>
+          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+        </Card>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Status Distribution</Text>
+          <PieChart height={240} chartData={statusDistribution.values} chartOptions={{ labels: statusDistribution.labels, legend:{ position:'right' } }} />
+        </Card>
+      </SimpleGrid>
 
       <Modal isOpen={isOpen} onClose={onClose} isCentered size='md'>
         <ModalOverlay />

@@ -30,8 +30,12 @@ import {
   Avatar,
   useToast,
 } from '@chakra-ui/react';
-import { MdSearch, MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSave } from 'react-icons/md';
+import { MdSearch, MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSave, MdCheckCircle, MdClose, MdAccessTime, MdPeople } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
+import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 import { mockStudents } from '../../../utils/mockData';
 
 export default function DailyAttendance() {
@@ -88,32 +92,42 @@ export default function DailyAttendance() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Daily Attendance</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Mark attendance quickly with filters and responsive table.</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3, lg: 4 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Present</Text>
-            <Text fontSize='3xl' fontWeight='800'>{kpis.present}</Text>
-          </VStack>
-        </Card>
-        <Card p='20px' bgGradient='linear(to-r, red.400, pink.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Absent</Text>
-            <Text fontSize='3xl' fontWeight='800'>{kpis.absent}</Text>
-          </VStack>
-        </Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, orange.500)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Late</Text>
-            <Text fontSize='3xl' fontWeight='800'>{kpis.late}</Text>
-          </VStack>
-        </Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Total</Text>
-            <Text fontSize='3xl' fontWeight='800'>{kpis.total}</Text>
-          </VStack>
-        </Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdCheckCircle color='white' />} />}
+            name='Present'
+            value={String(kpis.present)}
+            trendData={[2,3,2,4,3,4]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FF6A88 0%,#FF99AC 100%)' icon={<MdClose color='white' />} />}
+            name='Absent'
+            value={String(kpis.absent)}
+            trendData={[1,2,1,1,2,1]}
+            trendColor='#FF6A88'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdAccessTime color='white' />} />}
+            name='Late'
+            value={String(kpis.late)}
+            trendData={[0,1,1,1,0,1]}
+            trendColor='#FD7853'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdPeople color='white' />} />}
+            name='Total'
+            value={String(kpis.total)}
+            trendData={[3,4,3,5,4,5]}
+            trendColor='#4481EB'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' justify='space-between' align='center'>
@@ -136,6 +150,17 @@ export default function DailyAttendance() {
           </HStack>
         </Flex>
       </Card>
+
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5} mb='16px'>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Status Counts</Text>
+          <BarChart chartData={[{ name: 'Count', data: [kpis.present, kpis.absent, kpis.late] }]} chartOptions={{ xaxis:{ categories:['Present','Absent','Late'] }, dataLabels:{ enabled:false }, colors:['#2B6CB0','#E53E3E','#ED8936'] }} height={220} />
+        </Card>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Distribution</Text>
+          <PieChart height={240} chartData={[kpis.present, kpis.absent, kpis.late]} chartOptions={{ labels:['Present','Absent','Late'], legend:{ position:'right' }, colors:['#2B6CB0','#E53E3E','#ED8936'] }} />
+        </Card>
+      </SimpleGrid>
 
       <Card p='0'>
         <Flex justify='space-between' align='center' p='12px' borderBottom='1px solid' borderColor='gray.100'>

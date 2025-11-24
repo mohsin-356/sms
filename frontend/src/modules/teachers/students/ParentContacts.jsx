@@ -3,6 +3,7 @@ import { Box, Text, Flex, HStack, SimpleGrid, Select, Input, Button, useColorMod
 import { MdRefresh, MdFileDownload, MdPhone, MdEmail, MdMessage } from 'react-icons/md';
 import Card from '../../../components/card/Card';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 import { mockStudents } from '../../../utils/mockData';
 
 export default function ParentContacts() {
@@ -44,6 +45,12 @@ export default function ParentContacts() {
     colors: ['#3182CE'],
     grid: { borderColor: gridColor },
   }), [filtered, gridColor]);
+
+  const methodDistribution = useMemo(() => {
+    const phone = filtered.filter(r => !!r.phone).length;
+    const email = filtered.filter(r => !!r.email).length;
+    return { labels: ['Phone','Email'], values: [phone, email] };
+  }, [filtered]);
 
   const exportCSV = () => {
     const header = ['Parent','Student','Class','Section','Phone','Email','Tag'];
@@ -109,12 +116,16 @@ export default function ParentContacts() {
         </Box>
       </Card>
 
-      {/* Small chart at the end */}
-      <Card p='16px'>
-        <Box>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Contacts by Class-Section</Text>
           <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+        </Card>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Contact Methods</Text>
+          <PieChart height={240} chartData={methodDistribution.values} chartOptions={{ labels: methodDistribution.labels, legend:{ position:'right' } }} />
+        </Card>
+      </SimpleGrid>
     </Box>
   );
 }

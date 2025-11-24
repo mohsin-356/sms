@@ -29,9 +29,12 @@ import {
   ModalFooter,
   useColorModeValue,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdPrint, MdAdd, MdVisibility } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdPrint, MdAdd, MdVisibility, MdEvent, MdSchedule, MdTimer } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 
 const initialRequests = [
   { id: 1, type: 'Sick', from: '2025-11-03', to: '2025-11-03', days: 1, status: 'Approved' },
@@ -72,6 +75,14 @@ export default function ApplyLeave() {
   ] }]), [rows]);
   const chartOptions = useMemo(() => ({ xaxis: { categories: ['Sick','Casual','Annual'] }, colors: ['#2B6CB0'] }), []);
 
+  const statusDistribution = useMemo(() => {
+    const map = { Approved: 0, Pending: 0, Rejected: 0 };
+    rows.forEach(r => { map[r.status] = (map[r.status] || 0) + 1; });
+    const labels = Object.keys(map);
+    const values = labels.map(l => map[l]);
+    return { labels, values };
+  }, [rows]);
+
   const exportCSV = () => {
     const header = ['Type','From','To','Days','Status'];
     const csv = [header, ...rows.map(r => [r.type, r.from, r.to, r.days, r.status])]
@@ -85,11 +96,13 @@ export default function ApplyLeave() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Apply Leave</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Submit a new leave request</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Days Taken</Text><Text fontSize='3xl' fontWeight='800'>{kpis.totalTaken}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, yellow.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Pending</Text><Text fontSize='3xl' fontWeight='800'>{kpis.pending}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, teal.400, green.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Remaining</Text><Text fontSize='3xl' fontWeight='800'>{kpis.remaining}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdEvent color='white' />} />} name='Days Taken' value={String(kpis.totalTaken)} trendData={[1,2,2,3,3,4]} trendColor='#4481EB' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdSchedule color='white' />} />} name='Pending' value={String(kpis.pending)} trendData={[1,1,2,1,2,1]} trendColor='#FD7853' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdTimer color='white' />} />} name='Remaining' value={String(kpis.remaining)} trendData={[15,16,17,18,19,20]} trendColor='#01B574' />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <VStack spacing={3} align='stretch'>
@@ -139,9 +152,16 @@ export default function ApplyLeave() {
         </Table>
       </Card>
 
-      <Card p='16px'>
-        <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Approved Days by Type</Text>
+          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+        </Card>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Request Status Distribution</Text>
+          <PieChart height={240} chartData={statusDistribution.values} chartOptions={{ labels: statusDistribution.labels, legend:{ position:'right' } }} />
+        </Card>
+      </SimpleGrid>
 
       <Modal isOpen={isOpen} onClose={onClose} isCentered size='md'>
         <ModalOverlay />

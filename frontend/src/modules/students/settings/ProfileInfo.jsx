@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Text, SimpleGrid, VStack, HStack, Button, Icon, useColorModeValue, FormControl, FormLabel, Input, Select, Avatar, useToast, Divider, Badge } from '@chakra-ui/react';
-import { MdSave, MdRefresh, MdFileDownload, MdCameraAlt } from 'react-icons/md';
+import { Box, Text, SimpleGrid, VStack, HStack, Button, Icon, useColorModeValue, FormControl, FormLabel, Input, Select, Avatar, useToast, Divider, Badge, Flex } from '@chakra-ui/react';
+import { MdSave, MdRefresh, MdFileDownload, MdCameraAlt, MdClass, MdPeople, MdPermIdentity } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import { mockStudents } from '../../../utils/mockData';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -69,28 +71,34 @@ export default function ProfileInfo(){
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Profile Info</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>{student.name} • Roll {student.rollNumber} • Class {classSection}</Text>
 
-      <SimpleGrid columns={{ base:1, md:3 }} spacing='12px' mb='16px'>
-        <Card p='20px' display='flex' alignItems='center' justifyContent='center' bgGradient='linear(to-r, purple.400, pink.400)' color='white'>
-          <VStack spacing={2}>
-            <Avatar size='xl' name={student.name} src={student.avatar} />
-            <Button size='sm' leftIcon={<Icon as={MdCameraAlt} />} variant='outline' color='white' _hover={{ bg:'whiteAlpha.200' }}>Change Photo</Button>
-          </VStack>
-        </Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Academic</Text>
-            <Text fontSize='xl' fontWeight='800'>Class {classSection}</Text>
-            <HStack><Badge colorScheme='blackAlpha'>Active</Badge></HStack>
-          </VStack>
-        </Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Guardian</Text>
-            <Text fontSize='xl' fontWeight='800'>{form.parentName || '—'}</Text>
-            <Text>{form.parentPhone || '—'}</Text>
-          </VStack>
-        </Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdClass} w='22px' h='22px' color='white' />} />}
+            name='Class'
+            value={String(classSection)}
+            trendData={[1,1,1,1,1]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdPeople} w='22px' h='22px' color='white' />} />}
+            name='Guardian'
+            value={String(form.parentName || '—')}
+            trendData={[1,1,1,1,1]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<Icon as={MdPermIdentity} w='22px' h='22px' color='white' />} />}
+            name='Roll'
+            value={String(form.roll)}
+            trendData={[1,1,1,1,1]}
+            trendColor='#FD7853'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <HStack spacing={3}>

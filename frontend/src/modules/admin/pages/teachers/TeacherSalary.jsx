@@ -33,6 +33,8 @@ import {
   StatHelpText,
 } from '@chakra-ui/react';
 import Card from 'components/card/Card.js';
+import MiniStatistics from 'components/card/MiniStatistics';
+import IconBox from 'components/icons/IconBox';
 import { 
   MdAttachMoney, 
   MdCalendarToday, 
@@ -217,40 +219,35 @@ const TeacherSalary = () => {
         </Flex>
       </Card>
 
-      {/* Stats */}
+      {/* Stats - redesigned */}
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={5} mb={5}>
-        <Card p={5}>
-          <Stat>
-            <Flex align="center" mb={2}>
-              <Icon as={MdAttachMoney} color="green.500" boxSize={6} mr={2} />
-              <StatLabel fontSize="lg">Total Salary Budget</StatLabel>
-            </Flex>
-            <StatNumber color="green.500" fontSize="2xl">₹{totalSalaryAmount.toLocaleString()}</StatNumber>
-            <StatHelpText>For {month}</StatHelpText>
-          </Stat>
-        </Card>
-        
-        <Card p={5}>
-          <Stat>
-            <Flex align="center" mb={2}>
-              <Icon as={MdCheckCircle} color="blue.500" boxSize={6} mr={2} />
-              <StatLabel fontSize="lg">Processed Payments</StatLabel>
-            </Flex>
-            <StatNumber color="blue.500" fontSize="2xl">{paidCount}</StatNumber>
-            <StatHelpText>{Math.round((paidCount / salaryData.length) * 100)}% of total</StatHelpText>
-          </Stat>
-        </Card>
-        
-        <Card p={5}>
-          <Stat>
-            <Flex align="center" mb={2}>
-              <Icon as={MdCalendarToday} color="orange.500" boxSize={6} mr={2} />
-              <StatLabel fontSize="lg">Pending Payments</StatLabel>
-            </Flex>
-            <StatNumber color="orange.500" fontSize="2xl">{pendingCount}</StatNumber>
-            <StatHelpText>{Math.round((pendingCount / salaryData.length) * 100)}% of total</StatHelpText>
-          </Stat>
-        </Card>
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdAttachMoney} w='24px' h='24px' color='white' />} />}
+          name='Total Salary Budget'
+          value={`₹${totalSalaryAmount.toLocaleString()}`}
+          growth='+3%'
+          trendData={[40,45,43,47,50,55]}
+          trendColor='#01B574'
+        />
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdCheckCircle} w='24px' h='24px' color='white' />} />}
+          name='Processed Payments'
+          value={String(paidCount)}
+          growth='+1%'
+          trendData={[1,2,2,3,3,paidCount]}
+          trendColor='#4481EB'
+        />
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#FFB36D 0%,#FD7853 100%)' icon={<Icon as={MdCalendarToday} w='24px' h='24px' color='white' />} />}
+          name='Pending Payments'
+          value={String(pendingCount)}
+          growth='+0%'
+          trendData={[pendingCount, pendingCount-1, pendingCount, pendingCount]}
+          trendColor='#FD7853'
+        />
       </SimpleGrid>
 
       {/* Salary Table */}

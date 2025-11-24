@@ -43,6 +43,8 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import Card from 'components/card/Card.js';
+import MiniStatistics from 'components/card/MiniStatistics';
+import IconBox from 'components/icons/IconBox';
 import { 
   MdSearch,
   MdAdd,
@@ -222,52 +224,35 @@ const TeacherSubjects = () => {
         </Button>
       </Flex>
       
-      {/* Subject Stats */}
+      {/* Subject Stats - redesigned */}
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={5} mb={5}>
-        <Card>
-          <Flex direction="column" h="100%" p={5}>
-            <Flex align="center" mb={3}>
-              <Icon as={MdBook} boxSize={6} color="blue.500" mr={3} />
-              <Text fontSize="lg" fontWeight="medium">Total Subjects</Text>
-            </Flex>
-            <Text fontSize="3xl" fontWeight="bold" color="blue.500">
-              {subjects.length}
-            </Text>
-            <Text fontSize="sm" color={textColorSecondary} mt={2}>
-              Across {Array.from(new Set(subjects.map(s => s.department))).length} departments
-            </Text>
-          </Flex>
-        </Card>
-        
-        <Card>
-          <Flex direction="column" h="100%" p={5}>
-            <Flex align="center" mb={3}>
-              <Icon as={MdAssignment} boxSize={6} color="green.500" mr={3} />
-              <Text fontSize="lg" fontWeight="medium">Subject Allocations</Text>
-            </Flex>
-            <Text fontSize="3xl" fontWeight="bold" color="green.500">
-              {teachers.reduce((sum, teacher) => sum + teacher.subjects.length, 0)}
-            </Text>
-            <Text fontSize="sm" color={textColorSecondary} mt={2}>
-              {(teachers.reduce((sum, teacher) => sum + teacher.subjects.length, 0) / teachers.length).toFixed(1)} subjects per teacher
-            </Text>
-          </Flex>
-        </Card>
-        
-        <Card>
-          <Flex direction="column" h="100%" p={5}>
-            <Flex align="center" mb={3}>
-              <Icon as={MdPersonAdd} boxSize={6} color="purple.500" mr={3} />
-              <Text fontSize="lg" fontWeight="medium">Teachers</Text>
-            </Flex>
-            <Text fontSize="3xl" fontWeight="bold" color="purple.500">
-              {teachers.length}
-            </Text>
-            <Text fontSize="sm" color={textColorSecondary} mt={2}>
-              Qualified to teach {subjects.length} subjects
-            </Text>
-          </Flex>
-        </Card>
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)' icon={<Icon as={MdBook} w='24px' h='24px' color='white' />} />}
+          name='Total Subjects'
+          value={String(subjects.length)}
+          growth={`Across ${Array.from(new Set(subjects.map(s => s.department))).length} departments`}
+          trendData={[subjects.length-2, subjects.length-1, subjects.length]}
+          trendColor='#4facfe'
+        />
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)' icon={<Icon as={MdAssignment} w='24px' h='24px' color='white' />} />}
+          name='Subject Allocations'
+          value={String(teachers.reduce((sum, teacher) => sum + teacher.subjects.length, 0))}
+          growth={`${(teachers.reduce((sum, teacher) => sum + teacher.subjects.length, 0) / teachers.length).toFixed(1)} per teacher`}
+          trendData={[1,2,3,4,5]}
+          trendColor='#43e97b'
+        />
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#a18cd1 0%,#fbc2eb 100%)' icon={<Icon as={MdPersonAdd} w='24px' h='24px' color='white' />} />}
+          name='Teachers'
+          value={String(teachers.length)}
+          growth={`Qualified for ${subjects.length} subjects`}
+          trendData={[teachers.length-1, teachers.length, teachers.length]}
+          trendColor='#a18cd1'
+        />
       </SimpleGrid>
       
       {/* Subject Allocation Table */}

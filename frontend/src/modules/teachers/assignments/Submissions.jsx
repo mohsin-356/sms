@@ -29,9 +29,12 @@ import {
   ModalBody,
   ModalFooter,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch, MdAssignment, MdPending, MdCheckCircle, MdEmojiEvents } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 import { mockAssignments } from '../../../utils/mockData';
 
 export default function Submissions() {
@@ -71,6 +74,14 @@ export default function Submissions() {
     colors: ['#3182CE'],
   }), [gridColor]);
 
+  const subjectDistribution = useMemo(() => {
+    const map = {};
+    filtered.forEach(a => { map[a.subject] = (map[a.subject] || 0) + 1; });
+    const labels = Object.keys(map);
+    const values = labels.map(l => map[l]);
+    return { labels, values };
+  }, [filtered]);
+
   const exportCSV = () => {
     const header = ['Title','Subject','Due Date','Status','Points'];
     const rows = filtered.map(a => [a.title, a.subject, a.dueDate, a.status, a.points || '']);
@@ -84,12 +95,42 @@ export default function Submissions() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Submissions</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Track assignment submissions</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 4 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total</Text><Text fontSize='3xl' fontWeight='800'>{kpis.total}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, pink.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Pending</Text><Text fontSize='3xl' fontWeight='800'>{kpis.pending}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Submitted</Text><Text fontSize='3xl' fontWeight='800'>{kpis.submitted}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Graded</Text><Text fontSize='3xl' fontWeight='800'>{kpis.graded}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdAssignment color='white' />} />}
+            name='Total'
+            value={String(kpis.total)}
+            trendData={[2,3,2,4,3,4]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdPending color='white' />} />}
+            name='Pending'
+            value={String(kpis.pending)}
+            trendData={[1,1,2,1,2,1]}
+            trendColor='#FD7853'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdCheckCircle color='white' />} />}
+            name='Submitted'
+            value={String(kpis.submitted)}
+            trendData={[1,2,2,3,2,3]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdEmojiEvents color='white' />} />}
+            name='Graded'
+            value={String(kpis.graded)}
+            trendData={[0,1,1,2,2,3]}
+            trendColor='#B721FF'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' justify='space-between' align='center'>
@@ -148,11 +189,20 @@ export default function Submissions() {
         </Box>
       </Card>
 
-      <Card p='16px'>
-        <Box>
-          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Status Counts</Text>
+            <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Subjects Distribution</Text>
+            <PieChart height={240} chartData={subjectDistribution.values} chartOptions={{ labels: subjectDistribution.labels, legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+      </SimpleGrid>
 
       <Modal isOpen={isOpen} onClose={onClose} size='md' isCentered>
         <ModalOverlay />

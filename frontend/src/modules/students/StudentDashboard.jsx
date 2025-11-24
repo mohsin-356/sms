@@ -32,59 +32,49 @@ export default function StudentDashboard() {
       </Flex>
 
       <Box mb='20px'>
-        <SimpleGrid columns={{ base: 2, md: 3, lg: 5 }} spacing='16px'>
-          <Box>
-            <MiniStatistics
-              compact
-              startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdClass} w='22px' h='22px' color='white' />} />}
-              name="Today's Classes"
-              value={String(stats.todaysClasses)}
-              trendData={[2,3,4,5,5]}
-              trendColor='#4481EB'
-            />
-          </Box>
-          <Box>
-            <MiniStatistics
-              compact
-              startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdCheckCircle} w='22px' h='22px' color='white' />} />}
-              name='Attendance %'
-              value={`${stats.attendance}%`}
-              trendData={[88,90,91,92,92]}
-              trendColor='#01B574'
-              trendFormatter={(v)=>`${v}%`}
-            />
-          </Box>
-          <Box>
-            <MiniStatistics
-              compact
-              startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<Icon as={MdAssignment} w='22px' h='22px' color='white' />} />}
-              name='Pending Assignments'
-              value={String(stats.pendingAssignments)}
-              trendData={[1,2,2,2,2]}
-              trendColor='#FD7853'
-            />
-          </Box>
-          <Box>
-            <MiniStatistics
-              compact
-              startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#667eea 0%,#764ba2 100%)' icon={<Icon as={MdOutlineEvent} w='22px' h='22px' color='white' />} />}
-              name='Upcoming Exams'
-              value={String(stats.upcomingExams)}
-              trendData={[0,1,1,1,1]}
-              trendColor='#667eea'
-            />
-          </Box>
-          <Box>
-            <MiniStatistics
-              compact
-              startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<Icon as={MdNotificationsActive} w='22px' h='22px' color='white' />} />}
-              name='Notifications'
-              value={String(stats.notifications)}
-              trendData={[1,2,2,3,3]}
-              trendColor='#f5576c'
-            />
-          </Box>
-        </SimpleGrid>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdClass} w='22px' h='22px' color='white' />} />}
+            name="Today's Classes"
+            value={String(stats.todaysClasses)}
+            trendData={[2,3,4,5,5]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdCheckCircle} w='22px' h='22px' color='white' />} />}
+            name='Attendance %'
+            value={`${stats.attendance}%`}
+            trendData={[88,90,91,92,92]}
+            trendColor='#01B574'
+            trendFormatter={(v)=>`${v}%`}
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<Icon as={MdAssignment} w='22px' h='22px' color='white' />} />}
+            name='Pending Assignments'
+            value={String(stats.pendingAssignments)}
+            trendData={[1,2,2,2,2]}
+            trendColor='#FD7853'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#667eea 0%,#764ba2 100%)' icon={<Icon as={MdOutlineEvent} w='22px' h='22px' color='white' />} />}
+            name='Upcoming Exams'
+            value={String(stats.upcomingExams)}
+            trendData={[0,1,1,1,1]}
+            trendColor='#667eea'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<Icon as={MdNotificationsActive} w='22px' h='22px' color='white' />} />}
+            name='Notifications'
+            value={String(stats.notifications)}
+            trendData={[1,2,2,3,3]}
+            trendColor='#f5576c'
+          />
+        </Flex>
       </Box>
 
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing='20px'>

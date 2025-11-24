@@ -19,9 +19,12 @@ import {
   useColorModeValue,
   IconButton,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdVisibility, MdEdit } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdTrendingUp, MdStar, MdSchedule } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 import { mockAttendanceStats, mockStudents } from '../../../utils/mockData';
 
 export default function MonthlyReport() {
@@ -50,6 +53,12 @@ export default function MonthlyReport() {
     { name: 'Present', data: presentSeries },
     { name: 'Absent', data: absentSeries },
   ]), [presentSeries, absentSeries]);
+
+  const totals = useMemo(() => {
+    const present = presentSeries.reduce((a,b)=>a+b,0);
+    const absent = absentSeries.reduce((a,b)=>a+b,0);
+    return { present, absent };
+  }, [presentSeries, absentSeries]);
 
   const kpis = useMemo(() => {
     const totalPresent = presentSeries.reduce((a,b)=>a+b,0);
@@ -89,26 +98,34 @@ export default function MonthlyReport() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Monthly Report</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Analyze attendance by month with per-student breakdown.</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Average %</Text>
-            <Text fontSize='3xl' fontWeight='800'>{kpis.avg}%</Text>
-          </VStack>
-        </Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Best Day</Text>
-            <Text fontSize='3xl' fontWeight='800'>{kpis.best}</Text>
-          </VStack>
-        </Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Sessions</Text>
-            <Text fontSize='3xl' fontWeight='800'>{kpis.sessions}</Text>
-          </VStack>
-        </Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdTrendingUp color='white' />} />}
+            name='Average %'
+            value={`${kpis.avg}%`}
+            trendData={[70,75,80,85,82,88]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdStar color='white' />} />}
+            name='Best Day'
+            value={kpis.best}
+            trendData={[1,2,1,3,2,3]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdSchedule color='white' />} />}
+            name='Sessions'
+            value={String(kpis.sessions)}
+            trendData={[2,3,3,4,4,5]}
+            trendColor='#B721FF'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' justify='space-between' align='center'>
@@ -138,11 +155,20 @@ export default function MonthlyReport() {
         </Flex>
       </Card>
 
-      <Card p='16px' mb='16px'>
-        <Box>
-          <BarChart chartData={chartData} chartOptions={chartOptions} height={360} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5} mb='16px'>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Daily Present vs Absent</Text>
+            <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Monthly Summary</Text>
+            <PieChart height={240} chartData={[totals.present, totals.absent]} chartOptions={{ labels:['Present','Absent'], legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+      </SimpleGrid>
 
       <Card p='0'>
         <Flex justify='space-between' align='center' p='12px' borderBottom='1px solid' borderColor='gray.100'>

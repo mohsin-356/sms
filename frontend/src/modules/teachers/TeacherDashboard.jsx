@@ -11,6 +11,7 @@ import BarChart from '../../components/charts/BarChart';
 export default function TeacherDashboard() {
   const textSecondary = useColorModeValue('gray.600', 'gray.400');
   const navigate = useNavigate();
+  const hoverShadow = useColorModeValue('lg', 'dark-lg');
 
   // Mock quick stats
   const stats = {
@@ -56,7 +57,12 @@ export default function TeacherDashboard() {
   };
 
   return (
-    <Box pt={{ base: '130px', md: '80px', xl: '80px' }} overflowX='hidden'>
+    <Box pt={{ base: '130px', md: '80px', xl: '80px' }} overflowX='hidden'
+      sx={{
+        '.responsive-card': { transition: 'transform .15s ease, box-shadow .15s ease' },
+        '.responsive-card:hover': { transform: 'translateY(-4px)', boxShadow: hoverShadow },
+      }}
+    >
       <Flex align='center' justify='space-between' mb='20px'>
         <Box>
           <Text fontSize='2xl' fontWeight='bold' mb='4px'>Teacher Dashboard</Text>

@@ -1,8 +1,11 @@
 import React, { useMemo } from 'react';
-import { Box, Text, SimpleGrid, VStack, HStack, Badge, Table, Thead, Tbody, Tr, Th, Td, Button, useColorModeValue, Icon } from '@chakra-ui/react';
-import { MdFileDownload, MdPrint } from 'react-icons/md';
+import { Box, Text, SimpleGrid, VStack, HStack, Badge, Table, Thead, Tbody, Tr, Th, Td, Button, useColorModeValue, Icon, Flex } from '@chakra-ui/react';
+import { MdFileDownload, MdPrint, MdCheckCircle, MdTrendingUp, MdAccessTime } from 'react-icons/md';
 import Card from '../../../components/card/Card';
 import BarChart from '../../../components/charts/BarChart';
+import LineChart from '../../../components/charts/LineChart';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import { mockStudents, mockAttendanceLogs } from '../../../utils/mockData';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -37,7 +40,10 @@ export default function DailyRecord() {
   const presentCount = last7.filter(d => d.status === 'Present').length;
 
   const chartData = useMemo(() => ([{ name: 'Present', data: last7.map(d => d.status === 'Present' ? 1 : 0) }]), [last7]);
-  const chartOptions = useMemo(() => ({ xaxis: { categories: last7.map(d => d.day) }, colors: ['#01B574'], dataLabels: { enabled: false }, yaxis: { max: 1 } }), [last7]);
+  const chartOptions = useMemo(() => ({ xaxis: { categories: last7.map(d => d.day) }, colors: ['#01B574'], dataLabels: { enabled: false }, yaxis: { max: 1 }, tooltip:{ enabled:true, y:{ formatter:(v)=> String(v) } } }), [last7]);
+
+  const lineData = useMemo(() => ([{ name: 'Presence Index', data: last7.map(d => d.status === 'Present' ? 1 : 0) }]), [last7]);
+  const lineOptions = useMemo(() => ({ xaxis: { categories: last7.map(d => d.day) }, colors: ['#3182CE'], dataLabels: { enabled: false }, stroke:{ curve:'smooth', width:3 }, tooltip:{ enabled:true, y:{ formatter:(v)=> String(v) } } }), [last7]);
 
   const exportCSV = () => {
     const header = ['Day','Status','Check-In','Check-Out'];
@@ -52,11 +58,34 @@ export default function DailyRecord() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Daily Attendance</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>{student.name} • Roll {student.rollNumber} • Class {student.class}{student.section}</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, teal.400, green.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Present (7d)</Text><Text fontSize='3xl' fontWeight='800'>{presentCount}/7</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Attendance %</Text><Text fontSize='3xl' fontWeight='800'>{Math.round((presentCount/7)*100)}%</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Today Logs</Text><Text fontSize='3xl' fontWeight='800'>{todayLogs.length}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdCheckCircle} w='22px' h='22px' color='white' />} />}
+            name='Present (7d)'
+            value={`${presentCount}/7`}
+            trendData={[5,6,6,7,presentCount]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#805AD5 0%,#D53F8C 100%)' icon={<Icon as={MdTrendingUp} w='22px' h='22px' color='white' />} />}
+            name='Attendance %'
+            value={`${Math.round((presentCount/7)*100)}%`}
+            trendData={[70,75,80,85,Math.round((presentCount/7)*100)]}
+            trendColor='#805AD5'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdAccessTime} w='22px' h='22px' color='white' />} />}
+            name='Today Logs'
+            value={String(todayLogs.length)}
+            trendData={[1,1,2,2,2]}
+            trendColor='#4481EB'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <HStack justify='space-between' mb='12px'>
@@ -81,10 +110,16 @@ export default function DailyRecord() {
         </Table>
       </Card>
 
-      <Card p='16px'>
-        <Text fontSize='md' fontWeight='bold' mb='8px'>Presence Trend (7 days)</Text>
-        <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-      </Card>
+      <SimpleGrid columns={{ base:1, lg:2 }} spacing='16px'>
+        <Card p='16px'>
+          <Text fontSize='md' fontWeight='bold' mb='8px'>Presence Trend (7 days)</Text>
+          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+        </Card>
+        <Card p='16px'>
+          <Text fontSize='md' fontWeight='bold' mb='8px'>Presence Line (7 days)</Text>
+          <LineChart chartData={lineData} chartOptions={lineOptions} height={220} />
+        </Card>
+      </SimpleGrid>
     </Box>
   );
 }

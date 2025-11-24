@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Text, SimpleGrid, VStack, HStack, Button, Icon, useColorModeValue, FormControl, FormLabel, Input, InputGroup, InputRightElement, Progress, useToast } from '@chakra-ui/react';
-import { MdSave, MdRefresh, MdVisibility, MdVisibilityOff, MdSecurity } from 'react-icons/md';
+import { Box, Text, SimpleGrid, VStack, HStack, Button, Icon, useColorModeValue, FormControl, FormLabel, Input, InputGroup, InputRightElement, Progress, useToast, Flex } from '@chakra-ui/react';
+import { MdSave, MdRefresh, MdVisibility, MdVisibilityOff, MdSecurity, MdListAlt, MdLightbulb } from 'react-icons/md';
 import Card from '../../../components/card/Card';
 import { mockStudents } from '../../../utils/mockData';
 import { useAuth } from '../../../contexts/AuthContext';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 
 function strengthScore(p){
   let s = 0; if (!p) return 0; if (p.length>=8) s++; if (/[A-Z]/.test(p)) s++; if (/[a-z]/.test(p)) s++; if (/[0-9]/.test(p)) s++; if (/[^A-Za-z0-9]/.test(p)) s++; return Math.min(s,5);
@@ -49,11 +51,34 @@ export default function Password(){
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Password</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>{student.name} • Roll {student.rollNumber} • Class {classSection}</Text>
 
-      <SimpleGrid columns={{ base:1, md:3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Security Level</Text><HStack><Icon as={MdSecurity} /><Text fontSize='xl' fontWeight='800'>{['Weak','Weak','Fair','Good','Strong','Strong'][score]}</Text></HStack></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Requirements</Text><Text>8+ chars, upper/lower, number, symbol</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Tip</Text><Text>Use a unique password not used elsewhere.</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#805AD5 0%,#D53F8C 100%)' icon={<Icon as={MdSecurity} w='22px' h='22px' color='white' />} />}
+            name='Security Level'
+            value={['Weak','Weak','Fair','Good','Strong','Strong'][score]}
+            trendData={[1,2,3,4,score]}
+            trendColor='#805AD5'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdListAlt} w='22px' h='22px' color='white' />} />}
+            name='Requirements'
+            value={'4 rules'}
+            trendData={[1,1,1,1,1]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdLightbulb} w='22px' h='22px' color='white' />} />}
+            name='Tip'
+            value={'Unique password'}
+            trendData={[1,1,1,1,1]}
+            trendColor='#01B574'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px'>
         <SimpleGrid columns={{ base:1, sm:2 }} spacing={4}>

@@ -32,6 +32,8 @@ import {
   StatHelpText,
 } from '@chakra-ui/react';
 import Card from 'components/card/Card.js';
+import MiniStatistics from 'components/card/MiniStatistics';
+import IconBox from 'components/icons/IconBox';
 import { SearchIcon, AddIcon, DownloadIcon, ViewIcon, EditIcon, DeleteIcon } from '@chakra-ui/icons';
 import { 
   MdMoreVert,
@@ -174,84 +176,44 @@ function TeacherList() {
         </Button>
       </Flex>
 
-      {/* Statistics Cards */}
+      {/* Statistics Cards - redesigned */}
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={6}>
-        <Card p={6}>
-            <Stat>
-              <Flex align="center" mb={2}>
-                <Box p={3} bg="blue.100" borderRadius="lg" mr={3}>
-                  <Icon as={MdPeople} boxSize={8} color="blue.500" />
-                </Box>
-                <StatLabel fontSize="md" fontWeight="600" color="gray.600">
-                  Total Teachers
-                </StatLabel>
-              </Flex>
-              <StatNumber fontSize="3xl" fontWeight="bold" color="gray.800">
-                {stats.total}
-              </StatNumber>
-              <StatHelpText color="green.500" fontSize="sm">
-                <Icon as={MdTrendingUp} mr={1} />
-                +2% from last month
-              </StatHelpText>
-            </Stat>
-        </Card>
-
-        <Card p={6}>
-            <Stat>
-              <Flex align="center" mb={2}>
-                <Box p={3} bg="green.100" borderRadius="lg" mr={3}>
-                  <Icon as={MdSchool} boxSize={8} color="green.500" />
-                </Box>
-                <StatLabel fontSize="md" fontWeight="600" color="gray.600">
-                  Active Teachers
-                </StatLabel>
-              </Flex>
-              <StatNumber fontSize="3xl" fontWeight="bold" color="gray.800">
-                {stats.active}
-              </StatNumber>
-              <StatHelpText color="green.500" fontSize="sm">
-                Currently teaching
-              </StatHelpText>
-            </Stat>
-        </Card>
-
-        <Card p={6}>
-            <Stat>
-              <Flex align="center" mb={2}>
-                <Box p={3} bg="orange.100" borderRadius="lg" mr={3}>
-                  <Icon as={MdPersonAdd} boxSize={8} color="orange.500" />
-                </Box>
-                <StatLabel fontSize="md" fontWeight="600" color="gray.600">
-                  On Leave
-                </StatLabel>
-              </Flex>
-              <StatNumber fontSize="3xl" fontWeight="bold" color="gray.800">
-                {stats.onLeave}
-              </StatNumber>
-              <StatHelpText color="orange.500" fontSize="sm">
-                Temporarily away
-              </StatHelpText>
-            </Stat>
-        </Card>
-
-        <Card p={6}>
-            <Stat>
-              <Flex align="center" mb={2}>
-                <Box p={3} bg="purple.100" borderRadius="lg" mr={3}>
-                  <Icon as={MdSchool} boxSize={8} color="purple.500" />
-                </Box>
-                <StatLabel fontSize="md" fontWeight="600" color="gray.600">
-                  Departments
-                </StatLabel>
-              </Flex>
-              <StatNumber fontSize="3xl" fontWeight="bold" color="gray.800">
-                {stats.departments}
-              </StatNumber>
-              <StatHelpText color="purple.500" fontSize="sm">
-                Academic departments
-              </StatHelpText>
-            </Stat>
-          </Card>
+        <MiniStatistics
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)' icon={<Icon as={MdPeople} w='24px' h='24px' color='white' />} />}
+          name='Total Teachers'
+          value={String(stats.total)}
+          growth='+2%'
+          trendData={[5,6,7,8,9,10]}
+          trendColor='#4facfe'
+          compact
+        />
+        <MiniStatistics
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)' icon={<Icon as={MdSchool} w='24px' h='24px' color='white' />} />}
+          name='Active Teachers'
+          value={String(stats.active)}
+          growth='+1%'
+          trendData={[2,3,4,4,5,6]}
+          trendColor='#43e97b'
+          compact
+        />
+        <MiniStatistics
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#f7971e 0%,#ffd200 100%)' icon={<Icon as={MdPersonAdd} w='24px' h='24px' color='white' />} />}
+          name='On Leave'
+          value={String(stats.onLeave)}
+          growth='+0%'
+          trendData={[1,1,1,2,2,stats.onLeave]}
+          trendColor='#f7971e'
+          compact
+        />
+        <MiniStatistics
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#a18cd1 0%,#fbc2eb 100%)' icon={<Icon as={MdSchool} w='24px' h='24px' color='white' />} />}
+          name='Departments'
+          value={String(stats.departments)}
+          growth='+0%'
+          trendData={[1,1,2,2,2,stats.departments]}
+          trendColor='#a18cd1'
+          compact
+        />
       </SimpleGrid>
 
       {/* Search and Filters */}

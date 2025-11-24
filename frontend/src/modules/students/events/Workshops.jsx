@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Text, SimpleGrid, VStack, HStack, Select, Input, Table, Thead, Tbody, Tr, Th, Td, Badge, Button, Icon, useColorModeValue, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure } from '@chakra-ui/react';
-import { MdSchool, MdFileDownload, MdPrint, MdVisibility, MdCheckCircle } from 'react-icons/md';
+import { Box, Text, SimpleGrid, VStack, HStack, Select, Input, Table, Thead, Tbody, Tr, Th, Td, Badge, Button, Icon, useColorModeValue, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useDisclosure, Flex } from '@chakra-ui/react';
+import { MdSchool, MdFileDownload, MdPrint, MdVisibility, MdCheckCircle, MdAccessTime } from 'react-icons/md';
 import Card from '../../../components/card/Card';
 import BarChart from '../../../components/charts/BarChart';
+import LineChart from '../../../components/charts/LineChart';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import { mockStudents, mockTeachers } from '../../../utils/mockData';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -52,7 +55,7 @@ export default function Workshops(){
 
   const chartLevels = ['Beginner','Intermediate','Advanced'];
   const chartData = useMemo(()=> ([{ name:'Workshops', data: chartLevels.map(l => items.filter(i=>i.level===l).length) }]), [items]);
-  const chartOptions = useMemo(()=> ({ xaxis:{ categories: chartLevels }, colors:['#805AD5'], dataLabels:{ enabled:false } }), []);
+  const chartOptions = useMemo(()=> ({ xaxis:{ categories: chartLevels }, colors:['#805AD5'], dataLabels:{ enabled:false }, tooltip:{ enabled:true } }), []);
 
   const toggleReg = (id)=> setItems(prev => prev.map(i => i.id===id ? { ...i, registered: !i.registered } : i));
   const exportCsv = ()=>{
@@ -66,11 +69,34 @@ export default function Workshops(){
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Workshops</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>{student.name} • Roll {student.rollNumber} • Class {classSection}</Text>
 
-      <SimpleGrid columns={{ base:1, md:3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total</Text><Text fontSize='3xl' fontWeight='800'>{kpis.total}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Registered</Text><Text fontSize='3xl' fontWeight='800'>{kpis.registered}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total Hours</Text><Text fontSize='3xl' fontWeight='800'>{kpis.hours}h</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#805AD5 0%,#D53F8C 100%)' icon={<Icon as={MdSchool} w='22px' h='22px' color='white' />} />}
+            name='Total'
+            value={String(kpis.total)}
+            trendData={[1,2,2,3,kpis.total]}
+            trendColor='#805AD5'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdCheckCircle} w='22px' h='22px' color='white' />} />}
+            name='Registered'
+            value={String(kpis.registered)}
+            trendData={[0,1,1,2,kpis.registered]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdAccessTime} w='22px' h='22px' color='white' />} />}
+            name='Total Hours'
+            value={`${kpis.hours}h`}
+            trendData={[1,2,2,3,kpis.hours]}
+            trendColor='#4481EB'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <HStack spacing={3} flexWrap='wrap' rowGap={3}>
@@ -117,10 +143,16 @@ export default function Workshops(){
         </Table>
       </Card>
 
-      <Card p='16px'>
-        <Text fontSize='md' fontWeight='bold' mb='8px'>Workshops by Level</Text>
-        <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-      </Card>
+      <SimpleGrid columns={{ base:1, lg:2 }} spacing='16px'>
+        <Card p='16px'>
+          <Text fontSize='md' fontWeight='bold' mb='8px'>Workshops by Level</Text>
+          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+        </Card>
+        <Card p='16px'>
+          <Text fontSize='md' fontWeight='bold' mb='8px'>Level Trend (Line)</Text>
+          <LineChart chartData={chartData} chartOptions={{ ...chartOptions, colors:['#01B574'], stroke:{ curve:'smooth', width:3 } }} height={220} />
+        </Card>
+      </SimpleGrid>
 
       <Modal isOpen={isOpen} onClose={onClose} isCentered>
         <ModalOverlay />

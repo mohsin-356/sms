@@ -28,9 +28,12 @@ import {
   ModalBody,
   ModalFooter,
 } from '@chakra-ui/react';
-import { MdSearch, MdRefresh, MdFileDownload, MdVisibility, MdEdit } from 'react-icons/md';
+import { MdSearch, MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdTrendingUp, MdStar, MdArrowDownward } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import LineChart from '../../../components/charts/LineChart';
+import PieChart from '../../../components/charts/PieChart';
 import { mockAttendanceStats } from '../../../utils/mockData';
 
 export default function AttendanceHistory() {
@@ -57,6 +60,12 @@ export default function AttendanceHistory() {
   }), [gridColor]);
 
   const chartData = useMemo(() => [{ name: 'Attendance %', data: mockAttendanceStats.map(x => x.percentage) }], []);
+
+  const totals = useMemo(() => {
+    const present = mockAttendanceStats.reduce((a,b)=> a + b.present, 0);
+    const absent = mockAttendanceStats.reduce((a,b)=> a + b.absent, 0);
+    return { present, absent };
+  }, []);
 
   const records = useMemo(() => mockAttendanceStats.map((x, i) => ({
     id: i+1,
@@ -90,32 +99,34 @@ export default function AttendanceHistory() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Attendance History</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Review historical attendance trends and logs.</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Average</Text>
-            <Text fontSize='3xl' fontWeight='800'>
-              {Math.round(mockAttendanceStats.reduce((a,b)=>a+b.percentage,0)/mockAttendanceStats.length)}%
-            </Text>
-          </VStack>
-        </Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Best Day</Text>
-            <Text fontSize='3xl' fontWeight='800'>
-              {mockAttendanceStats.reduce((p,c)=> c.percentage>p.percentage?c:p).day}
-            </Text>
-          </VStack>
-        </Card>
-        <Card p='20px' bgGradient='linear(to-r, red.400, pink.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Lowest</Text>
-            <Text fontSize='3xl' fontWeight='800'>
-              {mockAttendanceStats.reduce((p,c)=> c.percentage<p.percentage?c:p).day}
-            </Text>
-          </VStack>
-        </Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdTrendingUp color='white' />} />}
+            name='Average'
+            value={`${Math.round(mockAttendanceStats.reduce((a,b)=>a+b.percentage,0)/mockAttendanceStats.length)}%`}
+            trendData={[70,75,80,85,82,88]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdStar color='white' />} />}
+            name='Best Day'
+            value={mockAttendanceStats.reduce((p,c)=> c.percentage>p.percentage?c:p).day}
+            trendData={[1,2,1,3,2,3]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FF6A88 0%,#FF99AC 100%)' icon={<MdArrowDownward color='white' />} />}
+            name='Lowest'
+            value={mockAttendanceStats.reduce((p,c)=> c.percentage<p.percentage?c:p).day}
+            trendData={[3,2,2,1,2,1]}
+            trendColor='#FF6A88'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' justify='space-between' align='center'>
@@ -143,11 +154,20 @@ export default function AttendanceHistory() {
         </Flex>
       </Card>
 
-      <Card p='16px' mb='16px'>
-        <Box>
-          <LineChart chartData={chartData} chartOptions={chartOptions} height={360} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5} mb='16px'>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Attendance Trend</Text>
+            <LineChart chartData={chartData} chartOptions={chartOptions} height={220} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Present vs Absent</Text>
+            <PieChart height={240} chartData={[totals.present, totals.absent]} chartOptions={{ labels: ['Present','Absent'], legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+      </SimpleGrid>
 
       <Card p='0'>
         <Flex justify='space-between' align='center' p='12px' borderBottom='1px solid' borderColor='gray.100'>

@@ -29,9 +29,12 @@ import {
   ModalBody,
   ModalFooter,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch, MdReport, MdAccessTime, MdTimer } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 import { mockAssignments } from '../../../utils/mockData';
 
 // Derive late submissions from mock data by marking 'pending' past due
@@ -81,6 +84,14 @@ export default function LateReport() {
     grid: { borderColor: gridColor },
   }), [filtered, gridColor]);
 
+  const subjectDistribution = useMemo(() => {
+    const map = {};
+    filtered.forEach(r => { map[r.subject] = (map[r.subject] || 0) + 1; });
+    const labels = Object.keys(map);
+    const values = labels.map(l => map[l]);
+    return { labels, values };
+  }, [filtered]);
+
   const exportCSV = () => {
     const header = ['Title','Subject','Due Date','Days Late'];
     const data = filtered.map(r => [r.title, r.subject, r.dueDate, r.daysLate]);
@@ -94,11 +105,34 @@ export default function LateReport() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Late Report</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Monitor late submissions</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, red.400, pink.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total Late</Text><Text fontSize='3xl' fontWeight='800'>{kpis.totalLate}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, yellow.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Max Days Late</Text><Text fontSize='3xl' fontWeight='800'>{kpis.maxDaysLate}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Avg Days Late</Text><Text fontSize='3xl' fontWeight='800'>{kpis.avgDaysLate}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<MdReport color='white' />} />}
+            name='Total Late'
+            value={String(kpis.totalLate)}
+            trendData={[1,2,2,3,3,4]}
+            trendColor='#f5576c'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdAccessTime color='white' />} />}
+            name='Max Days Late'
+            value={String(kpis.maxDaysLate)}
+            trendData={[1,1,2,2,3,3]}
+            trendColor='#FD7853'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdTimer color='white' />} />}
+            name='Avg Days Late'
+            value={String(kpis.avgDaysLate)}
+            trendData={[1,1,1,1,1,1]}
+            trendColor='#4481EB'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' justify='space-between' align='center'>
@@ -150,12 +184,20 @@ export default function LateReport() {
         </Box>
       </Card>
 
-      {/* Small chart at the end */}
-      <Card p='16px'>
-        <Box>
-          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Days Late by Assignment</Text>
+            <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Subjects Distribution</Text>
+            <PieChart height={240} chartData={subjectDistribution.values} chartOptions={{ labels: subjectDistribution.labels, legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+      </SimpleGrid>
 
       <Modal isOpen={isOpen} onClose={onClose} size='md' isCentered>
         <ModalOverlay />

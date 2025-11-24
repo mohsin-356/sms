@@ -20,9 +20,12 @@ import {
   Badge,
   useColorModeValue,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdPrint, MdSearch } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdPrint, MdSearch, MdSavings, MdDateRange, MdAttachMoney } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 
 const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -63,6 +66,14 @@ export default function SalaryHistory() {
   const chartData = useMemo(() => ([{ name: 'Net Pay', data: filtered.slice(0, 6).map(r => r.net).reverse() }]), [filtered]);
   const chartOptions = useMemo(() => ({ xaxis: { categories: filtered.slice(0, 6).map(r => `${r.month} ${r.year}`).reverse() }, colors: ['#2F855A'] }), [filtered]);
 
+  const statusDistribution = useMemo(() => {
+    const map = { Paid: 0, Unpaid: 0 };
+    filtered.forEach(r => { map[r.status] = (map[r.status] || 0) + 1; });
+    const labels = Object.keys(map);
+    const values = labels.map(l => map[l]);
+    return { labels, values };
+  }, [filtered]);
+
   const exportCSV = () => {
     const header = ['Month','Year','Gross','Deductions','Net','Status','Paid On'];
     const rows = filtered.map(r => [r.month, r.year, r.gross, r.deductions, r.net, r.status, r.paidOn]);
@@ -76,11 +87,13 @@ export default function SalaryHistory() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Salary History</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>View previous payslips and download</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total Paid</Text><Text fontSize='3xl' fontWeight='800'>₹{kpis.totalPaid.toLocaleString()}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Months</Text><Text fontSize='3xl' fontWeight='800'>{kpis.months}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Average</Text><Text fontSize='3xl' fontWeight='800'>₹{kpis.avg.toLocaleString()}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdSavings color='white' />} />} name='Total Paid' value={`₹${kpis.totalPaid.toLocaleString()}`} trendData={[80,90,85,95,100,110]} trendColor='#01B574' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdDateRange color='white' />} />} name='Months' value={String(kpis.months)} trendData={[1,2,3,4,5,6]} trendColor='#4481EB' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdAttachMoney color='white' />} />} name='Average' value={`₹${kpis.avg.toLocaleString()}`} trendData={[70,75,80,78,82,85]} trendColor='#B721FF' />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' justify='space-between' align='center'>
@@ -136,9 +149,16 @@ export default function SalaryHistory() {
         </Box>
       </Card>
 
-      <Card p='16px'>
-        <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Net Pay (Last 6)</Text>
+          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+        </Card>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Status Distribution</Text>
+          <PieChart height={240} chartData={statusDistribution.values} chartOptions={{ labels: statusDistribution.labels, legend:{ position:'right' } }} />
+        </Card>
+      </SimpleGrid>
     </Box>
   );
 }

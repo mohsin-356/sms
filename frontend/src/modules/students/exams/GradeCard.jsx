@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
-import { Box, Text, VStack, HStack, SimpleGrid, Table, Thead, Tbody, Tr, Th, Td, Badge, Button, Icon, useColorModeValue } from '@chakra-ui/react';
-import { MdFileDownload, MdPrint } from 'react-icons/md';
+import { Box, Text, VStack, HStack, SimpleGrid, Table, Thead, Tbody, Tr, Th, Td, Badge, Button, Icon, useColorModeValue, Flex } from '@chakra-ui/react';
+import { MdFileDownload, MdPrint, MdAssessment, MdPercent, MdStar } from 'react-icons/md';
 import Card from '../../../components/card/Card';
 import BarChart from '../../../components/charts/BarChart';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import { mockStudents, mockExamResults } from '../../../utils/mockData';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -49,12 +51,42 @@ export default function GradeCard(){
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Grade Card • {latest.exam}</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>{student.name} • Roll {student.rollNumber} • Class {student.class}{student.section}</Text>
 
-      <SimpleGrid columns={{ base:1, md:4 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total</Text><Text fontSize='3xl' fontWeight='800'>{totals.totalScore}/{totals.totalPossible}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, teal.400, green.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Percentage</Text><Text fontSize='3xl' fontWeight='800'>{totals.percent}%</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Grade</Text><Text fontSize='3xl' fontWeight='800'>{totals.grade}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, yellow.400, orange.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Best Subject</Text><Text fontSize='lg' fontWeight='800'>{totals.best?.name || '-'}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdAssessment} w='22px' h='22px' color='white' />} />}
+            name='Total'
+            value={`${totals.totalScore}/${totals.totalPossible}`}
+            trendData={[0,0,totals.totalScore,totals.totalPossible,totals.totalScore]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdPercent} w='22px' h='22px' color='white' />} />}
+            name='Percentage'
+            value={`${totals.percent}%`}
+            trendData={[60,70,80,85,totals.percent]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#805AD5 0%,#D53F8C 100%)' icon={<Text as='span' fontWeight='bold' color='white'>A</Text>} />}
+            name='Grade'
+            value={String(totals.grade)}
+            trendData={[1,1,1,1,1]}
+            trendColor='#805AD5'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<Icon as={MdStar} w='22px' h='22px' color='white' />} />}
+            name='Best Subject'
+            value={String(totals.best?.name || '-')}
+            trendData={[1,1,2,2,2]}
+            trendColor='#FD7853'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <HStack justify='space-between' flexWrap='wrap' rowGap={3}>

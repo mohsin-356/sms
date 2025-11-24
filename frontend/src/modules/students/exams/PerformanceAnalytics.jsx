@@ -1,8 +1,11 @@
 import React, { useMemo } from 'react';
-import { Box, Text, SimpleGrid, VStack, HStack, Table, Thead, Tbody, Tr, Th, Td, Badge, useColorModeValue } from '@chakra-ui/react';
+import { Box, Text, SimpleGrid, VStack, HStack, Table, Thead, Tbody, Tr, Th, Td, Badge, useColorModeValue, Flex, Icon } from '@chakra-ui/react';
 import Card from '../../../components/card/Card';
 import LineChart from '../../../components/charts/LineChart';
 import BarChart from '../../../components/charts/BarChart';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
+import { MdTrendingUp, MdTimeline, MdStar, MdArrowDownward } from 'react-icons/md';
 import { mockStudents, mockExamResults } from '../../../utils/mockData';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -65,12 +68,42 @@ export default function PerformanceAnalytics(){
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Performance Analytics</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>{student.name} • Roll {student.rollNumber} • Class {student.class}{student.section}</Text>
 
-      <SimpleGrid columns={{ base:1, md:4 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, teal.400, green.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Average %</Text><Text fontSize='3xl' fontWeight='800'>{averagePercent}%</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Predicted Next %</Text><Text fontSize='3xl' fontWeight='800'>{predictedNext}%</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Best Subject</Text><Text fontSize='lg' fontWeight='800'>{bestSubject}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, red.400, orange.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Weakest Subject</Text><Text fontSize='lg' fontWeight='800'>{weakSubject}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdTrendingUp} w='22px' h='22px' color='white' />} />}
+            name='Average %'
+            value={`${averagePercent}%`}
+            trendData={[60,70,75,80,averagePercent]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdTimeline} w='22px' h='22px' color='white' />} />}
+            name='Predicted Next %'
+            value={`${predictedNext}%`}
+            trendData={[65,72,78,82,predictedNext]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<Icon as={MdStar} w='22px' h='22px' color='white' />} />}
+            name='Best Subject'
+            value={bestSubject}
+            trendData={[1,1,2,2,2]}
+            trendColor='#FD7853'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<Icon as={MdArrowDownward} w='22px' h='22px' color='white' />} />}
+            name='Weakest Subject'
+            value={weakSubject}
+            trendData={[2,2,1,1,1]}
+            trendColor='#f5576c'
+          />
+        </Flex>
+      </Box>
 
       <SimpleGrid columns={{ base:1, lg:2 }} spacing='16px' mb='16px'>
         <Card p='16px'>

@@ -26,9 +26,12 @@ import {
   ModalBody,
   ModalFooter,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdPrint } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdPrint, MdClass, MdAlarm, MdBook } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 import { useAuth } from '../../../contexts/AuthContext';
 
 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -230,6 +233,12 @@ export default function WeeklyTimetable() {
   const chartData = useMemo(() => ([{ name: 'Lessons', data: days.map(d => periods.reduce((s,p)=> s + (filteredWeek[d][p]?.length || 0), 0)) }]), [filteredWeek]);
   const chartOptions = useMemo(() => ({ xaxis: { categories: days }, colors: ['#805AD5'] }), []);
 
+  const totals = useMemo(() => {
+    const lessons = days.reduce((s,d)=> s + periods.reduce((t,p)=> t + (filteredWeek[d][p]?.length || 0), 0), 0);
+    const breaks = days.reduce((s,d)=> s + Array.from(breakTimesByDay[d] || []).length, 0);
+    return { lessons, breaks };
+  }, [filteredWeek, breakTimesByDay]);
+
   const onCellClick = (cell) => {
     // Also set selectedDate based on weekStart + day index so the mini table reflects that day
     const start = new Date(weekStart);
@@ -283,11 +292,34 @@ export default function WeeklyTimetable() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Weekly Timetable</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Overview of periods across the week</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total Periods</Text><Text fontSize='3xl' fontWeight='800'>{kpis.total}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, yellow.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Breaks</Text><Text fontSize='3xl' fontWeight='800'>{kpis.breaks}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, teal.400, green.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Unique Subjects</Text><Text fontSize='3xl' fontWeight='800'>{kpis.subjects}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdClass color='white' />} />}
+            name='Total Periods'
+            value={String(kpis.total)}
+            trendData={[3,4,4,5,4,6]}
+            trendColor='#B721FF'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdAlarm color='white' />} />}
+            name='Breaks'
+            value={String(kpis.breaks)}
+            trendData={[1,1,1,2,1,2]}
+            trendColor='#FD7853'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdBook color='white' />} />}
+            name='Unique Subjects'
+            value={String(kpis.subjects)}
+            trendData={[2,2,3,3,4,4]}
+            trendColor='#01B574'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' align='center' justify='space-between'>
@@ -398,11 +430,20 @@ export default function WeeklyTimetable() {
         </Table>
       </Card>
 
-      <Card p='16px'>
-        <Box>
-          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Lessons per Day</Text>
+            <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Lessons vs Breaks (Week)</Text>
+            <PieChart height={240} chartData={[totals.lessons, totals.breaks]} chartOptions={{ labels:['Lessons','Breaks'], legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+      </SimpleGrid>
 
       <Modal isOpen={isOpen} onClose={onClose} isCentered size='md'>
         <ModalOverlay />

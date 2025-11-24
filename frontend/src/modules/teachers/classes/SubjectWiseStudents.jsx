@@ -1,21 +1,25 @@
 import React, { useMemo, useState } from 'react';
 import { Box, Text, useColorModeValue, Flex, HStack, Select, Input, SimpleGrid, Badge, Avatar, VStack, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, Button, Divider, Tooltip } from '@chakra-ui/react';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
+import { MdSubject, MdPeople, MdLabel } from 'react-icons/md';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 
 const sampleData = [
-  { subject: 'Mathematics', students: [
-    { id: 'STU001', name: 'Alice Johnson', className: '7', section: 'A' },
-    { id: 'STU002', name: 'Bob Smith', className: '7', section: 'B' },
-    { id: 'STU003', name: 'Charlie Brown', className: '8', section: 'A' },
+  { subject: 'Algebra', students: [
+    { id: 'STU101', name: 'Mahnoor Khan', className: '7', section: 'A' },
+    { id: 'STU102', name: 'Ali Raza', className: '7', section: 'B' },
+    { id: 'STU103', name: 'Hassan Javed', className: '8', section: 'A' },
   ]},
-  { subject: 'Science', students: [
-    { id: 'STU004', name: 'Diana Prince', className: '8', section: 'B' },
-    { id: 'STU005', name: 'Eva Martinez', className: '7', section: 'A' },
+  { subject: 'Physics', students: [
+    { id: 'STU104', name: 'Ayesha Tariq', className: '8', section: 'B' },
+    { id: 'STU105', name: 'Usman Akbar', className: '7', section: 'A' },
   ]},
   { subject: 'English', students: [
-    { id: 'STU006', name: 'Farhan Ali', className: '9', section: 'A' },
-    { id: 'STU007', name: 'Ghulam Raza', className: '9', section: 'B' },
+    { id: 'STU106', name: 'Hamza Khan', className: '9', section: 'A' },
+    { id: 'STU107', name: 'Sara Ahmed', className: '9', section: 'B' },
   ]},
 ];
 
@@ -24,6 +28,7 @@ export default function SubjectWiseStudents() {
   const headerBg = useColorModeValue('white', 'gray.800');
   const hoverBg = useColorModeValue('gray.50', 'whiteAlpha.100');
   const gridColor = useColorModeValue('#EDF2F7','#2D3748');
+  const hoverShadow = useColorModeValue('lg', 'dark-lg');
   const [q, setQ] = useState('');
   const [grade, setGrade] = useState('');
   const [subject, setSubject] = useState('');
@@ -61,31 +66,54 @@ export default function SubjectWiseStudents() {
     colors: ['#3182CE']
   }), [filtered, gridColor]);
 
+  const classDistribution = useMemo(() => {
+    const map = {};
+    filtered.forEach(group => {
+      group.students.forEach(st => {
+        const key = `${st.className}-${st.section}`;
+        map[key] = (map[key] || 0) + 1;
+      });
+    });
+    const labels = Object.keys(map);
+    const values = labels.map(l => map[l]);
+    return { labels, values };
+  }, [filtered]);
+
   return (
-    <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+    <Box pt={{ base: '130px', md: '80px', xl: '80px' }}
+      sx={{ '.responsive-card': { transition: 'transform .15s ease, box-shadow .15s ease' }, '.responsive-card:hover': { transform: 'translateY(-4px)', boxShadow: hoverShadow } }}
+    >
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Subject-wise Students</Text>
       <Text fontSize='md' color={textSecondary} mb='18px'>Students grouped by subject</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Subjects</Text>
-            <Text fontSize='3xl' fontWeight='800'>{stats.subjectCount}</Text>
-          </VStack>
-        </Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Total Students</Text>
-            <Text fontSize='3xl' fontWeight='800'>{stats.totalStudents}</Text>
-          </VStack>
-        </Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white' boxShadow='md' display={{ base: 'none', lg: 'block' }}>
-          <VStack align='start' spacing={1}>
-            <Text fontSize='sm' opacity={0.9}>Selected Subject</Text>
-            <Text fontSize='3xl' fontWeight='800'>{subject || 'All'}</Text>
-          </VStack>
-        </Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdSubject color='white' />} />}
+            name='Subjects'
+            value={String(stats.subjectCount)}
+            trendData={[1,1,2,2,3,3]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdPeople color='white' />} />}
+            name='Total Students'
+            value={String(stats.totalStudents)}
+            trendData={[20,22,24,26,28,30]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdLabel color='white' />} />}
+            name='Selected Subject'
+            value={String(subject || 'All')}
+            trendData={[1,1,1,1,1,1]}
+            trendColor='#B721FF'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap'>
@@ -103,11 +131,20 @@ export default function SubjectWiseStudents() {
         </Flex>
       </Card>
 
-      <Card p='16px' mb='16px'>
-        <Box>
-          <BarChart chartData={chartData} chartOptions={chartOptions} height={320} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={5} mb='16px'>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Students by Subject</Text>
+            <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Class-Section Distribution</Text>
+            <PieChart height={240} chartData={classDistribution.values} chartOptions={{ labels: classDistribution.labels, legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+      </SimpleGrid>
 
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing='16px'>
         {filtered.map(group => (

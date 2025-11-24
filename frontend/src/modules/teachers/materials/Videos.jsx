@@ -22,9 +22,12 @@ import {
   Icon,
   useToast,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch, MdUpload, MdPlayCircle } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdVisibility, MdEdit, MdSearch, MdUpload, MdPlayCircle, MdVideoLibrary, MdPublishedWithChanges, MdVisibility as MdViews, MdClass } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 
 const sampleVideos = [
   { id: 1, title: 'Quadratic Equations', subject: 'Mathematics', cls: '10', section: 'A', duration: '12:45', status: 'Published', uploaded: '2024-03-06', views: 120 },
@@ -62,6 +65,14 @@ export default function Videos() {
   const chartData = useMemo(() => ([{ name: 'Videos', data: Object.values(bySubject) }]), [bySubject]);
   const chartOptions = useMemo(() => ({ xaxis: { categories: Object.keys(bySubject) }, colors: ['#D53F8C'], dataLabels: { enabled: false } }), [bySubject]);
 
+  const statusDistribution = useMemo(() => {
+    const map = {};
+    filtered.forEach(v => { map[v.status] = (map[v.status] || 0) + 1; });
+    const labels = Object.keys(map);
+    const values = labels.map(l => map[l]);
+    return { labels, values };
+  }, [filtered]);
+
   const exportCSV = () => {
     const header = ['Title','Subject','Class','Section','Duration','Status','Uploaded','Views'];
     const rows = filtered.map(v => [v.title, v.subject, v.cls, v.section, v.duration, v.status, v.uploaded, v.views]);
@@ -84,12 +95,14 @@ export default function Videos() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Videos</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Upload and manage lesson videos</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3, lg: 4 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total Videos</Text><Text fontSize='3xl' fontWeight='800'>{kpis.total}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, green.400, teal.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Published</Text><Text fontSize='3xl' fontWeight='800'>{kpis.published}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, yellow.400)' color='white' boxShadow='md'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Total Views</Text><Text fontSize='3xl' fontWeight='800'>{kpis.views}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white' boxShadow='md' display={{ base: 'none', lg: 'block' }}><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Active Classes</Text><Text fontSize='3xl' fontWeight='800'>{new Set(filtered.map(v=>v.cls+v.section)).size}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdVideoLibrary color='white' />} />} name='Total Videos' value={String(kpis.total)} trendData={[2,3,3,4,4,5]} trendColor='#B721FF' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdPublishedWithChanges color='white' />} />} name='Published' value={String(kpis.published)} trendData={[1,2,2,3,3,3]} trendColor='#01B574' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdPlayCircle color='white' />} />} name='Total Views' value={String(kpis.views)} trendData={[10,20,30,25,40,50]} trendColor='#FD7853' />
+          <MiniStatistics compact startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdClass color='white' />} />} name='Active Classes' value={String(new Set(filtered.map(v=>v.cls+v.section)).size)} trendData={[1,1,2,2,2,3]} trendColor='#4481EB' />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='12px'>
@@ -175,11 +188,20 @@ export default function Videos() {
         </Box>
       </Card>
 
-      <Card p='16px'>
-        <Box>
-          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Videos by Subject</Text>
+            <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Status Distribution</Text>
+            <PieChart height={240} chartData={statusDistribution.values} chartOptions={{ labels: statusDistribution.labels, legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+      </SimpleGrid>
     </Box>
   );
 }

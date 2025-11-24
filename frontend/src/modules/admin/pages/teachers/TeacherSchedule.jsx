@@ -22,6 +22,8 @@ import {
   Avatar,
 } from '@chakra-ui/react';
 import Card from 'components/card/Card.js';
+import MiniStatistics from 'components/card/MiniStatistics';
+import IconBox from 'components/icons/IconBox';
 import { 
   MdSchedule,
   MdPerson,
@@ -188,55 +190,35 @@ const TeacherSchedule = () => {
         </Button>
       </Flex>
       
-      {/* Stats Cards */}
+      {/* Stats Cards - redesigned */}
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={5} mb={5}>
-        <Card>
-          <Flex direction="column" h="100%" p={5}>
-            <Flex align="center" mb={3}>
-              <Icon as={MdSchedule} boxSize={6} color="blue.500" mr={3} />
-              <Text fontSize="lg" fontWeight="medium">Total Classes</Text>
-            </Flex>
-            <Text fontSize="3xl" fontWeight="bold" color="blue.500">
-              {totalClasses}
-            </Text>
-            <Text fontSize="sm" color={textColorSecondary} mt={2}>
-              Across all teachers
-            </Text>
-          </Flex>
-        </Card>
-        
-        <Card>
-          <Flex direction="column" h="100%" p={5}>
-            <Flex align="center" mb={3}>
-              <Icon as={MdToday} boxSize={6} color="green.500" mr={3} />
-              <Text fontSize="lg" fontWeight="medium">Busiest Day</Text>
-            </Flex>
-            <Text fontSize="3xl" fontWeight="bold" color="green.500">
-              {classesPerDay.sort((a, b) => b.count - a.count)[0].day}
-            </Text>
-            <Text fontSize="sm" color={textColorSecondary} mt={2}>
-              {classesPerDay.sort((a, b) => b.count - a.count)[0].count} classes scheduled
-            </Text>
-          </Flex>
-        </Card>
-        
-        <Card>
-          <Flex direction="column" h="100%" p={5}>
-            <Flex align="center" mb={3}>
-              <Icon as={MdSupervisorAccount} boxSize={6} color="purple.500" mr={3} />
-              <Text fontSize="lg" fontWeight="medium">Most Classes</Text>
-            </Flex>
-            <HStack>
-              <Avatar size="sm" src={busyTeacher.photo} name={busyTeacher.name} />
-              <Text fontSize="md" fontWeight="bold" color="purple.500">
-                {busyTeacher.name}
-              </Text>
-            </HStack>
-            <Text fontSize="sm" color={textColorSecondary} mt={2}>
-              {busyTeacher.classes} classes per week
-            </Text>
-          </Flex>
-        </Card>
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)' icon={<Icon as={MdSchedule} w='24px' h='24px' color='white' />} />}
+          name='Total Classes'
+          value={String(totalClasses)}
+          growth='Across all teachers'
+          trendData={[totalClasses-5,totalClasses-2,totalClasses]}
+          trendColor='#4facfe'
+        />
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)' icon={<Icon as={MdToday} w='24px' h='24px' color='white' />} />}
+          name='Busiest Day'
+          value={classesPerDay.sort((a, b) => b.count - a.count)[0].day}
+          growth={`${classesPerDay.sort((a, b) => b.count - a.count)[0].count} classes scheduled`}
+          trendData={classesPerDay.map(x=>x.count)}
+          trendColor='#43e97b'
+        />
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#a18cd1 0%,#fbc2eb 100%)' icon={<Icon as={MdSupervisorAccount} w='24px' h='24px' color='white' />} />}
+          name='Most Classes'
+          value={busyTeacher.name}
+          growth={`${busyTeacher.classes} classes/week`}
+          trendData={[busyTeacher.classes-2,busyTeacher.classes-1,busyTeacher.classes]}
+          trendColor='#a18cd1'
+        />
       </SimpleGrid>
       
       {/* Filters */}

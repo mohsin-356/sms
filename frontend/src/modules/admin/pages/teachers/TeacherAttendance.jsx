@@ -26,6 +26,8 @@ import {
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import { MdCalendarToday, MdCheckCircle, MdCancel, MdAccessTime } from 'react-icons/md';
 import Card from 'components/card/Card.js';
+import MiniStatistics from 'components/card/MiniStatistics';
+import IconBox from 'components/icons/IconBox';
 
 const TeacherAttendance = () => {
   // Date state
@@ -206,67 +208,44 @@ const TeacherAttendance = () => {
         </Flex>
       </Card>
       
-      {/* Stats Cards */}
+      {/* Stats Cards - redesigned */}
       <SimpleGrid columns={{ base: 1, md: 4 }} spacing={5} mb={5}>
-        <Card>
-          <Flex direction="column" h="100%" p={4}>
-            <Flex align="center" mb={2}>
-              <Icon as={MdCalendarToday} boxSize={8} color="blue.500" mr={2} />
-              <Text fontSize="xl" fontWeight="600">Total</Text>
-            </Flex>
-            <Text fontSize="3xl" fontWeight="bold" color="blue.500">
-              {stats.total}
-            </Text>
-            <Text fontSize="sm" color={textColorSecondary} mt="auto">
-              {formatDate(selectedDate)}
-            </Text>
-          </Flex>
-        </Card>
-        
-        <Card>
-          <Flex direction="column" h="100%" p={4}>
-            <Flex align="center" mb={2}>
-              <Icon as={MdCheckCircle} boxSize={8} color="green.500" mr={2} />
-              <Text fontSize="xl" fontWeight="600">Present</Text>
-            </Flex>
-            <Text fontSize="3xl" fontWeight="bold" color="green.500">
-              {stats.present}
-            </Text>
-            <Text fontSize="sm" color={textColorSecondary} mt="auto">
-              {stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0}% of total
-            </Text>
-          </Flex>
-        </Card>
-        
-        <Card>
-          <Flex direction="column" h="100%" p={4}>
-            <Flex align="center" mb={2}>
-              <Icon as={MdCancel} boxSize={8} color="red.500" mr={2} />
-              <Text fontSize="xl" fontWeight="600">Absent</Text>
-            </Flex>
-            <Text fontSize="3xl" fontWeight="bold" color="red.500">
-              {stats.absent}
-            </Text>
-            <Text fontSize="sm" color={textColorSecondary} mt="auto">
-              {stats.total > 0 ? Math.round((stats.absent / stats.total) * 100) : 0}% of total
-            </Text>
-          </Flex>
-        </Card>
-        
-        <Card>
-          <Flex direction="column" h="100%" p={4}>
-            <Flex align="center" mb={2}>
-              <Icon as={MdAccessTime} boxSize={8} color="orange.500" mr={2} />
-              <Text fontSize="xl" fontWeight="600">Late</Text>
-            </Flex>
-            <Text fontSize="3xl" fontWeight="bold" color="orange.500">
-              {stats.late}
-            </Text>
-            <Text fontSize="sm" color={textColorSecondary} mt="auto">
-              {stats.total > 0 ? Math.round((stats.late / stats.total) * 100) : 0}% of total
-            </Text>
-          </Flex>
-        </Card>
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdCalendarToday} w='24px' h='24px' color='white' />} />}
+          name='Total'
+          value={String(stats.total)}
+          growth={formatDate(selectedDate)}
+          trendData={[stats.total-2, stats.total-1, stats.total]}
+          trendColor='#4481EB'
+        />
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdCheckCircle} w='24px' h='24px' color='white' />} />}
+          name='Present'
+          value={String(stats.present)}
+          growth={`${stats.total>0 ? Math.round((stats.present/stats.total)*100) : 0}% of total`}
+          trendData={[1,2,2,3,stats.present]}
+          trendColor='#01B574'
+        />
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#f5576c 0%,#f093fb 100%)' icon={<Icon as={MdCancel} w='24px' h='24px' color='white' />} />}
+          name='Absent'
+          value={String(stats.absent)}
+          growth={`${stats.total>0 ? Math.round((stats.absent/stats.total)*100) : 0}% of total`}
+          trendData={[0,1,1,1,stats.absent]}
+          trendColor='#f5576c'
+        />
+        <MiniStatistics
+          compact
+          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#FFB36D 0%,#FD7853 100%)' icon={<Icon as={MdAccessTime} w='24px' h='24px' color='white' />} />}
+          name='Late'
+          value={String(stats.late)}
+          growth={`${stats.total>0 ? Math.round((stats.late/stats.total)*100) : 0}% of total`}
+          trendData={[0,1,1,2,stats.late]}
+          trendColor='#FD7853'
+        />
       </SimpleGrid>
       
       {/* Attendance Table */}

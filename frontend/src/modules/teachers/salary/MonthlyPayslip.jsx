@@ -28,9 +28,12 @@ import {
   ModalBody,
   ModalFooter,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdPrint, MdVisibility } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdPrint, MdVisibility, MdAttachMoney, MdRemoveCircleOutline, MdCheckCircle, MdEvent } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 
 const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -72,7 +75,7 @@ export default function MonthlyPayslip() {
   const kpis = useMemo(() => ({ gross: earningsTotal, deductions: deductionsTotal, net, paymentDate: `${month} ${year}` }), [earningsTotal, deductionsTotal, net, month, year]);
 
   const chartData = useMemo(() => ([{ name: 'Amount', data: [earningsTotal, deductionsTotal, net] }]), [earningsTotal, deductionsTotal, net]);
-  const chartOptions = useMemo(() => ({ xaxis: { categories: ['Earnings', 'Deductions', 'Net'] }, colors: ['#3182CE'] }), []);
+  const chartOptions = useMemo(() => ({ xaxis: { categories: ['Earnings', 'Deductions', 'Net'] }, colors: ['#3182CE'], dataLabels:{ enabled:false } }), []);
 
   const exportCSV = () => {
     const header = ['Item','Type','Amount'];
@@ -93,12 +96,42 @@ export default function MonthlyPayslip() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Monthly Payslip</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>View your current month compensation breakdown</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 4 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Gross</Text><Text fontSize='3xl' fontWeight='800'>₹{kpis.gross.toLocaleString()}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, yellow.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Deductions</Text><Text fontSize='3xl' fontWeight='800'>₹{kpis.deductions.toLocaleString()}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, teal.400, green.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Net Pay</Text><Text fontSize='3xl' fontWeight='800'>₹{kpis.net.toLocaleString()}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Period</Text><Text fontSize='3xl' fontWeight='800'>{kpis.paymentDate}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdAttachMoney color='white' />} />}
+            name='Gross'
+            value={`₹${kpis.gross.toLocaleString()}`}
+            trendData={[60,70,65,75,80,78]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FF6A88 0%,#FF99AC 100%)' icon={<MdRemoveCircleOutline color='white' />} />}
+            name='Deductions'
+            value={`₹${kpis.deductions.toLocaleString()}`}
+            trendData={[10,12,11,13,12,14]}
+            trendColor='#FF6A88'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdCheckCircle color='white' />} />}
+            name='Net Pay'
+            value={`₹${kpis.net.toLocaleString()}`}
+            trendData={[50,58,54,62,66,64]}
+            trendColor='#01B574'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdEvent color='white' />} />}
+            name='Period'
+            value={kpis.paymentDate}
+            trendData={[1,1,1,1,1,1]}
+            trendColor='#B721FF'
+          />
+        </Flex>
+      </Box>
 
       <Card p='16px' mb='16px'>
         <Flex gap={3} flexWrap='wrap' justify='space-between' align='center'>
@@ -165,11 +198,20 @@ export default function MonthlyPayslip() {
         </Box>
       </Card>
 
-      <Card p='16px' mb='16px'>
-        <Box>
-          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-        </Box>
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5} mb='16px'>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Earnings / Deductions / Net</Text>
+            <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+          </Box>
+        </Card>
+        <Card p='16px'>
+          <Box>
+            <Text fontWeight='700' mb='8px'>Earnings vs Deductions</Text>
+            <PieChart height={240} chartData={[earningsTotal, deductionsTotal]} chartOptions={{ labels:['Earnings','Deductions'], legend:{ position:'right' } }} />
+          </Box>
+        </Card>
+      </SimpleGrid>
 
       <Card p='16px'>
         <Flex justify='space-between' align='center'>

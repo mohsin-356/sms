@@ -16,9 +16,12 @@ import {
   IconButton,
   Select,
 } from '@chakra-ui/react';
-import { MdSend, MdRefresh, MdFileDownload, MdPrint, MdSearch } from 'react-icons/md';
+import { MdSend, MdRefresh, MdFileDownload, MdPrint, MdSearch, MdMessage, MdMail } from 'react-icons/md';
 import Card from '../../../components/card/Card';
+import MiniStatistics from '../../../components/card/MiniStatistics';
+import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
+import PieChart from '../../../components/charts/PieChart';
 
 const seedConversations = [
   { id: 'c1', name: 'Admin Office', last: 'Please share the timetable PDF.', unread: 1, type: 'Admin' },
@@ -66,6 +69,14 @@ export default function Messages() {
   const chartData = useMemo(() => ([{ name: 'Msgs', data: [4, 6, 3, 8, 5, 7, 6] }]), []);
   const chartOptions = useMemo(() => ({ xaxis: { categories: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] }, colors: ['#4C51BF'] }), []);
 
+  const typeDistribution = useMemo(() => {
+    const map = {};
+    filteredConvs.forEach(c => { const t = c.type || 'Other'; map[t] = (map[t] || 0) + 1; });
+    const labels = Object.keys(map);
+    const values = labels.map(l => map[l]);
+    return { labels, values };
+  }, [filteredConvs]);
+
   const reset = () => { setSearch(''); setFilterType('All'); };
 
   const sendMessage = () => {
@@ -89,11 +100,34 @@ export default function Messages() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Messages</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Chat with admin and parents</Text>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing='12px' mb='16px'>
-        <Card p='20px' bgGradient='linear(to-r, blue.400, cyan.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Conversations</Text><Text fontSize='3xl' fontWeight='800'>{kpis.total}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, orange.400, yellow.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Unread</Text><Text fontSize='3xl' fontWeight='800'>{kpis.unread}</Text></VStack></Card>
-        <Card p='20px' bgGradient='linear(to-r, purple.400, pink.400)' color='white'><VStack align='start' spacing={1}><Text fontSize='sm' opacity={0.9}>Messages (sample)</Text><Text fontSize='3xl' fontWeight='800'>{kpis.today}</Text></VStack></Card>
-      </SimpleGrid>
+      <Box mb='16px'>
+        <Flex gap='16px' w='100%' wrap='nowrap'>
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<MdMessage color='white' />} />}
+            name='Conversations'
+            value={String(kpis.total)}
+            trendData={[2,3,4,3,5,6]}
+            trendColor='#4481EB'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdMail color='white' />} />}
+            name='Unread'
+            value={String(kpis.unread)}
+            trendData={[1,1,2,1,2,2]}
+            trendColor='#FD7853'
+          />
+          <MiniStatistics
+            compact
+            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdSend color='white' />} />}
+            name='Messages (sample)'
+            value={String(kpis.today)}
+            trendData={[4,5,6,5,7,8]}
+            trendColor='#B721FF'
+          />
+        </Flex>
+      </Box>
 
       <Flex gap={4} direction={{ base: 'column', md: 'row' }}>
         <Card p='12px' w={{ base: '100%', md: '320px' }}>
@@ -157,9 +191,16 @@ export default function Messages() {
         </Card>
       </Flex>
 
-      <Card p='16px' mt='16px'>
-        <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-      </Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5} mt='16px'>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Messages per Day</Text>
+          <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
+        </Card>
+        <Card p='16px'>
+          <Text fontWeight='700' mb='8px'>Conversation Types</Text>
+          <PieChart height={240} chartData={typeDistribution.values} chartOptions={{ labels: typeDistribution.labels, legend:{ position:'right' } }} />
+        </Card>
+      </SimpleGrid>
     </Box>
   );
 }
