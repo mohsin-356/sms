@@ -69,8 +69,8 @@ function SignIn() {
     await login(email, password, rememberMe);
   };
 
-  // Quick login for demo
-  const quickLogin = (role) => {
+  // Quick login for demo (auto-fills and triggers login)
+  const quickLogin = async (role) => {
     const credentials = {
       admin: { email: 'admin@mindspire.com', password: 'demo123' },
       teacher: { email: 'teacher@mindspire.com', password: 'demo123' },
@@ -81,6 +81,8 @@ function SignIn() {
     const cred = credentials[role];
     setEmail(cred.email);
     setPassword(cred.password);
+    // Trigger login immediately to improve UX
+    await login(cred.email, cred.password, false);
   };
 
   return (

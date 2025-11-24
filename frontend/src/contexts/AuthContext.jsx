@@ -1,8 +1,10 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockUsers } from '../utils/mockData';
 import { STORAGE_KEYS } from '../utils/constants';
 import { getDashboardPath } from '../utils/sidebarConfig';
+import { authApi, setAuthToken, setUnauthorizedHandler } from '../services/api';
+import { config } from '../config/env';
+import { getPrimaryStorage, getSecondaryStorage } from '../utils/storage';
 
 // Create the Auth Context
 const AuthContext = createContext({
@@ -23,35 +25,61 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Initialize auth from localStorage on mount
+  // Initialize auth on mount: load token from storage, validate profile, set 401 handler
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Always prefer sessionStorage (fresh session auth only)
-        const sesToken = sessionStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-        const sesUser = sessionStorage.getItem(STORAGE_KEYS.USER_DATA);
+        const primary = getPrimaryStorage(config.TOKEN_STORAGE);
+        const secondary = getSecondaryStorage(config.TOKEN_STORAGE);
 
-        if (sesToken && sesUser) {
-          const userData = JSON.parse(sesUser);
-          setUser(userData);
-          setIsAuthenticated(true);
+        // Try primary first, fallback to secondary
+        let token = primary.getItem(STORAGE_KEYS.AUTH_TOKEN) || secondary.getItem(STORAGE_KEYS.AUTH_TOKEN);
+        let storedUser = primary.getItem(STORAGE_KEYS.USER_DATA) || secondary.getItem(STORAGE_KEYS.USER_DATA);
+
+        if (token) setAuthToken(token);
+
+        if (token && storedUser) {
+          try {
+            // Validate token by fetching profile if API base is provided
+            if (config.API_BASE_URL) {
+              const fresh = await authApi.profile();
+              const userData = fresh?.user || JSON.parse(storedUser);
+              setUser(userData);
+              setIsAuthenticated(true);
+            } else {
+              // No API configured: trust stored user (development/mock fallback)
+              setUser(JSON.parse(storedUser));
+              setIsAuthenticated(true);
+            }
+          } catch (e) {
+            // Invalid token -> clear and reset
+            primary.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+            primary.removeItem(STORAGE_KEYS.USER_DATA);
+            secondary.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+            secondary.removeItem(STORAGE_KEYS.USER_DATA);
+            setAuthToken(null);
+          }
         }
-
-        // Proactively clear any stale persistent tokens to avoid auto-login
-        localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-        localStorage.removeItem(STORAGE_KEYS.USER_DATA);
       } catch (e) {
         console.error('Error initializing auth:', e);
+        // hard reset storages on init failure
         sessionStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
         sessionStorage.removeItem(STORAGE_KEYS.USER_DATA);
         localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
         localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+        setAuthToken(null);
       } finally {
         setLoading(false);
       }
     };
 
+    // Global 401 handler
+    setUnauthorizedHandler(() => {
+      logout();
+    });
+
     initAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Login function
@@ -59,24 +87,37 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const foundUser = Object.values(mockUsers).find(u => u.email === email);
-      if (!foundUser) throw new Error('Invalid email or password');
-      if (!password) throw new Error('Password is required');
+      if (!email || !password) throw new Error('Email and password are required');
 
-      const token = 'mock-jwt-token-' + Date.now();
-      const userData = { ...foundUser, token, loginTime: new Date().toISOString() };
+      let token;
+      let userData;
 
-      // Persist auth based on remember flag
-      if (remember) {
-        localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
-        localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+      // Demo-auth fallback when enabled or when API base is not provided
+      if (config.ENABLE_DEMO_AUTH || !config.API_BASE_URL) {
+        const roleFromEmail =
+          email.includes('admin@') ? 'admin' :
+          email.includes('teacher@') ? 'teacher' :
+          email.includes('student@') ? 'student' :
+          email.includes('driver@') ? 'driver' : 'student';
+        token = 'demo-token-' + Date.now();
+        userData = { email, role: roleFromEmail, name: roleFromEmail.toUpperCase(), id: roleFromEmail + '-001' };
       } else {
-        sessionStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
-        sessionStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
-        // Ensure no stale persistent session remains
-        localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-        localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+        // Real backend login
+        const res = await authApi.login({ email, password });
+        token = res?.token || res?.accessToken;
+        userData = res?.user || null;
+        if (!token || !userData) throw new Error('Invalid auth response');
       }
+
+      setAuthToken(token);
+      const primary = remember ? localStorage : getPrimaryStorage(config.TOKEN_STORAGE);
+      const secondary = remember ? sessionStorage : getSecondaryStorage(config.TOKEN_STORAGE);
+
+      // Persist token/user in chosen storage and clear the other to avoid ambiguity
+      primary.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+      primary.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+      secondary.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      secondary.removeItem(STORAGE_KEYS.USER_DATA);
 
       setUser(userData);
       setIsAuthenticated(true);
@@ -85,20 +126,25 @@ export const AuthProvider = ({ children }) => {
       navigate(dashboardPath);
       return { success: true, user: userData };
     } catch (e) {
-      setError(e.message);
-      return { success: false, error: e.message };
+      setError(e.message || 'Login failed');
+      return { success: false, error: e.message || 'Login failed' };
     } finally {
       setLoading(false);
     }
   }, [navigate]);
 
   // Logout function
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      // Best-effort server logout (ignore errors)
+      await authApi.logout();
+    } catch (_) {}
     // Clear both storages to fully sign out
     sessionStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
     sessionStorage.removeItem(STORAGE_KEYS.USER_DATA);
     localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+    setAuthToken(null);
     setUser(null);
     setIsAuthenticated(false);
     navigate('/auth/sign-in');
@@ -109,7 +155,11 @@ export const AuthProvider = ({ children }) => {
     if (!user) return;
     const updatedUser = { ...user, ...updates };
     setUser(updatedUser);
-    localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUser));
+    // Write to whichever storage currently holds user
+    const ls = localStorage.getItem(STORAGE_KEYS.USER_DATA);
+    const ss = sessionStorage.getItem(STORAGE_KEYS.USER_DATA);
+    if (ls !== null) localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUser));
+    if (ss !== null) sessionStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUser));
   }, [user]);
 
   const clearError = () => setError(null);

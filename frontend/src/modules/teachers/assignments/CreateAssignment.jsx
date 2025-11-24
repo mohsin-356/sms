@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Box, Text, Flex, HStack, VStack, SimpleGrid, Input, Select, Textarea, Button,
   useColorModeValue, Icon, useToast, Badge
@@ -9,7 +9,8 @@ import MiniStatistics from '../../../components/card/MiniStatistics';
 import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
 import PieChart from '../../../components/charts/PieChart';
-import { mockAssignments } from '../../../utils/mockData';
+import useApi from '../../../hooks/useApi';
+import { assignmentsApi } from '../../../services/api';
 
 export default function CreateAssignment() {
   const textSecondary = useColorModeValue('gray.600', 'gray.400');
@@ -23,21 +24,49 @@ export default function CreateAssignment() {
 
   const reset = () => setForm({ title: '', subject: '', cls: '', section: '', dueDate: '', description: '' });
 
+  // API hooks
+  const { execute: fetchAssignments, loading: loadingList, error: listError, data: listData } = useApi(assignmentsApi.list);
+  const { execute: createAssignment, loading: saving, error: saveError } = useApi(assignmentsApi.create, {
+    onSuccess: () => {
+      toast({ title: 'Assignment created', description: form.title, status: 'success' });
+      reset();
+      fetchAssignments();
+    }
+  });
+
+  useEffect(() => {
+    fetchAssignments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const save = () => {
     if (!form.title || !form.subject || !form.cls || !form.section || !form.dueDate) {
       toast({ title: 'Fill required fields', status: 'warning' });
       return;
     }
-    toast({ title: 'Assignment created', description: form.title, status: 'success' });
-    reset();
+    createAssignment({
+      title: form.title,
+      subject: form.subject,
+      class: form.cls,
+      section: form.section,
+      dueDate: form.dueDate,
+      description: form.description,
+    });
   };
 
+  const assignments = useMemo(() => {
+    if (Array.isArray(listData)) return listData;
+    if (Array.isArray(listData?.data)) return listData.data;
+    if (Array.isArray(listData?.items)) return listData.items;
+    return [];
+  }, [listData]);
+
   const kpis = useMemo(() => {
-    const total = mockAssignments.length;
-    const pending = mockAssignments.filter(a => a.status !== 'graded' && a.status !== 'submitted').length;
-    const submitted = mockAssignments.filter(a => a.status === 'submitted').length;
+    const total = assignments.length;
+    const pending = assignments.filter(a => a?.status !== 'graded' && a?.status !== 'submitted').length;
+    const submitted = assignments.filter(a => a?.status === 'submitted').length;
     return { total, pending, submitted };
-  }, []);
+  }, [assignments]);
 
   const chartData = useMemo(() => ([{ name: 'Assignments', data: [kpis.pending, kpis.submitted, kpis.total] }]), [kpis]);
   const chartOptions = useMemo(() => ({
@@ -49,11 +78,11 @@ export default function CreateAssignment() {
 
   const subjectDistribution = useMemo(() => {
     const map = {};
-    mockAssignments.forEach(a => { map[a.subject] = (map[a.subject] || 0) + 1; });
+    assignments.forEach(a => { if (a?.subject) map[a.subject] = (map[a.subject] || 0) + 1; });
     const labels = Object.keys(map);
     const values = labels.map(l => map[l]);
     return { labels, values };
-  }, []);
+  }, [assignments]);
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -87,6 +116,9 @@ export default function CreateAssignment() {
             trendColor='#01B574'
           />
         </Flex>
+        {/* Loading/Error States */}
+        {loadingList && <Text mt={2} color={textSecondary}>Loading assignments...</Text>}
+        {listError && <Text mt={2} color='red.500'>Failed to load assignments</Text>}
       </Box>
 
       <Card p='16px' mb='16px'>
@@ -109,7 +141,8 @@ export default function CreateAssignment() {
         </SimpleGrid>
         <Flex justify='flex-end' gap={2} mt={4} flexWrap='wrap'>
           <Button size='sm' variant='outline' leftIcon={<Icon as={MdRefresh} />} onClick={reset}>Reset</Button>
-          <Button size='sm' colorScheme='blue' leftIcon={<Icon as={MdSave} />} onClick={save}>Save</Button>
+          <Button size='sm' colorScheme='blue' leftIcon={<Icon as={MdSave} />} onClick={save} isLoading={saving}>Save</Button>
+          {saveError && <Text color='red.500' fontSize='sm'>Save failed</Text>}
         </Flex>
       </Card>
 
