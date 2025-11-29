@@ -1,0 +1,48 @@
+import { query } from '../config/db.js';
+
+export const list = async ({ userId, isRead, page = 1, pageSize = 50 }) => {
+  const params = [];
+  const where = [];
+  if (userId) { params.push(userId); where.push(`user_id = $${params.length}`); }
+  if (typeof isRead !== 'undefined') { params.push(isRead); where.push(`is_read = $${params.length}`); }
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const offset = (Number(page) - 1) * Number(pageSize);
+  params.push(pageSize, offset);
+  const { rows } = await query(
+    `SELECT id, user_id AS "userId", type, message, is_read AS "isRead", created_at AS "createdAt"
+     FROM notifications ${whereSql}
+     ORDER BY created_at DESC
+     LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params
+  );
+  return rows;
+};
+
+export const getById = async (id) => {
+  const { rows } = await query(
+    'SELECT id, user_id AS "userId", type, message, is_read AS "isRead", created_at AS "createdAt" FROM notifications WHERE id = $1',
+    [id]
+  );
+  return rows[0] || null;
+};
+
+export const create = async ({ userId, type, message }) => {
+  const { rows } = await query(
+    'INSERT INTO notifications (user_id, type, message) VALUES ($1,$2,$3) RETURNING id, user_id AS "userId", type, message, is_read AS "isRead", created_at AS "createdAt"',
+    [userId || null, type || null, message]
+  );
+  return rows[0];
+};
+
+export const markRead = async (id) => {
+  const { rows } = await query(
+    'UPDATE notifications SET is_read = TRUE WHERE id = $1 RETURNING id, user_id AS "userId", type, message, is_read AS "isRead", created_at AS "createdAt"',
+    [id]
+  );
+  return rows[0] || null;
+};
+
+export const remove = async (id) => {
+  await query('DELETE FROM notifications WHERE id = $1', [id]);
+  return true;
+};

@@ -9,9 +9,7 @@ import {
   Flex,
   Avatar,
   Badge,
-  List,
-  ListItem,
-  ListIcon,
+  Icon,
   Table,
   Tbody,
   Tr,
@@ -51,7 +49,7 @@ function ReviewForm() {
   // Helper function for section heading
   const SectionHeading = ({ icon, title }) => (
     <Flex align="center" mb={2}>
-      <ListIcon as={icon} color="brand.500" fontSize="xl" mr={2} />
+      <Icon as={icon} color="brand.500" boxSize={5} mr={2} />
       <Text fontSize="lg" fontWeight="600">
         {title}
       </Text>
