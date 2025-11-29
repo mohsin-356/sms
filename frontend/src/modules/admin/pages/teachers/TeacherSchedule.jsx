@@ -11,8 +11,20 @@ import {
   VStack,
   Badge,
   Icon,
+  useDisclosure,
   useColorModeValue,
   Tooltip,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
+  ModalFooter,
+  FormControl,
+  FormLabel,
+  Input,
+  useToast,
   Table,
   Thead,
   Tbody,
@@ -73,7 +85,7 @@ const TeacherSchedule = () => {
   ];
   
   // Mock schedule data
-  const scheduleData = [
+  const [scheduleData, setScheduleData] = useState([
     // Monday
     { id: 1, day: 'Monday', timeSlot: 1, teacherId: 1, class: '10A', subject: 'Mathematics', room: 'R101' },
     { id: 2, day: 'Monday', timeSlot: 2, teacherId: 2, class: '9A', subject: 'Biology', room: 'R102' },
@@ -123,7 +135,7 @@ const TeacherSchedule = () => {
     { id: 38, day: 'Friday', timeSlot: 7, teacherId: 5, class: '12C', subject: 'Chemistry', room: 'R105' },
     { id: 39, day: 'Friday', timeSlot: 8, teacherId: 3, class: '11C', subject: 'English', room: 'R103' },
     { id: 40, day: 'Friday', timeSlot: 9, teacherId: 2, class: '10B', subject: 'Biology', room: 'R102' },
-  ];
+  ]);
   
   // Filter schedule data based on selected teacher and day
   const filteredSchedule = scheduleData.filter(item => {
@@ -173,6 +185,39 @@ const TeacherSchedule = () => {
     }
   };
   
+  // Create schedule modal state and handlers
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const toast = useToast();
+  const [newSchedule, setNewSchedule] = useState({
+    day: '',
+    timeSlot: '',
+    teacherId: '',
+    class: '',
+    subject: '',
+    room: '',
+  });
+
+  const handleCreateSchedule = () => {
+    if (!newSchedule.day || !newSchedule.timeSlot || !newSchedule.teacherId || !newSchedule.class || !newSchedule.subject || !newSchedule.room) {
+      toast({ title: 'Please fill all fields', status: 'warning', duration: 2000 });
+      return;
+    }
+    const nextId = (scheduleData[scheduleData.length - 1]?.id || 0) + 1;
+    const item = {
+      id: nextId,
+      day: newSchedule.day,
+      timeSlot: parseInt(newSchedule.timeSlot),
+      teacherId: parseInt(newSchedule.teacherId),
+      class: newSchedule.class,
+      subject: newSchedule.subject,
+      room: newSchedule.room,
+    };
+    setScheduleData([...scheduleData, item]);
+    onClose();
+    setNewSchedule({ day: '', timeSlot: '', teacherId: '', class: '', subject: '', room: '' });
+    toast({ title: 'Schedule created', status: 'success', duration: 2000 });
+  };
+  
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
       {/* Page Header */}
@@ -185,10 +230,88 @@ const TeacherSchedule = () => {
           leftIcon={<Icon as={MdAdd} />}
           colorScheme="blue"
           size="md"
+          onClick={onOpen}
         >
           Create New Schedule
         </Button>
       </Flex>
+      
+      {/* Create Schedule Modal */}
+      <Modal isOpen={isOpen} onClose={onClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Create New Schedule</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <FormControl>
+                <FormLabel>Day</FormLabel>
+                <Select
+                  placeholder="Select day"
+                  value={newSchedule.day}
+                  onChange={(e) => setNewSchedule((s) => ({ ...s, day: e.target.value }))}
+                >
+                  {weekDays.map((day) => (
+                    <option key={day} value={day}>{day}</option>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Time Slot</FormLabel>
+                <Select
+                  placeholder="Select time slot"
+                  value={newSchedule.timeSlot}
+                  onChange={(e) => setNewSchedule((s) => ({ ...s, timeSlot: e.target.value }))}
+                >
+                  {timeSlots.map((t) => (
+                    <option key={t.id} value={t.id}>{`${t.label} (${t.start}-${t.end})`}</option>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Teacher</FormLabel>
+                <Select
+                  placeholder="Select teacher"
+                  value={newSchedule.teacherId}
+                  onChange={(e) => setNewSchedule((s) => ({ ...s, teacherId: e.target.value }))}
+                >
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Subject</FormLabel>
+                <Input
+                  placeholder="e.g. Mathematics"
+                  value={newSchedule.subject}
+                  onChange={(e) => setNewSchedule((s) => ({ ...s, subject: e.target.value }))}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Class</FormLabel>
+                <Input
+                  placeholder="e.g. 10A"
+                  value={newSchedule.class}
+                  onChange={(e) => setNewSchedule((s) => ({ ...s, class: e.target.value }))}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Room</FormLabel>
+                <Input
+                  placeholder="e.g. R101"
+                  value={newSchedule.room}
+                  onChange={(e) => setNewSchedule((s) => ({ ...s, room: e.target.value }))}
+                />
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onClose}>Cancel</Button>
+            <Button colorScheme="blue" onClick={handleCreateSchedule}>Create</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
       
       {/* Stats Cards - redesigned */}
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={5} mb={5}>

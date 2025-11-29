@@ -71,4 +71,107 @@ router.delete(
   studentController.remove
 );
 
+// Attendance (per-student)
+router.get(
+  '/:id/attendance',
+  authenticate,
+  [
+    param('id').isInt(),
+    query('startDate').optional().isISO8601(),
+    query('endDate').optional().isISO8601(),
+    query('page').optional().isInt({ min: 1 }),
+    query('pageSize').optional().isInt({ min: 1, max: 200 }),
+  ],
+  validate,
+  studentController.listAttendance
+);
+
+router.post(
+  '/:id/attendance',
+  authenticate,
+  authorize('admin', 'teacher'),
+  [
+    param('id').isInt(),
+    body('date').isISO8601(),
+    body('status').isIn(['present', 'absent', 'late']),
+    body('remarks').optional().isString(),
+  ],
+  validate,
+  studentController.addAttendance
+);
+
+router.put(
+  '/:id/attendance/:attendanceId',
+  authenticate,
+  authorize('admin', 'teacher'),
+  [param('id').isInt(), param('attendanceId').isInt()],
+  validate,
+  studentController.updateAttendance
+);
+
+router.delete(
+  '/:id/attendance/:attendanceId',
+  authenticate,
+  authorize('admin'),
+  [param('id').isInt(), param('attendanceId').isInt()],
+  validate,
+  studentController.removeAttendance
+);
+
+// Performance
+router.get(
+  '/:id/performance',
+  authenticate,
+  [param('id').isInt()],
+  validate,
+  studentController.getPerformance
+);
+
+// Fees
+router.get(
+  '/:id/fees',
+  authenticate,
+  [param('id').isInt()],
+  validate,
+  studentController.getFees
+);
+
+router.post(
+  '/:id/fees/payments',
+  authenticate,
+  authorize('admin'),
+  [
+    param('id').isInt(),
+    body('invoiceId').isInt(),
+    body('amount').isFloat({ gt: 0 }),
+    body('method').optional().isString(),
+  ],
+  validate,
+  studentController.recordPayment
+);
+
+// Transport
+router.get(
+  '/:id/transport',
+  authenticate,
+  [param('id').isInt()],
+  validate,
+  studentController.getTransport
+);
+
+router.put(
+  '/:id/transport',
+  authenticate,
+  authorize('admin'),
+  [
+    param('id').isInt(),
+    body('routeId').optional().isInt({ min: 1 }),
+    body('busId').optional().isInt({ min: 1 }),
+    body('pickupStopId').optional().isInt({ min: 1 }),
+    body('dropStopId').optional().isInt({ min: 1 }),
+  ],
+  validate,
+  studentController.updateTransport
+);
+
 export default router;

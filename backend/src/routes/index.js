@@ -12,6 +12,7 @@ import settingsRoutes from './settings.routes.js';
 import notificationsRoutes from './notifications.routes.js';
 import examsRoutes from './exams.routes.js';
 import resultsRoutes from './results.routes.js';
+import dashboardRoutes from './dashboard.routes.js';
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use('/settings', settingsRoutes);
 router.use('/notifications', notificationsRoutes);
 router.use('/exams', examsRoutes);
 router.use('/results', resultsRoutes);
+router.use('/dashboard', dashboardRoutes);
 
 export default router;

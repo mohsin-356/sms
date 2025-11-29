@@ -38,3 +38,76 @@ export const remove = async (req, res, next) => {
     return res.json({ success: true });
   } catch (e) { next(e); }
 };
+
+// Attendance (per-student)
+export const listAttendance = async (req, res, next) => {
+  try {
+    const studentId = Number(req.params.id);
+    const { startDate, endDate, page = 1, pageSize = 50 } = req.query;
+    const data = await students.listAttendance(studentId, { startDate, endDate, page: Number(page), pageSize: Number(pageSize) });
+    return res.json(data);
+  } catch (e) { next(e); }
+};
+
+export const addAttendance = async (req, res, next) => {
+  try {
+    const studentId = Number(req.params.id);
+    const created = await students.addAttendance(studentId, req.body);
+    return res.status(201).json(created);
+  } catch (e) { next(e); }
+};
+
+export const updateAttendance = async (req, res, next) => {
+  try {
+    const updated = await students.updateAttendance(Number(req.params.attendanceId), req.body);
+    if (!updated) return res.status(404).json({ message: 'Attendance not found' });
+    return res.json(updated);
+  } catch (e) { next(e); }
+};
+
+export const removeAttendance = async (req, res, next) => {
+  try {
+    const ok = await students.removeAttendance(Number(req.params.attendanceId));
+    if (!ok) return res.status(404).json({ message: 'Attendance not found' });
+    return res.json({ success: true });
+  } catch (e) { next(e); }
+};
+
+// Performance
+export const getPerformance = async (req, res, next) => {
+  try {
+    const data = await students.getPerformance(Number(req.params.id));
+    return res.json(data);
+  } catch (e) { next(e); }
+};
+
+// Fees
+export const getFees = async (req, res, next) => {
+  try {
+    const data = await students.getFees(Number(req.params.id));
+    return res.json(data);
+  } catch (e) { next(e); }
+};
+
+export const recordPayment = async (req, res, next) => {
+  try {
+    const created = await students.recordPayment(Number(req.params.id), req.body);
+    if (!created) return res.status(404).json({ message: 'Invoice not found for student' });
+    return res.status(201).json(created);
+  } catch (e) { next(e); }
+};
+
+// Transport
+export const getTransport = async (req, res, next) => {
+  try {
+    const data = await students.getTransport(Number(req.params.id));
+    return res.json(data || {});
+  } catch (e) { next(e); }
+};
+
+export const updateTransport = async (req, res, next) => {
+  try {
+    const data = await students.updateTransport(Number(req.params.id), req.body);
+    return res.json(data);
+  } catch (e) { next(e); }
+};
