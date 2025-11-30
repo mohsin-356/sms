@@ -40,14 +40,14 @@ export const AuthProvider = ({ children }) => {
 
         if (token && storedUser) {
           try {
-            // Validate token by fetching profile if API base is provided
-            if (config.API_BASE_URL) {
+            // When not in demo mode, validate token by fetching profile
+            if (!config.ENABLE_DEMO_AUTH) {
               const fresh = await authApi.profile();
               const userData = fresh?.user || JSON.parse(storedUser);
               setUser(userData);
               setIsAuthenticated(true);
             } else {
-              // No API configured: trust stored user (development/mock fallback)
+              // Demo mode: trust stored user
               setUser(JSON.parse(storedUser));
               setIsAuthenticated(true);
             }
@@ -73,10 +73,14 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    // Global 401 handler
-    setUnauthorizedHandler(() => {
-      logout();
-    });
+    // Global 401 handler (only when using real backend)
+    if (!config.ENABLE_DEMO_AUTH) {
+      setUnauthorizedHandler(() => {
+        logout();
+      });
+    } else {
+      setUnauthorizedHandler(null);
+    }
 
     initAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -92,8 +96,8 @@ export const AuthProvider = ({ children }) => {
       let token;
       let userData;
 
-      // Demo-auth fallback when enabled or when API base is not provided
-      if (config.ENABLE_DEMO_AUTH || !config.API_BASE_URL) {
+      // Demo-auth fallback when enabled
+      if (config.ENABLE_DEMO_AUTH) {
         const roleFromEmail =
           email.includes('admin@') ? 'admin' :
           email.includes('teacher@') ? 'teacher' :

@@ -1,25 +1,65 @@
-import React from 'react';
-import { Box, Text, Flex, Button, SimpleGrid, Badge, Table, Thead, Tbody, Tr, Th, Td, TableContainer, Input, InputGroup, InputLeftElement, Select, Avatar, HStack, IconButton } from '@chakra-ui/react';
+import React, { useEffect, useState } from 'react';
+import { Box, Text, Flex, Button, SimpleGrid, Badge, Table, Thead, Tbody, Tr, Th, Td, TableContainer, Input, InputGroup, InputLeftElement, Select, Avatar, HStack, IconButton, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useToast } from '@chakra-ui/react';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
 // Icons
 import { MdDirectionsBus, MdCreditCard, MdLocationOn, MdPerson, MdSearch, MdFilterList, MdRemoveRedEye, MdMoreVert, MdMap } from 'react-icons/md';
-// Mock data
-import { mockStudents } from '../../../../utils/mockData';
+// API
+import * as studentsApi from '../../../../services/api/students';
+import * as transportApi from '../../../../services/api/transport';
 
 export default function TransportAssignmentPage() {
-  // In a real app, this would fetch data from an API
-  const students = mockStudents;
+  const toast = useToast();
+  const [students, setStudents] = useState([]);
+  const [transportByStudent, setTransportByStudent] = useState({}); // { [id]: { busNumber, ... } }
+  const [buses, setBuses] = useState([]);
+  const assignDisc = useDisclosure();
+  const [assignState, setAssignState] = useState({ studentId: null, busId: '' });
 
-  // Generate mock transport data
-  const studentsWithTransport = students.map(student => ({
-    ...student,
-    busNumber: student.id % 4 !== 0 ? `10${student.id % 3 + 1}` : null,
-    rfidStatus: student.id % 4 !== 0 ? (student.id % 5 === 0 ? 'inactive' : 'active') : null,
-    pickupStop: student.id % 4 !== 0 ? 'Model Town Stop' : null,
-    transportAssigned: student.id % 4 !== 0,
-  }));
+  // Load students and buses
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [{ data: studentsRes }, { data: busesRes }] = await Promise.all([
+          studentsApi.list({ pageSize: 200 }),
+          transportApi.listBuses(),
+        ]);
+        const rows = Array.isArray(studentsRes?.rows) ? studentsRes.rows : studentsRes;
+        setStudents(rows || []);
+        setBuses(Array.isArray(busesRes) ? busesRes : (busesRes?.rows || []));
+        // Fetch transport info per student (best-effort)
+        (rows || []).slice(0, 100).forEach(async (s) => {
+          try {
+            const { data } = await studentsApi.getTransport(s.id);
+            setTransportByStudent(prev => ({ ...prev, [s.id]: data || {} }));
+          } catch {}
+        });
+      } catch (e) {
+        toast({ title: 'Failed to load transport data', status: 'error' });
+      }
+    };
+    load();
+  }, []);
+
+  const openAssign = (studentId) => {
+    setAssignState({ studentId, busId: '' });
+    assignDisc.onOpen();
+  };
+
+  const saveAssign = async () => {
+    try {
+      await studentsApi.updateTransport(assignState.studentId, { busId: assignState.busId ? Number(assignState.busId) : null });
+      // Refresh single student's transport
+      const { data } = await studentsApi.getTransport(assignState.studentId);
+      setTransportByStudent(prev => ({ ...prev, [assignState.studentId]: data || {} }));
+      toast({ title: 'Transport updated', status: 'success' });
+      assignDisc.onClose();
+    } catch (e) {
+      const message = e?.response?.data?.message || 'Failed to update transport';
+      toast({ title: 'Error', description: message, status: 'error' });
+    }
+  };
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -33,7 +73,7 @@ export default function TransportAssignmentPage() {
             Manage student transport and bus assignments
           </Text>
         </Box>
-        <Button colorScheme='blue' leftIcon={<MdMap />}>
+        <Button colorScheme='blue' leftIcon={<MdMap />} onClick={()=>window.open('#','_self')}>
           View Route Map
         </Button>
       </Flex>
@@ -184,13 +224,14 @@ export default function TransportAssignmentPage() {
                 <Th>ROLL NO.</Th>
                 <Th>CLASS</Th>
                 <Th>BUS NUMBER</Th>
-                <Th>PICKUP POINT</Th>
-                <Th>RFID STATUS</Th>
+                <Th>ROUTE</Th>
                 <Th>ACTIONS</Th>
               </Tr>
             </Thead>
             <Tbody>
-              {studentsWithTransport.map((student) => (
+              {students.map((student) => {
+                const t = transportByStudent[student.id] || {};
+                return (
                 <Tr key={student.id}>
                   <Td>
                     <HStack spacing='12px'>
@@ -211,49 +252,52 @@ export default function TransportAssignmentPage() {
                     </Badge>
                   </Td>
                   <Td>
-                    {student.busNumber ? (
-                      <Badge colorScheme='blue'>{student.busNumber}</Badge>
+                    {t.busNumber ? (
+                      <Badge colorScheme='blue'>{t.busNumber}</Badge>
                     ) : (
                       <Badge colorScheme='gray'>Not Assigned</Badge>
                     )}
                   </Td>
                   <Td>
-                    <Text fontSize='sm'>{student.pickupStop || 'N/A'}</Text>
-                  </Td>
-                  <Td>
-                    {student.rfidStatus ? (
-                      <Badge
-                        colorScheme={student.rfidStatus === 'active' ? 'green' : 'orange'}
-                      >
-                        {student.rfidStatus.toUpperCase()}
-                      </Badge>
-                    ) : (
-                      <Badge colorScheme='gray'>N/A</Badge>
-                    )}
+                    <Text fontSize='sm'>{t.routeName || 'N/A'}</Text>
                   </Td>
                   <Td>
                     <HStack spacing='2'>
-                      <IconButton
-                        aria-label='View details'
-                        icon={<MdRemoveRedEye />}
-                        size='sm'
-                        variant='ghost'
-                        colorScheme='blue'
-                      />
                       <IconButton
                         aria-label='More options'
                         icon={<MdMoreVert />}
                         size='sm'
                         variant='ghost'
+                        onClick={()=>openAssign(student.id)}
                       />
                     </HStack>
                   </Td>
                 </Tr>
-              ))}
+              );})}
             </Tbody>
           </Table>
         </TableContainer>
       </Card>
+
+      {/* Assign Modal */}
+      <Modal isOpen={assignDisc.isOpen} onClose={assignDisc.onClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Assign Bus</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Select placeholder='Select bus' value={assignState.busId} onChange={(e)=>setAssignState(s=>({ ...s, busId: e.target.value }))}>
+              {buses.map(b => (
+                <option key={b.id} value={b.id}>{b.number}</option>
+              ))}
+            </Select>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant='ghost' onClick={assignDisc.onClose}>Cancel</Button>
+            <Button colorScheme='blue' onClick={saveAssign} isDisabled={!assignState.studentId}>Save</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 }

@@ -31,7 +31,6 @@ import {
   setFormStep,
   updateFormData,
   clearFormData,
-  addStudent,
   selectCurrentFormStep,
   selectStudentFormData,
   selectFormErrors,
@@ -43,6 +42,7 @@ import ParentInfoForm from './components/forms/ParentInfoForm';
 import TransportInfoForm from './components/forms/TransportInfoForm';
 import FeeInfoForm from './components/forms/FeeInfoForm';
 import ReviewForm from './components/forms/ReviewForm';
+import * as studentsApi from '../../services/api/students';
 
 function AddStudent() {
   const dispatch = useAppDispatch();
@@ -143,8 +143,26 @@ function AddStudent() {
       feeInfo: formData.fee
     };
 
-    dispatch(addStudent(combinedData))
-      .unwrap()
+    // Map to backend expected fields
+    const payload = {
+      name: combinedData.name,
+      email: combinedData.email,
+      rollNumber: combinedData.rollNumber,
+      class: combinedData.class,
+      section: combinedData.section,
+      rfidTag: combinedData.rfidTag,
+      attendance: 0,
+      feeStatus: 'paid',
+      busNumber: combinedData.transportInfo?.busNumber || null,
+      busAssigned: !!combinedData.transportInfo?.busNumber || false,
+      parentName: combinedData.parentInfo?.father?.name || combinedData.parentInfo?.name || null,
+      parentPhone: combinedData.parentInfo?.father?.phone || combinedData.parentInfo?.phone || null,
+      status: 'active',
+      admissionDate: combinedData.admissionDate,
+      avatar: combinedData.photo || null,
+    };
+
+    studentsApi.create(payload)
       .then(() => {
         toast({
           title: 'Success',
@@ -157,10 +175,11 @@ function AddStudent() {
         dispatch(clearFormData());
         navigate('/admin/students');
       })
-      .catch(error => {
+      .catch((err) => {
+        const message = err?.response?.data?.message || 'Failed to add student. Please try again.';
         toast({
           title: 'Error',
-          description: error || 'Failed to add student. Please try again.',
+          description: message,
           status: 'error',
           duration: 5000,
           isClosable: true,

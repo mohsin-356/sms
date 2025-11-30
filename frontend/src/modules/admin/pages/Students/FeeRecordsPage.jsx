@@ -1,15 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box, Text, Flex, Button, SimpleGrid, Badge, Table,
   Thead, Tbody, Tr, Th, Td, TableContainer,
-  Input, InputGroup, InputLeftElement, Select,
-  Avatar, HStack, VStack, useToast, IconButton,
-  Accordion, AccordionItem, AccordionButton, 
-  AccordionPanel, AccordionIcon, Checkbox,
-  FormControl, FormLabel, Stack, Radio, RadioGroup,
-  Textarea, Modal, ModalOverlay, ModalContent,
+  Select, useToast,
+  Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalFooter, ModalBody, ModalCloseButton,
-  useDisclosure, Alert, AlertIcon, Progress,
+  FormControl, FormLabel, Input,
+  useDisclosure
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 // Custom components
@@ -24,79 +21,71 @@ import {
   MdDirectionsBus, MdReceipt, MdVisibility, MdSearch,
   MdFilterList, MdRemoveRedEye,
 } from 'react-icons/md';
-// Mock data
-import { mockStudents } from '../../../../utils/mockData';
+// API
+import * as studentsApi from '../../../../services/api/students';
 
 export default function FeeRecordsPage() {
-  console.log('FeeRecordsPage component is rendering');
-  console.log('mockStudents:', mockStudents);
-  
   const toast = useToast();
   const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [selectedFees, setSelectedFees] = useState([]);
-  const [paymentMethod, setPaymentMethod] = useState('Cash');
-  const [paymentAmount, setPaymentAmount] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterClass, setFilterClass] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [students, setStudents] = useState([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [fees, setFees] = useState({ invoices: [], totals: { totalInvoiced: 0, totalPaid: 0, totalOutstanding: 0 } });
+  const [loading, setLoading] = useState(false);
+  const [payment, setPayment] = useState({ invoiceId: '', amount: '', method: 'Cash' });
+
+  // Load students
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const { data } = await studentsApi.list({ pageSize: 200 });
+        const rows = Array.isArray(data?.rows) ? data.rows : data;
+        setStudents(rows || []);
+        if ((rows || []).length) setSelectedId(String(rows[0].id));
+      } catch (e) {
+        toast({ title: 'Failed to load students', status: 'error' });
+      }
+    };
+    load();
+  }, []);
+
+  // Load fees for selected student
+  useEffect(() => {
+    if (!selectedId) return;
+    const loadFees = async () => {
+      try {
+        setLoading(true);
+        const { data } = await studentsApi.getFees(selectedId);
+        setFees(data || { invoices: [], totals: { totalInvoiced: 0, totalPaid: 0, totalOutstanding: 0 } });
+      } catch (e) {
+        toast({ title: 'Failed to load fee records', status: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadFees();
+  }, [selectedId]);
   
-  // Mock data for a specific student's fee details
-  const student = mockStudents && mockStudents.length > 0 ? mockStudents[0] : null; // Using the first student for demo
-  
-  if (!mockStudents || mockStudents.length === 0) {
-    console.error('mockStudents is empty or undefined!');
-    return (
-      <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-        <Text fontSize='2xl' fontWeight='bold' color='red.500'>
-          Error: No student data available
-        </Text>
-      </Box>
-    );
-  }
-  
-  // Calculate totals
-  const totalFeeAmount = 85000;
-  const totalPaidAmount = 63000;
-  const totalPendingAmount = 22000;
-  const totalOverdueAmount = 5000;
-  
-  // Process student list with fee data
-  const studentsWithFee = mockStudents.map(student => ({
-    ...student,
-    feeAmount: 85000,
-    paidAmount: student.id % 3 === 0 ? 85000 : student.id % 3 === 1 ? 60000 : 45000,
-    status: student.id % 3 === 0 ? 'paid' : student.id % 3 === 1 ? 'pending' : 'overdue',
-  }));
-  
-  // Handle payment modal
-  const handleMakePayment = () => {
+  const openPayment = (invoiceId, outstanding) => {
+    setPayment({ invoiceId, amount: String(outstanding || ''), method: 'Cash' });
     onOpen();
-    setSelectedFees(['transport', 'exam']);
-    setPaymentAmount(20000);
   };
   
-  // Handle payment submission
-  const handleSubmitPayment = () => {
-    toast({
-      title: 'Payment recorded successfully',
-      description: `Payment of PKR ${paymentAmount.toLocaleString()} has been recorded`,
-      status: 'success',
-      duration: 5000,
-      isClosable: true,
-    });
-    onClose();
-  };
-  
-  // Handle fee selection in payment modal
-  const handleFeeSelection = (event) => {
-    const { value, checked } = event.target;
-    if (checked) {
-      setSelectedFees([...selectedFees, value]);
-    } else {
-      setSelectedFees(selectedFees.filter(fee => fee !== value));
+  const submitPayment = async () => {
+    try {
+      await studentsApi.recordPayment(selectedId, { invoiceId: Number(payment.invoiceId), amount: Number(payment.amount), method: payment.method });
+      toast({ title: 'Payment recorded', status: 'success' });
+      onClose();
+      // refresh fees
+      const { data } = await studentsApi.getFees(selectedId);
+      setFees(data || { invoices: [], totals: { totalInvoiced: 0, totalPaid: 0, totalOutstanding: 0 } });
+    } catch (e) {
+      const message = e?.response?.data?.message || 'Failed to record payment';
+      toast({ title: 'Error', description: message, status: 'error' });
     }
   };
+  
+  const totals = fees.totals || { totalInvoiced: 0, totalPaid: 0, totalOutstanding: 0 };
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -107,15 +96,17 @@ export default function FeeRecordsPage() {
             Fee Records
           </Text>
           <Text fontSize='md' color='gray.500'>
-            Manage all student fees and payments
+            Manage student fee invoices and payments
           </Text>
         </Box>
-        <Button colorScheme='blue' leftIcon={<MdReceipt />}>
-          Generate Fee Reports
-        </Button>
+        <Select maxW='280px' value={selectedId} onChange={(e)=>setSelectedId(e.target.value)}>
+          {students.map(s => (
+            <option key={s.id} value={s.id}>{s.name} ({s.class}-{s.section})</option>
+          ))}
+        </Select>
       </Flex>
 
-      {/* Fee Statistics Cards */}
+      {/* Statistics Cards */}
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap='20px' mb='20px'>
         <MiniStatistics
           startContent={
@@ -126,8 +117,8 @@ export default function FeeRecordsPage() {
               icon={<MdAttachMoney w='28px' h='28px' color='white' />}
             />
           }
-          name='Total Fee Collection'
-          value='PKR 4,250,000'
+          name='Total Invoiced'
+          value={`PKR ${Math.round(totals.totalInvoiced).toLocaleString()}`}
         />
         
         <MiniStatistics
@@ -139,13 +130,8 @@ export default function FeeRecordsPage() {
               icon={<MdCheckCircle w='28px' h='28px' color='white' />}
             />
           }
-          name='Collected Amount'
-          value='PKR 3,825,000'
-          endContent={
-            <Badge colorScheme='green' fontSize='sm'>
-              90% Collected
-            </Badge>
-          }
+          name='Total Paid'
+          value={`PKR ${Math.round(totals.totalPaid).toLocaleString()}`}
         />
         
         <MiniStatistics
@@ -157,13 +143,8 @@ export default function FeeRecordsPage() {
               icon={<MdAccessTime w='28px' h='28px' color='white' />}
             />
           }
-          name='Pending Amount'
-          value='PKR 425,000'
-          endContent={
-            <Badge colorScheme='orange' fontSize='sm'>
-              10% Pending
-            </Badge>
-          }
+          name='Outstanding'
+          value={`PKR ${Math.round(totals.totalOutstanding).toLocaleString()}`}
         />
         
         <MiniStatistics
@@ -175,226 +156,89 @@ export default function FeeRecordsPage() {
               icon={<MdWarning w='28px' h='28px' color='white' />}
             />
           }
-          name='Overdue Amount'
-          value='PKR 125,000'
-          endContent={
-            <Badge colorScheme='red' fontSize='sm'>
-              3% Overdue
-            </Badge>
-          }
+          name='Overdue'
+          value={`PKR 0`}
         />
       </SimpleGrid>
 
-      {/* Search and Filter Section */}
-      <Card p='20px' mb='20px'>
-        <Flex gap='10px' flexWrap='wrap'>
-          <InputGroup w={{ base: '100%', md: '300px' }}>
-            <InputLeftElement pointerEvents='none'>
-              <MdSearch color='gray.300' />
-            </InputLeftElement>
-            <Input
-              placeholder='Search by name, ID, or class...'
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </InputGroup>
-          
-          <Select
-            w={{ base: '100%', md: '150px' }}
-            icon={<MdFilterList />}
-            value={filterClass}
-            onChange={(e) => setFilterClass(e.target.value)}
-          >
-            <option value='all'>All Classes</option>
-            <option value='9'>Class 9</option>
-            <option value='10'>Class 10</option>
-            <option value='11'>Class 11</option>
-            <option value='12'>Class 12</option>
-          </Select>
-          
-          <Select
-            w={{ base: '100%', md: '150px' }}
-            icon={<MdFilterList />}
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value='all'>All Status</option>
-            <option value='paid'>Paid</option>
-            <option value='pending'>Pending</option>
-            <option value='overdue'>Overdue</option>
-          </Select>
-        </Flex>
-      </Card>
-
-      {/* Students Fee Table */}
+      {/* Invoices Table */}
       <Card p='20px'>
         <TableContainer>
           <Table variant='simple'>
             <Thead>
               <Tr>
-                <Th>STUDENT</Th>
-                <Th>ROLL NO.</Th>
-                <Th>CLASS</Th>
-                <Th>TOTAL FEE</Th>
-                <Th>PAID AMOUNT</Th>
-                <Th>STATUS</Th>
-                <Th>ACTIONS</Th>
+                <Th>Invoice ID</Th>
+                <Th isNumeric>Amount</Th>
+                <Th isNumeric>Paid</Th>
+                <Th isNumeric>Outstanding</Th>
+                <Th>Status</Th>
+                <Th>Due Date</Th>
+                <Th>Issued</Th>
+                <Th>Actions</Th>
               </Tr>
             </Thead>
             <Tbody>
-              {studentsWithFee.map((student) => (
-                <Tr key={student.id}>
+              {fees.invoices.map((inv) => (
+                <Tr key={inv.id}>
+                  <Td>INV-{inv.id}</Td>
+                  <Td isNumeric>PKR {Math.round(inv.amount).toLocaleString()}</Td>
+                  <Td isNumeric>PKR {Math.round(inv.paid).toLocaleString()}</Td>
+                  <Td isNumeric>PKR {Math.round(inv.outstanding).toLocaleString()}</Td>
                   <Td>
-                    <HStack spacing='12px'>
-                      <Avatar
-                        size='sm'
-                        name={student.name}
-                        src={student.avatar}
-                      />
-                      <Text fontWeight='500'>{student.name}</Text>
-                    </HStack>
-                  </Td>
-                  <Td>
-                    <Text fontSize='sm'>{student.rollNumber}</Text>
-                  </Td>
-                  <Td>
-                    <Badge colorScheme='purple'>
-                      {student.class}-{student.section}
+                    <Badge colorScheme={inv.status === 'paid' ? 'green' : inv.status === 'pending' ? 'orange' : 'red'}>
+                      {inv.status.toUpperCase()}
                     </Badge>
                   </Td>
+                  <Td>{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '-'}</Td>
+                  <Td>{inv.issuedAt ? new Date(inv.issuedAt).toLocaleDateString() : '-'}</Td>
                   <Td>
-                    <Text fontSize='sm'>PKR {student.feeAmount.toLocaleString()}</Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize='sm'>PKR {student.paidAmount.toLocaleString()}</Text>
-                  </Td>
-                  <Td>
-                    <Badge
-                      colorScheme={
-                        student.status === 'paid'
-                          ? 'green'
-                          : student.status === 'pending'
-                          ? 'orange'
-                          : 'red'
-                      }
-                    >
-                      {student.status.toUpperCase()}
-                    </Badge>
-                  </Td>
-                  <Td>
-                    <HStack spacing='2'>
-                      <IconButton
-                        aria-label='View details'
-                        icon={<MdRemoveRedEye />}
-                        size='sm'
-                        variant='ghost'
-                        colorScheme='blue'
-                        onClick={() => navigate(`/admin/students/fees/${student.id}`)}
-                      />
-                      <IconButton
-                        aria-label='Make payment'
-                        icon={<MdPayment />}
-                        size='sm'
-                        variant='ghost'
-                        colorScheme='green'
-                        onClick={handleMakePayment}
-                      />
-                    </HStack>
+                    {inv.outstanding > 0 && (
+                      <Button size='sm' colorScheme='blue' leftIcon={<MdPayment />} onClick={()=>openPayment(inv.id, inv.outstanding)}>
+                        Pay
+                      </Button>
+                    )}
                   </Td>
                 </Tr>
               ))}
+              {!fees.invoices.length && (
+                <Tr><Td colSpan={8}>No invoices</Td></Tr>
+              )}
             </Tbody>
           </Table>
         </TableContainer>
       </Card>
 
       {/* Payment Modal */}
-      <Modal isOpen={isOpen} onClose={onClose} size='xl'>
+      <Modal isOpen={isOpen} onClose={onClose} isCentered>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Record Payment</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <VStack spacing={4} align='stretch'>
-              <FormControl>
-                <FormLabel>Select Fees to Pay</FormLabel>
-                <Stack>
-                  <Checkbox 
-                    value='transport' 
-                    isChecked={selectedFees.includes('transport')}
-                    onChange={handleFeeSelection}
-                  >
-                    Transport Fee - PKR 15,000
-                  </Checkbox>
-                  <Checkbox 
-                    value='exam' 
-                    isChecked={selectedFees.includes('exam')}
-                    onChange={handleFeeSelection}
-                  >
-                    Examination Fee - PKR 5,000 (Overdue)
-                  </Checkbox>
-                  <Checkbox 
-                    value='sports' 
-                    isChecked={selectedFees.includes('sports')}
-                    onChange={handleFeeSelection}
-                  >
-                    Sports/Activity Fee - PKR 2,000
-                  </Checkbox>
-                </Stack>
-              </FormControl>
-              
-              <FormControl>
-                <FormLabel>Payment Date</FormLabel>
-                <Input type="date" defaultValue={new Date().toISOString().substr(0, 10)} />
-              </FormControl>
-              
-              <FormControl>
-                <FormLabel>Payment Method</FormLabel>
-                <RadioGroup value={paymentMethod} onChange={setPaymentMethod}>
-                  <Stack direction='row' flexWrap='wrap'>
-                    <Radio value='Cash'>Cash</Radio>
-                    <Radio value='Bank Transfer'>Bank Transfer</Radio>
-                    <Radio value='Cheque'>Cheque</Radio>
-                    <Radio value='Online'>Online</Radio>
-                  </Stack>
-                </RadioGroup>
-              </FormControl>
-              
-              {paymentMethod === 'Cheque' && (
-                <SimpleGrid columns={2} spacing={3}>
-                  <FormControl>
-                    <FormLabel>Cheque Number</FormLabel>
-                    <Input placeholder='Enter cheque number' />
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel>Bank Name</FormLabel>
-                    <Input placeholder='Enter bank name' />
-                  </FormControl>
-                </SimpleGrid>
-              )}
-              
-              <FormControl>
-                <FormLabel>Amount Received</FormLabel>
-                <Input 
-                  type="number" 
-                  value={paymentAmount} 
-                  onChange={(e) => setPaymentAmount(Number(e.target.value))}
-                />
-              </FormControl>
-              
-              <FormControl>
-                <FormLabel>Additional Notes</FormLabel>
-                <Textarea placeholder='Add any notes regarding this payment...' />
-              </FormControl>
-            </VStack>
+            <FormControl mb={3}>
+              <FormLabel>Invoice</FormLabel>
+              <Select value={payment.invoiceId} onChange={(e)=>setPayment(p=>({ ...p, invoiceId: e.target.value }))}>
+                {fees.invoices.map(inv => (
+                  <option key={inv.id} value={inv.id}>INV-{inv.id} (Outstanding PKR {Math.round(inv.outstanding).toLocaleString()})</option>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl mb={3}>
+              <FormLabel>Amount</FormLabel>
+              <Input type='number' value={payment.amount} onChange={(e)=>setPayment(p=>({ ...p, amount: e.target.value }))} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Method</FormLabel>
+              <Select value={payment.method} onChange={(e)=>setPayment(p=>({ ...p, method: e.target.value }))}>
+                <option>Cash</option>
+                <option>Card</option>
+                <option>Bank Transfer</option>
+              </Select>
+            </FormControl>
           </ModalBody>
           <ModalFooter>
-            <Button variant='ghost' mr={3} onClick={onClose}>
-              Cancel
-            </Button>
-            <Button colorScheme='blue' onClick={handleSubmitPayment}>
-              Save & Print Receipt
-            </Button>
+            <Button variant='ghost' onClick={onClose}>Cancel</Button>
+            <Button colorScheme='blue' onClick={submitPayment} isDisabled={!payment.invoiceId || !payment.amount}>Record</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

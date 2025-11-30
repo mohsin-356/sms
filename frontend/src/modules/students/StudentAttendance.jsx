@@ -61,8 +61,8 @@ import {
 // Import custom components
 import AttendanceCalendar from './components/attendance/AttendanceCalendar';
 import AttendanceDetailModal from './components/attendance/AttendanceDetailModal';
-import { mockStudents } from '../../utils/mockData';
-import { mockAttendanceData } from '../../utils/mockAttendanceData';
+import * as studentsApi from '../../services/api/students';
+import * as attendanceApi from '../../services/api/attendance';
 
 const StudentAttendance = () => {
   // States
@@ -86,10 +86,28 @@ const StudentAttendance = () => {
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const textColor = useColorModeValue('gray.800', 'white');
   
-  // Load mock data
+  // Load students and today's attendance
   useEffect(() => {
-    setStudents(mockStudents.slice(0, 20));
-    setAttendanceData(mockAttendanceData);
+    const load = async () => {
+      try {
+        const { data } = await studentsApi.list({ pageSize: 200 });
+        const rows = Array.isArray(data?.rows) ? data.rows : data;
+        setStudents((rows || []).slice(0, 100));
+      } catch {}
+      // Load today's attendance for all students
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const { data } = await attendanceApi.list({ startDate: today, endDate: today });
+        const rows = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data) ? data : []);
+        const map = {};
+        rows.forEach(r => {
+          if (!map[r.studentId]) map[r.studentId] = {};
+          map[r.studentId][today] = { status: r.status, checkIn: null, checkOut: null };
+        });
+        setAttendanceData(map);
+      } catch {}
+    };
+    load();
   }, []);
   
   // Handle student selection for detail view
@@ -141,6 +159,26 @@ const StudentAttendance = () => {
   const handleMonthChange = (month) => {
     setCurrentMonth(month);
   };
+
+  // Load monthly attendance for selected student when month or selection changes
+  useEffect(() => {
+    const loadMonthly = async () => {
+      if (!selectedStudent) return;
+      const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).toISOString().split('T')[0];
+      const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).toISOString().split('T')[0];
+      try {
+        const { data } = await attendanceApi.list({ studentId: selectedStudent.id, startDate: start, endDate: end, pageSize: 500 });
+        const rows = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data) ? data : []);
+        const map = { ...(attendanceData[selectedStudent.id] || {}) };
+        rows.forEach(r => {
+          const d = new Date(r.date).toISOString().split('T')[0];
+          map[d] = { status: r.status, checkIn: null, checkOut: null };
+        });
+        setAttendanceData(prev => ({ ...prev, [selectedStudent.id]: map }));
+      } catch {}
+    };
+    loadMonthly();
+  }, [selectedStudent, currentMonth]);
   
   // Handle filter change
   const handleFilterChange = (field, value) => {
@@ -159,29 +197,22 @@ const StudentAttendance = () => {
   });
   
   // Mark attendance for today
-  const markAttendance = (studentId, status, time) => {
+  const markAttendance = async (studentId, status, time) => {
     const today = new Date().toISOString().split('T')[0];
-    
-    // In a real app, you would call an API to update attendance
-    console.log(`Marking ${status} for student ${studentId} at ${time} on ${today}`);
-    
-    // For demo, we'll update our local state
-    const updatedAttendanceData = { ...attendanceData };
-    if (!updatedAttendanceData[studentId]) {
-      updatedAttendanceData[studentId] = {};
-    }
-    if (!updatedAttendanceData[studentId][today]) {
-      updatedAttendanceData[studentId][today] = { status: status, checkIn: null, checkOut: null };
-    }
-    
-    if (time === 'checkIn') {
-      updatedAttendanceData[studentId][today].checkIn = new Date().toLocaleTimeString();
-      updatedAttendanceData[studentId][today].status = status;
-    } else if (time === 'checkOut') {
-      updatedAttendanceData[studentId][today].checkOut = new Date().toLocaleTimeString();
-    }
-    
-    setAttendanceData(updatedAttendanceData);
+    try {
+      await attendanceApi.create({ studentId, date: today, status, remarks: null });
+      // reflect locally
+      const updated = { ...attendanceData };
+      if (!updated[studentId]) updated[studentId] = {};
+      if (!updated[studentId][today]) updated[studentId][today] = { status, checkIn: null, checkOut: null };
+      if (time === 'checkIn') {
+        updated[studentId][today].checkIn = new Date().toLocaleTimeString();
+        updated[studentId][today].status = status;
+      } else if (time === 'checkOut') {
+        updated[studentId][today].checkOut = new Date().toLocaleTimeString();
+      }
+      setAttendanceData(updated);
+    } catch {}
   };
   
   // Get today's attendance status for a student

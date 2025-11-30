@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -40,20 +40,44 @@ import {
   MdPhone,
   MdRemoveRedEye,
 } from 'react-icons/md';
-// Mock data
-import { mockStudents } from '../../../../utils/mockData';
 // Helpers
 import { getStatusColor } from '../../../../utils/helpers';
+// API
+import * as studentsApi from '../../../../services/api/students';
 
 export default function StudentsList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterClass, setFilterClass] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
   const toast = useToast();
 
+  // Fetch students from backend
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const params = {};
+        if (searchQuery) params.q = searchQuery;
+        if (filterClass !== 'all') params.class = filterClass;
+        const { data } = await studentsApi.list(params);
+        const rows = Array.isArray(data?.rows) ? data.rows : data; // accept either shape
+        setStudents(rows || []);
+      } catch (e) {
+        setError('Failed to load students');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetch();
+  }, [searchQuery, filterClass]);
+
   // Filter students
-  const filteredStudents = mockStudents.filter(student => {
+  const filteredStudents = students.filter(student => {
     const matchesSearch = 
       student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       student.rollNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -78,14 +102,20 @@ export default function StudentsList() {
     navigate(`/admin/students/${studentId}`);
   };
 
-  const handleDeleteStudent = (student) => {
-    toast({
-      title: 'Delete Student',
-      description: `Are you sure you want to delete ${student.name}?`,
-      status: 'warning',
-      duration: 5000,
-      isClosable: true,
-    });
+  const handleDeleteStudent = async (student) => {
+    try {
+      await studentsApi.remove(student.id);
+      toast({ title: 'Deleted', description: `${student.name} removed`, status: 'success' });
+      // refresh list
+      const params = {};
+      if (searchQuery) params.q = searchQuery;
+      if (filterClass !== 'all') params.class = filterClass;
+      const { data } = await studentsApi.list(params);
+      const rows = Array.isArray(data?.rows) ? data.rows : data;
+      setStudents(rows || []);
+    } catch (e) {
+      toast({ title: 'Failed to delete', status: 'error' });
+    }
   };
 
   const handleContactParent = (student) => {
