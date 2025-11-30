@@ -27,22 +27,6 @@ async function seed() {
       }
     }
 
-    // Seed a teacher
-    const { rows: teacher } = await client.query(
-      `INSERT INTO teachers (name, email, phone, subject, salary, status) VALUES ('Teacher Ali','teacher@mindspire.com','+92 300 1111111','Math',80000,'active')
-       ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name
-       RETURNING id`
-    );
-    if (teacher[0]) {
-      const tid = teacher[0].id;
-      await client.query(
-        `INSERT INTO teacher_schedules (teacher_id, day_of_week, start_time, end_time, class, section, subject)
-         VALUES ($1,1,'08:00','09:00','10','A','Math')
-         ON CONFLICT DO NOTHING`,
-        [tid]
-      );
-    }
-
     // Seed a student
     await client.query(
       `INSERT INTO students (name, email, roll_number, class, section, rfid_tag, attendance, fee_status, bus_number, bus_assigned, parent_name, parent_phone, status)

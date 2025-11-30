@@ -25,6 +25,25 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
+  // Logout function
+  const logout = useCallback(async ({ skipRemote = false } = {}) => {
+    try {
+      // Best-effort server logout unless explicitly skipped
+      if (!skipRemote) {
+        await authApi.logout();
+      }
+    } catch (_) {}
+    // Clear both storages to fully sign out
+    sessionStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    sessionStorage.removeItem(STORAGE_KEYS.USER_DATA);
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+    setAuthToken(null);
+    setUser(null);
+    setIsAuthenticated(false);
+    navigate('/auth/sign-in');
+  }, [navigate]);
+
   // Initialize auth on mount: load token from storage, validate profile, set 401 handler
   useEffect(() => {
     const initAuth = async () => {
@@ -74,13 +93,16 @@ export const AuthProvider = ({ children }) => {
     };
 
     // Global 401 handler
-    setUnauthorizedHandler(() => {
-      logout();
-    });
+    const handleUnauthorized = () => {
+      logout({ skipRemote: true });
+    };
+
+    setUnauthorizedHandler(handleUnauthorized);
 
     initAuth();
+    return () => setUnauthorizedHandler(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [logout]);
 
   // Login function
   const login = useCallback(async (email, password, remember = false) => {
@@ -89,25 +111,10 @@ export const AuthProvider = ({ children }) => {
     try {
       if (!email || !password) throw new Error('Email and password are required');
 
-      let token;
-      let userData;
-
-      // Demo-auth fallback when enabled or when API base is not provided
-      if (config.ENABLE_DEMO_AUTH || !config.API_BASE_URL) {
-        const roleFromEmail =
-          email.includes('admin@') ? 'admin' :
-          email.includes('teacher@') ? 'teacher' :
-          email.includes('student@') ? 'student' :
-          email.includes('driver@') ? 'driver' : 'student';
-        token = 'demo-token-' + Date.now();
-        userData = { email, role: roleFromEmail, name: roleFromEmail.toUpperCase(), id: roleFromEmail + '-001' };
-      } else {
-        // Real backend login
-        const res = await authApi.login({ email, password });
-        token = res?.token || res?.accessToken;
-        userData = res?.user || null;
-        if (!token || !userData) throw new Error('Invalid auth response');
-      }
+      const res = await authApi.login({ email, password });
+      const token = res?.token || res?.accessToken;
+      const userData = res?.user || null;
+      if (!token || !userData) throw new Error('Invalid auth response');
 
       setAuthToken(token);
       const primary = remember ? localStorage : getPrimaryStorage(config.TOKEN_STORAGE);
@@ -131,23 +138,6 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
-
-  // Logout function
-  const logout = useCallback(async () => {
-    try {
-      // Best-effort server logout (ignore errors)
-      await authApi.logout();
-    } catch (_) {}
-    // Clear both storages to fully sign out
-    sessionStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-    sessionStorage.removeItem(STORAGE_KEYS.USER_DATA);
-    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-    localStorage.removeItem(STORAGE_KEYS.USER_DATA);
-    setAuthToken(null);
-    setUser(null);
-    setIsAuthenticated(false);
-    navigate('/auth/sign-in');
   }, [navigate]);
 
   // Update user function

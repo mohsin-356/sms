@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -18,7 +18,6 @@ import {
   AlertIcon,
   VStack,
   HStack,
-  Badge,
 } from '@chakra-ui/react';
 // Custom components
 import DefaultAuth from '../../layouts/auth/Default';
@@ -51,6 +50,13 @@ function SignIn() {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
+  const quickProfiles = useMemo(() => ({
+    admin: { email: 'admin@mindspire.com', password: 'password123', label: 'Admin', colorScheme: 'blue' },
+    teacher: { email: 'teacher@mindspire.com', password: 'password123', label: 'Teacher', colorScheme: 'green' },
+    student: { email: 'student@mindspire.com', password: 'password123', label: 'Student', colorScheme: 'purple' },
+    driver: { email: 'driver@mindspire.com', password: 'password123', label: 'Driver', colorScheme: 'orange' },
+  }), []);
+
   // Auth Context
   const { login, clearError, loading: authLoading, error: authError, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -69,20 +75,13 @@ function SignIn() {
     await login(email, password, rememberMe);
   };
 
-  // Quick login for demo (auto-fills and triggers login)
+  // Quick login buttons call backend using seeded accounts
   const quickLogin = async (role) => {
-    const credentials = {
-      admin: { email: 'admin@mindspire.com', password: 'demo123' },
-      teacher: { email: 'teacher@mindspire.com', password: 'demo123' },
-      student: { email: 'student@mindspire.com', password: 'demo123' },
-      driver: { email: 'driver@mindspire.com', password: 'demo123' },
-    };
-    
-    const cred = credentials[role];
-    setEmail(cred.email);
-    setPassword(cred.password);
-    // Trigger login immediately to improve UX
-    await login(cred.email, cred.password, false);
+    const preset = quickProfiles[role];
+    if (!preset) return;
+    setEmail(preset.email);
+    setPassword(preset.password);
+    await login(preset.email, preset.password, false);
   };
 
   return (
@@ -129,34 +128,23 @@ function SignIn() {
             <AlertIcon />
             <VStack align='start' spacing={1} fontSize='sm'>
               <Text fontWeight='bold'>Demo Credentials:</Text>
-              <HStack>
-                <Badge
-                  colorScheme='blue'
-                  cursor='pointer'
-                  onClick={() => quickLogin('admin')}>
-                  Admin
-                </Badge>
-                <Badge
-                  colorScheme='green'
-                  cursor='pointer'
-                  onClick={() => quickLogin('teacher')}>
-                  Teacher
-                </Badge>
-                <Badge
-                  colorScheme='purple'
-                  cursor='pointer'
-                  onClick={() => quickLogin('student')}>
-                  Student
-                </Badge>
-                <Badge
-                  colorScheme='orange'
-                  cursor='pointer'
-                  onClick={() => quickLogin('driver')}>
-                  Driver
-                </Badge>
+              <HStack spacing={2} flexWrap='wrap'>
+                {Object.entries(quickProfiles).map(([roleKey, preset]) => (
+                  <Button
+                    key={roleKey}
+                    size='sm'
+                    colorScheme={preset.colorScheme}
+                    variant='solid'
+                    onClick={() => quickLogin(roleKey)}
+                    isDisabled={authLoading}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
               </HStack>
               <Text fontSize='xs' color='gray.600'>
                 Click on a role to auto-fill credentials
+
               </Text>
             </VStack>
           </Alert>

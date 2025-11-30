@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -28,55 +28,60 @@ import {
   Radio,
   Textarea,
   Badge,
+  useToast,
 } from '@chakra-ui/react';
 import { AddIcon, CheckIcon } from '@chakra-ui/icons';
 import Card from 'components/card/Card.js';
+import useApi from '../../../../hooks/useApi';
+import { teachersApi } from '../../../../services/api';
+
+const createInitialFormState = () => ({
+  name: '',
+  email: '',
+  phone: '',
+  qualification: '',
+  employmentType: 'fullTime',
+  joiningDate: '',
+  salary: '',
+  baseSalary: '',
+  allowances: '',
+  deductions: '',
+  currency: 'PKR',
+  payFrequency: 'monthly',
+  paymentMethod: 'bank',
+  bankName: '',
+  accountNumber: '',
+  iban: '',
+  gender: '',
+  dob: '',
+  bloodGroup: '',
+  religion: '',
+  nationalId: '',
+  address1: '',
+  address2: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  emergencyName: '',
+  emergencyPhone: '',
+  emergencyRelation: '',
+  employeeId: '',
+  department: '',
+  designation: '',
+  experienceYears: '',
+  specialization: '',
+  employmentStatus: 'active',
+  probationEndDate: '',
+  contractEndDate: '',
+  workHoursPerWeek: '',
+});
 
 /**
  * AddTeacher component for creating new teacher records
  */
 const AddTeacher = () => {
   // Form state
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    qualification: '',
-    employmentType: 'fullTime',
-    joiningDate: '',
-    salary: '',
-    baseSalary: '',
-    allowances: '',
-    deductions: '',
-    currency: 'PKR',
-    payFrequency: 'monthly',
-    paymentMethod: 'bank',
-    bankName: '',
-    accountNumber: '',
-    iban: '',
-    gender: '',
-    dob: '',
-    bloodGroup: '',
-    religion: '',
-    nationalId: '',
-    address1: '',
-    address2: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    emergencyName: '',
-    emergencyPhone: '',
-    emergencyRelation: '',
-    employeeId: '',
-    department: '',
-    designation: '',
-    experienceYears: '',
-    specialization: '',
-    employmentStatus: 'active',
-    probationEndDate: '',
-    contractEndDate: '',
-    workHoursPerWeek: '',
-  });
+  const [formData, setFormData] = useState(createInitialFormState);
   
   // Additional state for subjects and classes (arrays)
   const [subjects, setSubjects] = useState([]);
@@ -88,7 +93,6 @@ const AddTeacher = () => {
   
   // Form validation state
   const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
@@ -97,6 +101,52 @@ const AddTeacher = () => {
   const textColor = useColorModeValue('gray.800', 'white');
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const brand = useColorModeValue('blue.500', 'blue.300');
+  const toast = useToast();
+
+  const resetForm = useCallback(() => {
+    setFormData(createInitialFormState());
+    setSubjects([]);
+    setClasses([]);
+    setNewSubject('');
+    setNewClass('');
+    setPhoto(null);
+    setPhotoPreview('');
+    setErrors({});
+    setCurrentStep(0);
+  }, []);
+
+  const handleSuccess = useCallback((res) => {
+    toast({
+      title: 'Teacher added',
+      description: res?.name ? `${res.name} has been added successfully.` : 'Teacher created successfully.',
+      status: 'success',
+      duration: 5000,
+      isClosable: true,
+    });
+    resetForm();
+  }, [resetForm, toast]);
+
+  const handleError = useCallback((error) => {
+    toast({
+      title: 'Failed to add teacher',
+      description: error?.data?.message || error?.message || 'Something went wrong. Please try again.',
+      status: 'error',
+      duration: 6000,
+      isClosable: true,
+    });
+  }, [toast]);
+
+  const { execute: createTeacher, loading: isSubmitting } = useApi(teachersApi.create, {
+    onSuccess: handleSuccess,
+    onError: handleError,
+  });
+
+  const fileToBase64 = useCallback((file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  }), []);
 
   const steps = useMemo(() => ([
     { key: 'personal', title: 'Personal Information', sub: 'Teacher details' },
@@ -231,32 +281,50 @@ const AddTeacher = () => {
   const prevStep = () => setCurrentStep((s) => Math.max(s - 1, 0));
   
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
+    if (isSubmitting) return;
+
     if (!validateForm()) return;
-    
-    setIsSubmitting(true);
-    
-    // Simulate API call with timeout
-    setTimeout(() => {
-      // Show success message
-      alert(`Teacher ${formData.name} added successfully!`);
-      
-      // Reset form
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        qualification: '',
-        employmentType: 'fullTime',
-        joiningDate: '',
-      });
-      setSubjects([]);
-      setClasses([]);
-      
-      setIsSubmitting(false);
-    }, 1000);
+
+    let avatar = null;
+    if (photo) {
+      try {
+        avatar = await fileToBase64(photo);
+      } catch (err) {
+        toast({
+          title: 'Image processing failed',
+          description: 'Could not read the selected photo. Please try again with a different file.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+        return;
+      }
+    }
+
+    const toNumber = (val) => {
+      if (val === '' || val === null || val === undefined) return null;
+      const num = Number(val);
+      return Number.isFinite(num) ? num : null;
+    };
+
+    const payload = {
+      ...formData,
+      baseSalary: toNumber(formData.baseSalary),
+      allowances: toNumber(formData.allowances),
+      deductions: toNumber(formData.deductions),
+      experienceYears: toNumber(formData.experienceYears),
+      workHoursPerWeek: toNumber(formData.workHoursPerWeek),
+      salary: net,
+      subjects,
+      classes,
+    };
+
+    if (avatar) payload.avatar = avatar;
+
+    await createTeacher(payload);
   };
   
   return (
@@ -639,9 +707,9 @@ const AddTeacher = () => {
 
             <Divider />
             <Flex justify="space-between">
-              <Button variant="outline" onClick={prevStep} isDisabled={currentStep === 0}>Back</Button>
+              <Button variant="outline" onClick={prevStep} isDisabled={currentStep === 0 || isSubmitting}>Back</Button>
               {currentStep < steps.length - 1 ? (
-                <Button colorScheme="blue" onClick={nextStep}>Next</Button>
+                <Button colorScheme="blue" onClick={nextStep} isDisabled={isSubmitting}>Next</Button>
               ) : (
                 <Button colorScheme="blue" size="lg" type="submit" isLoading={isSubmitting} loadingText="Submitting">Add Teacher</Button>
               )}

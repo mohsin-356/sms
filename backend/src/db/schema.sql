@@ -28,17 +28,150 @@ CREATE TABLE IF NOT EXISTS students (
   avatar TEXT
 );
 
--- Teachers
 CREATE TABLE IF NOT EXISTS teachers (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   phone TEXT,
+  qualification TEXT,
+  gender TEXT,
+  dob DATE,
+  blood_group TEXT,
+  religion TEXT,
+  national_id TEXT,
+  address_line1 TEXT,
+  address_line2 TEXT,
+  city TEXT,
+  state TEXT,
+  postal_code TEXT,
+  emergency_name TEXT,
+  emergency_phone TEXT,
+  emergency_relation TEXT,
+  employment_type TEXT NOT NULL DEFAULT 'fullTime',
+  joining_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  employee_id TEXT NOT NULL UNIQUE,
+  department TEXT,
+  designation TEXT,
+  experience_years NUMERIC(4,1),
+  specialization TEXT,
   subject TEXT,
+  subjects JSONB NOT NULL DEFAULT '[]'::jsonb,
+  classes JSONB NOT NULL DEFAULT '[]'::jsonb,
+  employment_status TEXT NOT NULL DEFAULT 'active',
+  status TEXT NOT NULL DEFAULT 'active',
+  probation_end_date DATE,
+  contract_end_date DATE,
+  work_hours_per_week NUMERIC(5,2),
+  base_salary NUMERIC(12,2) DEFAULT 0,
+  allowances NUMERIC(12,2) DEFAULT 0,
+  deductions NUMERIC(12,2) DEFAULT 0,
   salary NUMERIC(12,2) DEFAULT 0,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active','inactive')),
-  avatar TEXT
+  currency TEXT DEFAULT 'PKR',
+  pay_frequency TEXT DEFAULT 'monthly',
+  payment_method TEXT DEFAULT 'bank',
+  bank_name TEXT,
+  account_number TEXT,
+  iban TEXT,
+  avatar TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+-- Backfill columns for existing deployments
+ALTER TABLE teachers
+  ADD COLUMN IF NOT EXISTS qualification TEXT,
+  ADD COLUMN IF NOT EXISTS gender TEXT,
+  ADD COLUMN IF NOT EXISTS dob DATE,
+  ADD COLUMN IF NOT EXISTS blood_group TEXT,
+  ADD COLUMN IF NOT EXISTS religion TEXT,
+  ADD COLUMN IF NOT EXISTS national_id TEXT,
+  ADD COLUMN IF NOT EXISTS address_line1 TEXT,
+  ADD COLUMN IF NOT EXISTS address_line2 TEXT,
+  ADD COLUMN IF NOT EXISTS city TEXT,
+  ADD COLUMN IF NOT EXISTS state TEXT,
+  ADD COLUMN IF NOT EXISTS postal_code TEXT,
+  ADD COLUMN IF NOT EXISTS emergency_name TEXT,
+  ADD COLUMN IF NOT EXISTS emergency_phone TEXT,
+  ADD COLUMN IF NOT EXISTS emergency_relation TEXT,
+  ADD COLUMN IF NOT EXISTS employment_type TEXT NOT NULL DEFAULT 'fullTime',
+  ADD COLUMN IF NOT EXISTS joining_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  ADD COLUMN IF NOT EXISTS employee_id TEXT,
+  ADD COLUMN IF NOT EXISTS department TEXT,
+  ADD COLUMN IF NOT EXISTS designation TEXT,
+  ADD COLUMN IF NOT EXISTS experience_years NUMERIC(4,1),
+  ADD COLUMN IF NOT EXISTS specialization TEXT,
+  ADD COLUMN IF NOT EXISTS subjects JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS classes JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS employment_status TEXT NOT NULL DEFAULT 'active',
+  ADD COLUMN IF NOT EXISTS probation_end_date DATE,
+  ADD COLUMN IF NOT EXISTS contract_end_date DATE,
+  ADD COLUMN IF NOT EXISTS work_hours_per_week NUMERIC(5,2),
+  ADD COLUMN IF NOT EXISTS base_salary NUMERIC(12,2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS allowances NUMERIC(12,2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS deductions NUMERIC(12,2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'PKR',
+  ADD COLUMN IF NOT EXISTS pay_frequency TEXT DEFAULT 'monthly',
+  ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'bank',
+  ADD COLUMN IF NOT EXISTS bank_name TEXT,
+  ADD COLUMN IF NOT EXISTS account_number TEXT,
+  ADD COLUMN IF NOT EXISTS iban TEXT,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();
+
+UPDATE teachers SET employee_id = CONCAT('T-', id) WHERE employee_id IS NULL;
+
+ALTER TABLE teachers
+  ALTER COLUMN employee_id SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'teachers_employee_id_key'
+  ) THEN
+    ALTER TABLE teachers ADD CONSTRAINT teachers_employee_id_key UNIQUE (employee_id);
+  END IF;
+END $$;
+
+UPDATE teachers SET subjects = '[]'::jsonb WHERE subjects IS NULL;
+UPDATE teachers SET classes = '[]'::jsonb WHERE classes IS NULL;
+
+UPDATE teachers SET status = 'active' WHERE status IS NULL;
+
+ALTER TABLE teachers
+  ALTER COLUMN status SET NOT NULL;
+
+ALTER TABLE teachers
+  ALTER COLUMN status SET DEFAULT 'active';
+
+ALTER TABLE teachers
+  DROP CONSTRAINT IF EXISTS teachers_status_check;
+
+ALTER TABLE teachers
+  ADD CONSTRAINT teachers_status_check CHECK (status IN ('active','inactive','on_leave','resigned'));
+
+ALTER TABLE teachers
+  DROP CONSTRAINT IF EXISTS teachers_employment_status_check;
+
+ALTER TABLE teachers
+  ADD CONSTRAINT teachers_employment_status_check CHECK (employment_status IN ('active','inactive','on_leave','resigned'));
+
+ALTER TABLE teachers
+  DROP CONSTRAINT IF EXISTS teachers_employment_type_check;
+
+ALTER TABLE teachers
+  ADD CONSTRAINT teachers_employment_type_check CHECK (employment_type IN ('fullTime','partTime'));
+
+ALTER TABLE teachers
+  DROP CONSTRAINT IF EXISTS teachers_pay_frequency_check;
+
+ALTER TABLE teachers
+  ADD CONSTRAINT teachers_pay_frequency_check CHECK (pay_frequency IN ('monthly','biweekly','weekly'));
+
+ALTER TABLE teachers
+  DROP CONSTRAINT IF EXISTS teachers_payment_method_check;
+
+ALTER TABLE teachers
+  ADD CONSTRAINT teachers_payment_method_check CHECK (payment_method IN ('bank','cash','cheque'));
 
 -- Teacher schedules
 CREATE TABLE IF NOT EXISTS teacher_schedules (
@@ -76,6 +209,7 @@ CREATE TABLE IF NOT EXISTS assignment_submissions (
 CREATE INDEX IF NOT EXISTS idx_students_name ON students (name);
 CREATE INDEX IF NOT EXISTS idx_students_roll ON students (roll_number);
 CREATE INDEX IF NOT EXISTS idx_teachers_name ON teachers (name);
+CREATE INDEX IF NOT EXISTS idx_teachers_department ON teachers (department);
 CREATE INDEX IF NOT EXISTS idx_assignments_due ON assignments (due_date);
 
 -- Attendance Records
