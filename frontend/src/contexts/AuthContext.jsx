@@ -92,23 +92,11 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-<<<<<<< HEAD
-    // Global 401 handler (only when using real backend)
-    if (!config.ENABLE_DEMO_AUTH) {
-      setUnauthorizedHandler(() => {
-        logout();
-      });
-    } else {
-      setUnauthorizedHandler(null);
-    }
-=======
-    // Global 401 handler
+    // Global 401 handler: clear local session and redirect to sign-in without calling server
     const handleUnauthorized = () => {
       logout({ skipRemote: true });
     };
-
     setUnauthorizedHandler(handleUnauthorized);
->>>>>>> de5312faa4580ce52d1dc80197f33064120e9ab3
 
     initAuth();
     return () => setUnauthorizedHandler(null);
@@ -122,7 +110,6 @@ export const AuthProvider = ({ children }) => {
     try {
       if (!email || !password) throw new Error('Email and password are required');
 
-<<<<<<< HEAD
       let token;
       let userData;
 
@@ -142,12 +129,6 @@ export const AuthProvider = ({ children }) => {
         userData = res?.user || null;
         if (!token || !userData) throw new Error('Invalid auth response');
       }
-=======
-      const res = await authApi.login({ email, password });
-      const token = res?.token || res?.accessToken;
-      const userData = res?.user || null;
-      if (!token || !userData) throw new Error('Invalid auth response');
->>>>>>> de5312faa4580ce52d1dc80197f33064120e9ab3
 
       setAuthToken(token);
       const primary = remember ? localStorage : getPrimaryStorage(config.TOKEN_STORAGE);
