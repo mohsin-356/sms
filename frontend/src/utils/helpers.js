@@ -57,6 +57,8 @@ export const getStatusColor = (status) => {
       return 'green';
     
     case 'pending':
+    case 'in_progress':
+    case 'in progress':
     case 'late':
     case 'partial':
     case 'warning':

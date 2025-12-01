@@ -28,6 +28,14 @@ CREATE TABLE IF NOT EXISTS students (
   avatar TEXT
 );
 
+-- Extended JSON fields to store full details from Add Student form
+ALTER TABLE students
+  ADD COLUMN IF NOT EXISTS personal JSONB,
+  ADD COLUMN IF NOT EXISTS academic JSONB,
+  ADD COLUMN IF NOT EXISTS parent JSONB,
+  ADD COLUMN IF NOT EXISTS transport JSONB,
+  ADD COLUMN IF NOT EXISTS fee JSONB;
+
 CREATE TABLE IF NOT EXISTS teachers (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -339,3 +347,112 @@ CREATE TABLE IF NOT EXISTS exam_results (
 CREATE INDEX IF NOT EXISTS idx_attendance_student_date ON attendance_records (student_id, date);
 CREATE INDEX IF NOT EXISTS idx_fee_invoices_status ON fee_invoices (status);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id, is_read);
+
+-- View: Flatten full student JSONB details into separate columns for reporting/pgAdmin
+CREATE OR REPLACE VIEW student_full_flat AS
+SELECT
+  s.id,
+  s.name,
+  s.email,
+  s.roll_number AS roll_number,
+  s.class,
+  s.section,
+  s.rfid_tag AS rfid_tag,
+  s.attendance,
+  s.fee_status AS fee_status,
+  s.bus_number AS bus_number,
+  s.bus_assigned AS bus_assigned,
+  s.parent_name AS parent_name,
+  s.parent_phone AS parent_phone,
+  s.status,
+  s.admission_date AS admission_date,
+  s.avatar,
+  -- personal
+  s.personal->>'name' AS personal_name,
+  s.personal->>'gender' AS personal_gender,
+  s.personal->>'dateOfBirth' AS personal_date_of_birth,
+  s.personal->>'bloodGroup' AS personal_blood_group,
+  s.personal->>'religion' AS personal_religion,
+  s.personal->>'nationality' AS personal_nationality,
+  s.personal->>'cnic' AS personal_cnic,
+  s.personal->>'email' AS personal_email,
+  s.personal->>'phone' AS personal_phone,
+  s.personal->'address'->>'street' AS personal_address_street,
+  s.personal->'address'->>'city' AS personal_address_city,
+  s.personal->'address'->>'province' AS personal_address_province,
+  s.personal->'address'->>'postalCode' AS personal_address_postal_code,
+  s.personal->>'medicalConditions' AS personal_medical_conditions,
+  -- academic
+  s.academic->>'admissionNumber' AS academic_admission_number,
+  s.academic->>'academicYear' AS academic_year,
+  s.academic->>'previousSchool' AS academic_previous_school,
+  s.academic->>'previousClass' AS academic_previous_class,
+  s.academic->>'specialNeeds' AS academic_special_needs,
+  s.academic->>'rollNumber' AS academic_roll_number,
+  s.academic->>'class' AS academic_class,
+  s.academic->>'section' AS academic_section,
+  s.academic->>'rfidTag' AS academic_rfid_tag,
+  s.academic->>'admissionDate' AS academic_admission_date,
+  s.academic->'previousEducation'->>'schoolName' AS academic_prev_school_name,
+  s.academic->'previousEducation'->>'class' AS academic_prev_class,
+  s.academic->'previousEducation'->>'lastAttendedDate' AS academic_prev_last_attended,
+  s.academic->'previousEducation'->>'transferCertificateNo' AS academic_prev_tc_no,
+  s.academic->'previousEducation'->>'remarks' AS academic_prev_remarks,
+  s.academic->>'stream' AS academic_stream,
+  -- parent (father)
+  s.parent->'father'->>'name' AS father_name,
+  s.parent->'father'->>'cnic' AS father_cnic,
+  s.parent->'father'->>'phone' AS father_phone,
+  s.parent->'father'->>'email' AS father_email,
+  s.parent->'father'->>'occupation' AS father_occupation,
+  (s.parent->'father'->>'income')::numeric AS father_income,
+  -- parent (mother)
+  s.parent->'mother'->>'name' AS mother_name,
+  s.parent->'mother'->>'cnic' AS mother_cnic,
+  s.parent->'mother'->>'phone' AS mother_phone,
+  s.parent->'mother'->>'email' AS mother_email,
+  s.parent->'mother'->>'occupation' AS mother_occupation,
+  (s.parent->'mother'->>'income')::numeric AS mother_income,
+  -- guardian
+  s.parent->'guardian'->>'name' AS guardian_name,
+  s.parent->'guardian'->>'relationship' AS guardian_relationship,
+  s.parent->'guardian'->>'phone' AS guardian_phone,
+  s.parent->'guardian'->>'cnic' AS guardian_cnic,
+  -- emergency
+  s.parent->'emergency'->>'name' AS emergency_name,
+  s.parent->'emergency'->>'phone' AS emergency_phone,
+  s.parent->'emergency'->>'relationship' AS emergency_relationship,
+  s.parent->>'familySize' AS family_size,
+  s.parent->>'familyNotes' AS family_notes,
+  -- transport
+  (s.transport->>'usesTransport')::boolean AS transport_uses_transport,
+  s.transport->>'busNumber' AS transport_bus_number,
+  s.transport->>'route' AS transport_route,
+  s.transport->>'pickupPoint' AS transport_pickup_point,
+  s.transport->>'dropPoint' AS transport_drop_point,
+  s.transport->>'pickupTime' AS transport_pickup_time,
+  s.transport->>'dropTime' AS transport_drop_time,
+  s.transport->>'notes' AS transport_notes,
+  s.transport->>'feeCategory' AS transport_fee_category,
+  s.transport->>'alternativeMode' AS transport_alternative_mode,
+  s.transport->>'vanServiceProvider' AS transport_van_service_provider,
+  s.transport->>'vanDriverContact' AS transport_van_driver_contact,
+  -- fee
+  s.fee->>'feePlan' AS fee_plan,
+  s.fee->>'academicYear' AS fee_academic_year,
+  (s.fee->>'isNewAdmission')::boolean AS fee_is_new_admission,
+  (s.fee->>'tuitionFee')::numeric AS fee_tuition_fee,
+  (s.fee->>'admissionFee')::numeric AS fee_admission_fee,
+  (s.fee->>'transportFee')::numeric AS fee_transport_fee,
+  (s.fee->>'libraryFee')::numeric AS fee_library_fee,
+  (s.fee->>'labFee')::numeric AS fee_lab_fee,
+  (s.fee->>'examFee')::numeric AS fee_exam_fee,
+  (s.fee->>'activityFee')::numeric AS fee_activity_fee,
+  s.fee->'discount'->>'type' AS fee_discount_type,
+  (s.fee->'discount'->>'value')::numeric AS fee_discount_value,
+  s.fee->'discount'->>'reason' AS fee_discount_reason,
+  s.fee->'discount'->>'approvedBy' AS fee_discount_approved_by,
+  s.fee->>'paymentSchedule' AS fee_payment_schedule,
+  s.fee->>'firstPaymentDue' AS fee_first_payment_due,
+  s.fee->'paymentMethods' AS fee_payment_methods
+FROM students s;

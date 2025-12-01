@@ -35,7 +35,7 @@ router.post(
   [
     body('studentId').isInt(),
     body('date').isISO8601(),
-    body('status').isIn(['present', 'absent', 'late']),
+    body('status').isIn(['present', 'absent', 'late', 'leave']),
     body('remarks').optional().isString(),
   ],
   validate,
