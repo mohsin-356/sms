@@ -13,6 +13,7 @@ import notificationsRoutes from './notifications.routes.js';
 import examsRoutes from './exams.routes.js';
 import resultsRoutes from './results.routes.js';
 import dashboardRoutes from './dashboard.routes.js';
+import classRoutes from './classes.routes.js';
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.use('/notifications', notificationsRoutes);
 router.use('/exams', examsRoutes);
 router.use('/results', resultsRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/classes', classRoutes);
 
 export default router;

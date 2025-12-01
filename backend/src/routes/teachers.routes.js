@@ -262,6 +262,30 @@ router.post(
   teacherController.createSubject
 );
 
+router.patch(
+  '/subjects/:id',
+  authenticate,
+  authorize('admin'),
+  [
+    param('id').isInt(),
+    optionalString('name'),
+    optionalString('code'),
+    optionalString('department'),
+    optionalString('description'),
+  ],
+  validate,
+  teacherController.updateSubject
+);
+
+router.delete(
+  '/subjects/:id',
+  authenticate,
+  authorize('admin'),
+  [param('id').isInt()],
+  validate,
+  teacherController.removeSubject
+);
+
 router.get(
   '/subjects/assignments',
   authenticate,

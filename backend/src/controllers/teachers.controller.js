@@ -398,6 +398,26 @@ export const createSubject = async (req, res, next) => {
   }
 };
 
+export const updateSubject = async (req, res, next) => {
+  try {
+    const subject = await teachers.updateSubject(Number(req.params.id), req.body);
+    if (!subject) return res.status(404).json({ message: 'Subject not found' });
+    return res.json(subject);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const removeSubject = async (req, res, next) => {
+  try {
+    const ok = await teachers.removeSubject(Number(req.params.id));
+    if (!ok) return res.status(404).json({ message: 'Subject not found' });
+    return res.json({ success: true });
+  } catch (e) {
+    next(e);
+  }
+};
+
 export const listSubjectAssignments = async (req, res, next) => {
   try {
     const assignments = await teachers.listSubjectAssignments({

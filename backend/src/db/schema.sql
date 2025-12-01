@@ -173,6 +173,27 @@ ALTER TABLE teachers
 ALTER TABLE teachers
   ADD CONSTRAINT teachers_payment_method_check CHECK (payment_method IN ('bank','cash','cheque'));
 
+-- Class sections (grade/section master)
+CREATE TABLE IF NOT EXISTS class_sections (
+  id SERIAL PRIMARY KEY,
+  class_name TEXT NOT NULL,
+  section TEXT NOT NULL,
+  academic_year TEXT NOT NULL DEFAULT '',
+  class_teacher_id INTEGER REFERENCES teachers(id) ON DELETE SET NULL,
+  capacity INTEGER NOT NULL DEFAULT 30 CHECK (capacity > 0),
+  enrolled_students INTEGER NOT NULL DEFAULT 0 CHECK (enrolled_students >= 0),
+  room TEXT,
+  medium TEXT,
+  shift TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','archived')),
+  notes TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE (class_name, section, academic_year)
+);
+
+CREATE INDEX IF NOT EXISTS idx_class_sections_teacher ON class_sections (class_teacher_id);
+
 -- Teacher schedules
 CREATE TABLE IF NOT EXISTS teacher_schedules (
   id SERIAL PRIMARY KEY,

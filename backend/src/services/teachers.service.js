@@ -269,10 +269,35 @@ const mapPerformanceRow = (row = {}) => ({
   ...row,
 });
 
+const subjectDetailSelect = `
+  id,
+  name,
+  code,
+  department,
+  description,
+  created_at AS "createdAt",
+  updated_at AS "updatedAt"
+`;
+
+const mapSubjectRow = (row = {}) => ({
+  id: row.id,
+  name: row.name,
+  code: row.code,
+  department: row.department,
+  description: row.description,
+  createdAt: row.createdAt,
+  updatedAt: row.updatedAt,
+});
+
 const mapSubjectAssignmentRow = (row = {}) => ({
   ...row,
   classes: Array.isArray(row.classes) ? row.classes : [],
 });
+
+const getSubjectById = async (id) => {
+  const { rows } = await query(`SELECT ${subjectDetailSelect} FROM subjects WHERE id = $1`, [id]);
+  return rows[0] ? mapSubjectRow(rows[0]) : null;
+};
 
 const getSubjectAssignmentById = async (id) => {
   const { rows } = await query(
@@ -891,6 +916,38 @@ export const createSubject = async (payload = {}) => {
     [payload.name, payload.code ?? null, payload.department ?? null, payload.description ?? null]
   );
   return rows[0];
+};
+
+export const updateSubject = async (id, payload = {}) => {
+  const existing = await getSubjectById(id);
+  if (!existing) return null;
+  const mappings = {
+    name: 'name',
+    code: 'code',
+    department: 'department',
+    description: 'description',
+  };
+  const updates = [];
+  const values = [];
+  Object.entries(mappings).forEach(([field, column]) => {
+    if (field in payload) {
+      values.push(payload[field] ?? null);
+      updates.push(`${column} = $${values.length}`);
+    }
+  });
+  if (!updates.length) return existing;
+  updates.push('updated_at = NOW()');
+  values.push(id);
+  const { rows } = await query(
+    `UPDATE subjects SET ${updates.join(', ')} WHERE id = $${values.length} RETURNING ${subjectDetailSelect}`,
+    values
+  );
+  return rows[0] ? mapSubjectRow(rows[0]) : null;
+};
+
+export const removeSubject = async (id) => {
+  const { rowCount } = await query('DELETE FROM subjects WHERE id = $1', [id]);
+  return rowCount > 0;
 };
 
 export const listSubjectAssignments = async ({ teacherId, subjectId }) => {
