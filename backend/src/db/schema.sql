@@ -181,6 +181,27 @@ ALTER TABLE teachers
 ALTER TABLE teachers
   ADD CONSTRAINT teachers_payment_method_check CHECK (payment_method IN ('bank','cash','cheque'));
 
+-- Class sections (grade/section master)
+CREATE TABLE IF NOT EXISTS class_sections (
+  id SERIAL PRIMARY KEY,
+  class_name TEXT NOT NULL,
+  section TEXT NOT NULL,
+  academic_year TEXT NOT NULL DEFAULT '',
+  class_teacher_id INTEGER REFERENCES teachers(id) ON DELETE SET NULL,
+  capacity INTEGER NOT NULL DEFAULT 30 CHECK (capacity > 0),
+  enrolled_students INTEGER NOT NULL DEFAULT 0 CHECK (enrolled_students >= 0),
+  room TEXT,
+  medium TEXT,
+  shift TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','archived')),
+  notes TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE (class_name, section, academic_year)
+);
+
+CREATE INDEX IF NOT EXISTS idx_class_sections_teacher ON class_sections (class_teacher_id);
+
 -- Teacher schedules
 CREATE TABLE IF NOT EXISTS teacher_schedules (
   id SERIAL PRIMARY KEY,
@@ -192,6 +213,127 @@ CREATE TABLE IF NOT EXISTS teacher_schedules (
   section TEXT,
   subject TEXT
 );
+
+ALTER TABLE teacher_schedules
+  ADD COLUMN IF NOT EXISTS room TEXT,
+  ADD COLUMN IF NOT EXISTS time_slot_index INTEGER,
+  ADD COLUMN IF NOT EXISTS time_slot_label TEXT,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'teacher_schedule_unique_slot'
+  ) THEN
+    ALTER TABLE teacher_schedules
+      ADD CONSTRAINT teacher_schedule_unique_slot UNIQUE (teacher_id, day_of_week, start_time);
+  END IF;
+END $$;
+
+-- Academic subjects master
+CREATE TABLE IF NOT EXISTS subjects (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  code TEXT,
+  department TEXT,
+  description TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Teacher <> subject allocation
+CREATE TABLE IF NOT EXISTS teacher_subject_assignments (
+  id SERIAL PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+  classes JSONB NOT NULL DEFAULT '[]'::jsonb,
+  academic_year TEXT NOT NULL DEFAULT '',
+  assigned_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE teacher_subject_assignments
+  ALTER COLUMN academic_year SET DEFAULT '';
+
+UPDATE teacher_subject_assignments SET academic_year = '' WHERE academic_year IS NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'teacher_subject_assignments_unique'
+  ) THEN
+    ALTER TABLE teacher_subject_assignments
+      ADD CONSTRAINT teacher_subject_assignments_unique UNIQUE (teacher_id, subject_id, academic_year);
+  END IF;
+END $$;
+
+-- Teacher attendance records
+CREATE TABLE IF NOT EXISTS teacher_attendance (
+  id SERIAL PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  attendance_date DATE NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('present','absent','late')),
+  check_in_time TIME,
+  check_out_time TIME,
+  remarks TEXT,
+  recorded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE (teacher_id, attendance_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_teacher_attendance_date ON teacher_attendance (attendance_date);
+CREATE INDEX IF NOT EXISTS idx_teacher_attendance_teacher ON teacher_attendance (teacher_id);
+
+-- Teacher payroll records
+CREATE TABLE IF NOT EXISTS teacher_payrolls (
+  id SERIAL PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  period_month DATE NOT NULL,
+  base_salary NUMERIC(12,2) NOT NULL DEFAULT 0,
+  allowances NUMERIC(12,2) NOT NULL DEFAULT 0,
+  deductions NUMERIC(12,2) NOT NULL DEFAULT 0,
+  bonuses NUMERIC(12,2) NOT NULL DEFAULT 0,
+  total_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','processing','paid','failed','cancelled')),
+  payment_method TEXT,
+  transaction_reference TEXT,
+  paid_on TIMESTAMP,
+  notes TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE (teacher_id, period_month)
+);
+
+CREATE INDEX IF NOT EXISTS idx_teacher_payrolls_period ON teacher_payrolls (period_month);
+CREATE INDEX IF NOT EXISTS idx_teacher_payrolls_status ON teacher_payrolls (status);
+
+-- Teacher performance reviews
+CREATE TABLE IF NOT EXISTS teacher_performance_reviews (
+  id SERIAL PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  period_type TEXT NOT NULL,
+  period_label TEXT,
+  period_start DATE,
+  period_end DATE,
+  overall_score NUMERIC(5,2),
+  student_feedback_score NUMERIC(5,2),
+  attendance_score NUMERIC(5,2),
+  class_management_score NUMERIC(5,2),
+  exam_results_score NUMERIC(5,2),
+  status TEXT,
+  improvement NUMERIC(5,2),
+  remarks TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_teacher_performance_period ON teacher_performance_reviews (period_type, period_label);
 
 -- Assignments
 CREATE TABLE IF NOT EXISTS assignments (

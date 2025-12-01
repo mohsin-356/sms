@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -26,10 +26,18 @@ import {
   SimpleGrid,
   Select,
   useColorModeValue,
-  Stat,
-  StatLabel,
-  StatNumber,
-  StatHelpText,
+  Spinner,
+  Center,
+  Alert,
+  AlertIcon,
+  AlertDialog,
+  AlertDialogOverlay,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogBody,
+  AlertDialogFooter,
+  useDisclosure,
+  useToast,
 } from '@chakra-ui/react';
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
@@ -39,104 +47,381 @@ import {
   MdMoreVert,
   MdPeople,
   MdSchool,
-  MdTrendingUp,
   MdPersonAdd,
 } from 'react-icons/md';
+import useApi from '../../../../hooks/useApi';
+import { teachersApi } from '../../../../services/api';
+import TeacherDetailsModal from './TeacherDetailsModal';
+import TeacherEditModal from './TeacherEditModal';
 
 function TeacherList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [selectedTeacher, setSelectedTeacher] = useState(null);
+  const [teacherToDelete, setTeacherToDelete] = useState(null);
+  const [editTeacher, setEditTeacher] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [editAvatarPreview, setEditAvatarPreview] = useState('');
+  const [editAvatarData, setEditAvatarData] = useState(null);
+  const [editErrors, setEditErrors] = useState({});
+  const detailsDisclosure = useDisclosure();
+  const deleteDisclosure = useDisclosure();
+  const editDisclosure = useDisclosure();
+  const cancelDeleteRef = useRef();
+  const toast = useToast();
   
   // Color mode values
   const textColor = useColorModeValue('gray.800', 'white');
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
-  
-  // Mock teacher data
-  const teachers = [
-    {
-      id: 1,
-      name: "Robert Smith",
-      photo: "https://bit.ly/ryan-florence",
-      qualification: "PhD Mathematics",
-      subjects: ["Mathematics", "Physics"],
-      classes: ["10A", "11B", "12A"],
-      employeeId: "TCH001",
-      email: "robert@school.edu",
-      phone: "9876543210",
-      employmentType: "fullTime",
-      status: "active"
-    },
-    {
-      id: 2,
-      name: "Sarah Johnson",
-      photo: "https://bit.ly/sage-adebayo",
-      qualification: "MSc Biology",
-    },
-    {
-      id: 3,
-      name: 'Ms. Emily Rodriguez',
-      email: 'emily.rodriguez@school.edu',
-      phone: '+1 (555) 345-6789',
-      subject: 'English Literature',
-      department: 'Arts',
-      qualification: 'MA English',
-      experience: '6 years',
-      status: 'Active',
-      joiningDate: '2021-03-22',
-      salary: '$4,200',
-    },
-    {
-      id: 4,
-      name: 'Dr. James Wilson',
-      email: 'james.wilson@school.edu',
-      phone: '+1 (555) 456-7890',
-      subject: 'Chemistry',
-      department: 'Science',
-      qualification: 'PhD Chemistry',
-      experience: '15 years',
-      status: 'On Leave',
-      joiningDate: '2015-09-01',
-      salary: '$5,800',
-    },
-    {
-      id: 5,
-      name: 'Mrs. Lisa Thompson',
-      email: 'lisa.thompson@school.edu',
-      phone: '+1 (555) 567-8901',
-      subject: 'History',
-      department: 'Social Studies',
-      qualification: 'MA History',
-      experience: '10 years',
-      status: 'Active',
-      joiningDate: '2019-02-14',
-      salary: '$4,800',
-    },
-  ];
+  const {
+    execute: fetchTeachers,
+    data: teachersResponse,
+    loading: loadingTeachers,
+    error: teachersError,
+  } = useApi(teachersApi.list);
 
-  // Filter teachers based on search and filters
-  const filteredTeachers = teachers.filter((teacher) => {
-    const name = teacher.name || '';
-    const email = teacher.email || '';
-    const subject = teacher.subject || '';
-    const dept = teacher.department || '';
-    const status = teacher.status || '';
+  const {
+    execute: removeTeacher,
+    loading: removingTeacher,
+  } = useApi((id) => teachersApi.remove(id));
 
-    const matchesSearch = [name, email, subject]
-      .some((v) => v.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesDepartment = !departmentFilter || dept.toLowerCase() === departmentFilter.toLowerCase();
-    const matchesStatus = !statusFilter || status.toLowerCase() === statusFilter.toLowerCase();
+  const {
+    execute: updateTeacher,
+    loading: updatingTeacher,
+  } = useApi((id, payload) => teachersApi.update(id, payload));
 
-    return matchesSearch && matchesDepartment && matchesStatus;
-  });
+  const refreshTeachers = useCallback(() => {
+    fetchTeachers({ page: 1, pageSize: 200 });
+  }, [fetchTeachers]);
 
-  // Calculate statistics
-  const stats = {
-    total: teachers.length,
-    active: teachers.filter(t => t.status === 'Active').length,
-    onLeave: teachers.filter(t => t.status === 'On Leave').length,
-    departments: [...new Set(teachers.map(t => t.department))].length,
+  useEffect(() => {
+    refreshTeachers();
+  }, [refreshTeachers]);
+
+  const teachers = useMemo(() => teachersResponse?.rows || [], [teachersResponse]);
+  const totalTeachers = teachersResponse?.total ?? teachers.length;
+
+  const departments = useMemo(() => {
+    const set = new Set();
+    teachers.forEach((t) => {
+      if (t?.department) set.add(t.department);
+    });
+    return Array.from(set);
+  }, [teachers]);
+
+  const subjects = useMemo(() => {
+    const set = new Set();
+    teachers.forEach((t) => {
+      if (t?.subject) set.add(t.subject);
+      if (Array.isArray(t?.subjects)) {
+        t.subjects.filter(Boolean).forEach((subj) => set.add(subj));
+      }
+    });
+    return Array.from(set);
+  }, [teachers]);
+
+  const statuses = useMemo(() => {
+    const set = new Set();
+    teachers.forEach((t) => {
+      const status = (t?.employmentStatus || t?.status || '').trim();
+      if (status) set.add(status);
+    });
+    return Array.from(set);
+  }, [teachers]);
+
+  const statusOptions = useMemo(() => {
+    const base = ['active', 'on leave', 'on_leave', 'resigned'];
+    const set = new Set(base);
+    statuses.forEach((s) => set.add(s));
+    return Array.from(set);
+  }, [statuses]);
+
+  const currencyOptions = useMemo(() => ['PKR', 'USD', 'EUR'], []);
+
+  const formatLabel = (value) => {
+    if (!value) return '';
+    return value
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
+  const filteredTeachers = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return teachers.filter((teacher) => {
+      const name = (teacher.name || '').toLowerCase();
+      const email = (teacher.email || '').toLowerCase();
+      const subject = (teacher.subject || '').toLowerCase();
+      const employeeId = (teacher.employeeId || '').toLowerCase();
+      const dept = (teacher.department || '').toLowerCase();
+      const statusValues = [teacher.employmentStatus, teacher.status]
+        .map((s) => (s || '').toLowerCase())
+        .filter(Boolean);
+      const subjectValues = Array.isArray(teacher.subjects)
+        ? teacher.subjects.map((s) => (s || '').toLowerCase())
+        : [];
+
+      const matchesSearch = !term ||
+        name.includes(term) ||
+        email.includes(term) ||
+        subject.includes(term) ||
+        employeeId.includes(term);
+      const matchesDepartment = !departmentFilter || dept === departmentFilter.toLowerCase();
+      const matchesStatus = !statusFilter || statusValues.includes(statusFilter.toLowerCase());
+      const matchesSubject = !subjectFilter ||
+        subjectFilter.toLowerCase() === subject ||
+        subjectValues.includes(subjectFilter.toLowerCase());
+
+      return matchesSearch && matchesDepartment && matchesStatus && matchesSubject;
+    });
+  }, [teachers, searchTerm, departmentFilter, statusFilter, subjectFilter]);
+
+  const stats = useMemo(() => {
+    const activeCount = teachers.filter((t) => (t.employmentStatus || t.status || '').toLowerCase() === 'active').length;
+    const leaveCount = teachers.filter((t) => (t.employmentStatus || t.status || '').toLowerCase().includes('leave')).length;
+    const departmentCount = new Set(teachers.map((t) => t.department).filter(Boolean)).size;
+    return {
+      total: totalTeachers,
+      active: activeCount,
+      onLeave: leaveCount,
+      departments: departmentCount,
+    };
+  }, [teachers, totalTeachers]);
+
+  const statusColor = (status) => {
+    const value = (status || '').toLowerCase();
+    if (value === 'active') return 'green';
+    if (value.includes('leave')) return 'orange';
+    if (value.includes('resign')) return 'red';
+    return 'gray';
+  };
+
+  const formatCurrency = (amount, currency = 'PKR') => {
+    if (amount === null || amount === undefined || amount === '') return '-';
+    const numeric = Number(amount);
+    if (Number.isNaN(numeric)) return amount;
+    return `${currency} ${numeric.toLocaleString()}`;
+  };
+
+  const buildEditForm = useCallback((teacher) => ({
+    name: teacher?.name || '',
+    email: teacher?.email || '',
+    phone: teacher?.phone || '',
+    employeeId: teacher?.employeeId || '',
+    department: teacher?.department || '',
+    designation: teacher?.designation || '',
+    qualification: teacher?.qualification || '',
+    specialization: teacher?.specialization || '',
+    subject: teacher?.subject || '',
+    subjects: Array.isArray(teacher?.subjects) ? teacher.subjects.join(', ') : '',
+    classes: Array.isArray(teacher?.classes) ? teacher.classes.join(', ') : '',
+    employmentStatus: teacher?.employmentStatus || teacher?.status || 'active',
+    employmentType: teacher?.employmentType || '',
+    joiningDate: teacher?.joiningDate ? teacher.joiningDate.slice(0, 10) : '',
+    experienceYears: teacher?.experienceYears ?? '',
+    workHoursPerWeek: teacher?.workHoursPerWeek ?? '',
+    baseSalary: teacher?.baseSalary ?? '',
+    allowances: teacher?.allowances ?? '',
+    deductions: teacher?.deductions ?? '',
+    salary: teacher?.salary ?? '',
+    currency: teacher?.currency || 'PKR',
+    paymentMethod: teacher?.paymentMethod || '',
+    bankName: teacher?.bankName || '',
+    accountNumber: teacher?.accountNumber || '',
+    iban: teacher?.iban || '',
+    emergencyName: teacher?.emergencyName || '',
+    emergencyRelation: teacher?.emergencyRelation || '',
+    emergencyPhone: teacher?.emergencyPhone || '',
+    address1: teacher?.address1 || '',
+    address2: teacher?.address2 || '',
+    city: teacher?.city || '',
+    state: teacher?.state || '',
+    postalCode: teacher?.postalCode || '',
+  }), []);
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+    if (editErrors[name]) setEditErrors((prev) => ({ ...prev, [name]: null }));
+  };
+
+  const parseListField = (value) => {
+    if (value === null || value === undefined) return undefined;
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    return trimmed.split(',').map((entry) => entry.trim()).filter(Boolean);
+  };
+
+  const parseNumberField = (value) => {
+    if (value === null || value === undefined || value === '') return undefined;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : undefined;
+  };
+
+  const fileToBase64 = useCallback((file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result?.toString() || '');
+    reader.onerror = () => reject(reader.error || new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  }), []);
+
+  const validateEditForm = () => {
+    if (!editForm) return false;
+    const errors = {};
+    if (!editForm.name.trim()) errors.name = 'Name is required';
+    if (!editForm.email.trim()) errors.email = 'Email is required';
+    setEditErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const openDetails = (teacher) => {
+    setSelectedTeacher(teacher);
+    detailsDisclosure.onOpen();
+  };
+
+  const openEdit = (teacher) => {
+    setEditTeacher(teacher);
+    setEditForm(buildEditForm(teacher));
+    setEditAvatarPreview(teacher?.avatar || teacher?.photo || '');
+    setEditAvatarData(null);
+    setEditErrors({});
+    editDisclosure.onOpen();
+  };
+
+  const closeEdit = () => {
+    editDisclosure.onClose();
+    setEditTeacher(null);
+    setEditForm(null);
+    setEditErrors({});
+    setEditAvatarPreview('');
+    setEditAvatarData(null);
+  };
+
+  const handleEditAvatarChange = useCallback(async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const base64 = await fileToBase64(file);
+      setEditAvatarPreview(base64);
+      setEditAvatarData(base64);
+    } catch (error) {
+      toast({
+        title: 'Image upload failed',
+        description: error?.message || 'Could not process the selected image.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      event.target.value = '';
+    }
+  }, [fileToBase64, toast]);
+
+  const handleEditSubmit = async (e) => {
+    e?.preventDefault();
+    if (!editTeacher || !editForm) return;
+    if (!validateEditForm()) return;
+
+    const payload = {
+      name: editForm.name.trim(),
+      email: editForm.email.trim().toLowerCase(),
+    };
+
+    const assign = (field, value) => {
+      if (value === undefined) return;
+      payload[field] = value;
+    };
+
+    assign('phone', editForm.phone.trim() || undefined);
+    assign('employeeId', editForm.employeeId?.trim() || undefined);
+    assign('department', editForm.department.trim() || undefined);
+    assign('designation', editForm.designation.trim() || undefined);
+    assign('qualification', editForm.qualification.trim() || undefined);
+    assign('subject', editForm.subject.trim() || undefined);
+    assign('employmentStatus', editForm.employmentStatus || undefined);
+    assign('employmentType', editForm.employmentType.trim() || undefined);
+    assign('joiningDate', editForm.joiningDate || undefined);
+    assign('specialization', editForm.specialization.trim() || undefined);
+    assign('currency', editForm.currency || undefined);
+    assign('paymentMethod', editForm.paymentMethod.trim() || undefined);
+    assign('bankName', editForm.bankName.trim() || undefined);
+    assign('accountNumber', editForm.accountNumber.trim() || undefined);
+    assign('iban', editForm.iban.trim() || undefined);
+    assign('emergencyName', editForm.emergencyName.trim() || undefined);
+    assign('emergencyRelation', editForm.emergencyRelation.trim() || undefined);
+    assign('emergencyPhone', editForm.emergencyPhone.trim() || undefined);
+    assign('address1', editForm.address1.trim() || undefined);
+    assign('address2', editForm.address2.trim() || undefined);
+    assign('city', editForm.city.trim() || undefined);
+    assign('state', editForm.state.trim() || undefined);
+    assign('postalCode', editForm.postalCode.trim() || undefined);
+
+    assign('subjects', parseListField(editForm.subjects));
+    assign('classes', parseListField(editForm.classes));
+    assign('baseSalary', parseNumberField(editForm.baseSalary));
+    assign('allowances', parseNumberField(editForm.allowances));
+    assign('deductions', parseNumberField(editForm.deductions));
+    assign('salary', parseNumberField(editForm.salary));
+    assign('experienceYears', parseNumberField(editForm.experienceYears));
+    assign('workHoursPerWeek', parseNumberField(editForm.workHoursPerWeek));
+    assign('avatar', editAvatarData || undefined);
+
+    const { error } = await updateTeacher(editTeacher.id, payload);
+    if (error) {
+      toast({
+        title: 'Update failed',
+        description: error?.message || 'Could not update teacher.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    toast({
+      title: 'Teacher updated',
+      description: `${payload.name} has been updated.`,
+      status: 'success',
+      duration: 4000,
+      isClosable: true,
+    });
+    closeEdit();
+    refreshTeachers();
+  };
+
+  const confirmDelete = (teacher) => {
+    setTeacherToDelete(teacher);
+    deleteDisclosure.onOpen();
+  };
+
+  const closeDeleteDialog = () => {
+    deleteDisclosure.onClose();
+    setTeacherToDelete(null);
+  };
+
+  const handleDelete = async () => {
+    if (!teacherToDelete) return;
+    const { error } = await removeTeacher(teacherToDelete.id);
+    if (error) {
+      toast({
+        title: 'Failed to delete teacher',
+        description: error?.message || 'Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+    toast({
+      title: 'Teacher deleted',
+      description: `${teacherToDelete.name || 'Teacher'} has been removed.`,
+      status: 'success',
+      duration: 4000,
+      isClosable: true,
+    });
+    closeDeleteDialog();
+    refreshTeachers();
   };
 
   return (
@@ -163,7 +448,7 @@ function TeacherList() {
             Teachers Management
           </Heading>
           <Text color="gray.600" fontSize="md">
-            Manage teaching staff and their information ({filteredTeachers.length} teachers)
+            Manage teaching staff and their information ({filteredTeachers.length} shown of {totalTeachers})
           </Text>
         </Box>
         <Button 
@@ -181,36 +466,36 @@ function TeacherList() {
         <MiniStatistics
           startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)' icon={<Icon as={MdPeople} w='24px' h='24px' color='white' />} />}
           name='Total Teachers'
-          value={String(stats.total)}
+          value={String(stats.total || 0)}
           growth='+2%'
-          trendData={[5,6,7,8,9,10]}
+          trendData={[stats.total || 0, Math.max((stats.total || 0) - 1, 0), stats.total || 0]}
           trendColor='#4facfe'
           compact
         />
         <MiniStatistics
           startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)' icon={<Icon as={MdSchool} w='24px' h='24px' color='white' />} />}
           name='Active Teachers'
-          value={String(stats.active)}
+          value={String(stats.active || 0)}
           growth='+1%'
-          trendData={[2,3,4,4,5,6]}
+          trendData={[stats.active || 0, stats.active || 0]}
           trendColor='#43e97b'
           compact
         />
         <MiniStatistics
           startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#f7971e 0%,#ffd200 100%)' icon={<Icon as={MdPersonAdd} w='24px' h='24px' color='white' />} />}
           name='On Leave'
-          value={String(stats.onLeave)}
+          value={String(stats.onLeave || 0)}
           growth='+0%'
-          trendData={[1,1,1,2,2,stats.onLeave]}
+          trendData={[stats.onLeave || 0, stats.onLeave || 0]}
           trendColor='#f7971e'
           compact
         />
         <MiniStatistics
           startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#a18cd1 0%,#fbc2eb 100%)' icon={<Icon as={MdSchool} w='24px' h='24px' color='white' />} />}
           name='Departments'
-          value={String(stats.departments)}
+          value={String(stats.departments || 0)}
           growth='+0%'
-          trendData={[1,1,2,2,2,stats.departments]}
+          trendData={[stats.departments || 0, stats.departments || 0]}
           trendColor='#a18cd1'
           compact
         />
@@ -219,7 +504,7 @@ function TeacherList() {
       {/* Search and Filters */}
       <Card mb={6}>
         <Box p={4}>
-          <Flex gap={4} direction={{ base: 'column', md: 'row' }}>
+          <Flex gap={4} direction={{ base: 'column', md: 'row' }} flexWrap='wrap'>
             <InputGroup flex={2}>
               <InputLeftElement>
                 <SearchIcon color="gray.300" />
@@ -232,25 +517,42 @@ function TeacherList() {
               />
             </InputGroup>
             <Select 
+              placeholder="All Subjects" 
+              maxW="200px"
+              value={subjectFilter}
+              onChange={(e) => setSubjectFilter(e.target.value)}
+            >
+              {subjects.map((subj) => (
+                <option key={subj} value={subj.toLowerCase()}>{subj}</option>
+              ))}
+            </Select>
+            <Select 
               placeholder="All Departments" 
               maxW="200px"
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
             >
-              <option value="science">Science</option>
-              <option value="arts">Arts</option>
-              <option value="social studies">Social Studies</option>
+              {departments.map((dept) => (
+                <option key={dept} value={dept.toLowerCase()}>{dept}</option>
+              ))}
             </Select>
             <Select 
               placeholder="All Status" 
-              maxW="150px"
+              maxW="200px"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <option value="active">Active</option>
-              <option value="on leave">On Leave</option>
+              {statuses.map((status) => (
+                <option key={status} value={status.toLowerCase()}>{status}</option>
+              ))}
             </Select>
           </Flex>
+          {teachersError && (
+            <Alert status='error' mt={4} borderRadius='md'>
+              <AlertIcon />
+              {teachersError.message || 'Failed to load teachers'}
+            </Alert>
+          )}
         </Box>
       </Card>
 
@@ -284,83 +586,102 @@ function TeacherList() {
                 </Tr>
               </Thead>
               <Tbody>
-                {filteredTeachers.map((teacher) => (
-                  <Tr key={teacher.id} _hover={{ bg: 'gray.50' }}>
-                    <Td>
-                      <Flex align="center">
-                        <Avatar 
-                          size="sm" 
-                          name={teacher.name} 
-                          mr={3}
-                        />
-                        <Box>
-                          <Text fontWeight="bold" color="gray.800">
-                            {teacher.name}
-                          </Text>
-                          <Text fontSize="sm" color="gray.600">
-                            {teacher.qualification}
-                          </Text>
-                        </Box>
-                      </Flex>
-                    </Td>
-                    <Td>
-                      <Box>
-                        <Text fontSize="sm" color="gray.800">
-                          {teacher.email}
-                        </Text>
-                        <Text fontSize="sm" color="gray.600">
-                          {teacher.phone}
-                        </Text>
-                      </Box>
-                    </Td>
-                    <Td>
-                      <Badge colorScheme="blue" variant="subtle">
-                        {teacher.subject}
-                      </Badge>
-                    </Td>
-                    <Td>
-                      <Text fontSize="sm" color="gray.800">
-                        {teacher.department}
-                      </Text>
-                    </Td>
-                    <Td>
-                      <Text fontSize="sm" color="gray.800">
-                        {teacher.experience}
-                      </Text>
-                    </Td>
-                    <Td>
-                      <Badge 
-                        colorScheme={teacher.status === 'Active' ? 'green' : 'orange'}
-                        variant="subtle"
-                      >
-                        {teacher.status}
-                      </Badge>
-                    </Td>
-                    <Td>
-                      <Menu>
-                        <MenuButton
-                          as={IconButton}
-                          icon={<MdMoreVert />}
-                          variant="ghost"
-                          size="sm"
-                        />
-                        <MenuList>
-                          <MenuItem icon={<ViewIcon />}>View Details</MenuItem>
-                          <MenuItem icon={<EditIcon />}>Edit Teacher</MenuItem>
-                          <MenuItem icon={<DeleteIcon />} color="red.500">
-                            Delete Teacher
-                          </MenuItem>
-                        </MenuList>
-                      </Menu>
+                {loadingTeachers && (
+                  <Tr>
+                    <Td colSpan={7}>
+                      <Center py={10}>
+                        <Spinner />
+                      </Center>
                     </Td>
                   </Tr>
-                ))}
+                )}
+                {!loadingTeachers && filteredTeachers.map((teacher) => {
+                  const primarySubject = teacher.subject || (Array.isArray(teacher.subjects) ? teacher.subjects[0] : '');
+                  const experienceLabel = teacher.experienceYears ? `${teacher.experienceYears} yrs` : teacher.experience || '—';
+                  const teacherStatus = teacher.employmentStatus || teacher.status;
+                  return (
+                    <Tr key={teacher.id} _hover={{ bg: 'gray.50' }}>
+                      <Td>
+                        <Flex align="center">
+                          <Avatar 
+                            size="sm" 
+                            name={teacher.name} 
+                            src={teacher.avatar || teacher.photo || undefined}
+                            mr={3}
+                          />
+                          <Box>
+                            <Text fontWeight="bold" color="gray.800">
+                              {teacher.name || '—'}
+                            </Text>
+                            <Text fontSize="sm" color="gray.600">
+                              {teacher.qualification || '—'}
+                            </Text>
+                          </Box>
+                        </Flex>
+                      </Td>
+                      <Td>
+                        <Box>
+                          <Text fontSize="sm" color="gray.800">
+                            {teacher.email || '—'}
+                          </Text>
+                          <Text fontSize="sm" color="gray.600">
+                            {teacher.phone || '—'}
+                          </Text>
+                        </Box>
+                      </Td>
+                      <Td>
+                        {primarySubject ? (
+                          <Badge colorScheme="blue" variant="subtle">
+                            {primarySubject}
+                          </Badge>
+                        ) : (
+                          <Text fontSize="sm" color="gray.500">—</Text>
+                        )}
+                      </Td>
+                      <Td>
+                        <Text fontSize="sm" color="gray.800">
+                          {teacher.department || '—'}
+                        </Text>
+                      </Td>
+                      <Td>
+                        <Text fontSize="sm" color="gray.800">
+                          {experienceLabel}
+                        </Text>
+                      </Td>
+                      <Td>
+                        <Badge 
+                          colorScheme={statusColor(teacherStatus)}
+                          variant="subtle"
+                        >
+                          {teacherStatus || '—'}
+                        </Badge>
+                      </Td>
+                      <Td>
+                        <Menu>
+                          <MenuButton
+                            as={IconButton}
+                            icon={<MdMoreVert />}
+                            variant="ghost"
+                            size="sm"
+                          />
+                          <MenuList>
+                            <MenuItem icon={<ViewIcon />} onClick={() => openDetails(teacher)}>View Details</MenuItem>
+                            <MenuItem icon={<EditIcon />} onClick={() => openEdit(teacher)}>Edit Teacher</MenuItem>
+                            <MenuItem icon={<DeleteIcon />} color="red.500" onClick={() => confirmDelete(teacher)}>
+                              Delete Teacher
+                            </MenuItem>
+                          </MenuList>
+                        </Menu>
+                      </Td>
+                    </Tr>
+                  );
+                })}
               </Tbody>
             </Table>
           </Box>
           
           {/* Pagination */}
-          {filteredTeachers.length > 0 && (
+          {!loadingTeachers && filteredTeachers.length > 0 && (
             <Flex justify="space-between" align="center" pt={4} borderTop="1px" borderColor="gray.200" mt={4}>
               <Text fontSize="sm" color="gray.600">
                 Showing 1 to {filteredTeachers.length} of {filteredTeachers.length} teachers
@@ -380,7 +701,7 @@ function TeacherList() {
           )}
           
           {/* No Results */}
-          {filteredTeachers.length === 0 && (
+          {!loadingTeachers && filteredTeachers.length === 0 && (
             <Box textAlign="center" py={10}>
               <Icon as={MdPeople} boxSize={12} color="gray.400" mb={4} />
               <Text fontSize="lg" color="gray.600" mb={2}>
@@ -393,6 +714,54 @@ function TeacherList() {
           )}
         </Box>
       </Card>
+
+      <TeacherDetailsModal
+        isOpen={detailsDisclosure.isOpen}
+        onClose={detailsDisclosure.onClose}
+        teacher={selectedTeacher}
+        statusColor={statusColor}
+        formatCurrency={formatCurrency}
+      />
+
+      <TeacherEditModal
+        isOpen={editDisclosure.isOpen}
+        onClose={closeEdit}
+        form={editForm}
+        errors={editErrors}
+        onChange={handleEditChange}
+        onSubmit={handleEditSubmit}
+        statusOptions={statusOptions}
+        currencyOptions={currencyOptions}
+        formatLabel={formatLabel}
+        isSubmitting={updatingTeacher}
+        avatarPreview={editAvatarPreview}
+        onAvatarChange={handleEditAvatarChange}
+      />
+
+      <AlertDialog
+        isOpen={deleteDisclosure.isOpen}
+        leastDestructiveRef={cancelDeleteRef}
+        onClose={closeDeleteDialog}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize='lg' fontWeight='bold'>
+              Delete Teacher
+            </AlertDialogHeader>
+            <AlertDialogBody>
+              Are you sure you want to delete {teacherToDelete?.name || 'this teacher'}? This action cannot be undone.
+            </AlertDialogBody>
+            <AlertDialogFooter>
+              <Button ref={cancelDeleteRef} onClick={closeDeleteDialog} mr={3}>
+                Cancel
+              </Button>
+              <Button colorScheme='red' onClick={handleDelete} isLoading={removingTeacher}>
+                Delete
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Box>
   );
 };
