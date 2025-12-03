@@ -66,7 +66,7 @@ import {
   MdSearch,
   MdTrendingUp,
 } from 'react-icons/md';
-import { jsPDF } from 'jspdf';
+import jsPDF from 'jspdf';
 import * as subjectsApi from '../../../../services/api/subjects';
 
 const normalizeSubjectRow = (row = {}) => ({
