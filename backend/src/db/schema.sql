@@ -271,6 +271,18 @@ CREATE TABLE IF NOT EXISTS student_transport (
   drop_stop_id INTEGER REFERENCES route_stops(id) ON DELETE SET NULL
 );
 
+-- RFID scan logs
+CREATE TABLE IF NOT EXISTS rfid_logs (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER REFERENCES students(id) ON DELETE SET NULL,
+  card_number TEXT,
+  bus_number TEXT,
+  status TEXT NOT NULL DEFAULT 'success' CHECK (status IN ('success','failed')),
+  location TEXT,
+  scan_time TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- Finance: Invoices and Payments
 CREATE TABLE IF NOT EXISTS fee_invoices (
   id SERIAL PRIMARY KEY,

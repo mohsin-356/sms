@@ -49,3 +49,28 @@ export const remove = async (req, res, next) => {
     next(e);
   }
 };
+
+// Daily (Admin): list students with their attendance for a given date and filters
+export const listDaily = async (req, res, next) => {
+  try {
+    const { date, class: cls, section, q } = req.query;
+    if (!date) return res.status(400).json({ message: 'date is required' });
+    const rows = await attendanceService.listDaily({ date, class: cls, section, q });
+    res.json({ items: rows });
+  } catch (e) {
+    next(e);
+  }
+};
+
+// Daily (Admin): bulk upsert for a given date
+export const upsertDaily = async (req, res, next) => {
+  try {
+    const { date, records } = req.body || {};
+    if (!date || !Array.isArray(records)) return res.status(400).json({ message: 'date and records[] are required' });
+    const createdBy = req.user?.id;
+    const result = await attendanceService.upsertDaily({ date, records, createdBy });
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+};

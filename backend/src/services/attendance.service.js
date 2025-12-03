@@ -38,3 +38,51 @@ export const remove = async (id) => {
   await query('DELETE FROM attendance_records WHERE id = $1', [id]);
   return true;
 };
+
+// Daily admin view: list students with attendance for a specific date (by class/section/q)
+export const listDaily = async ({ date, class: cls, section, q }) => {
+  const params = [date];
+  const where = [];
+  if (cls) { params.push(cls); where.push(`s.class = $${params.length}`); }
+  if (section) { params.push(section); where.push(`s.section = $${params.length}`); }
+  if (q) {
+    params.push(`%${q.toLowerCase()}%`);
+    where.push(`(LOWER(s.name) LIKE $${params.length} OR LOWER(s.roll_number) LIKE $${params.length})`);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const { rows } = await query(
+    `SELECT s.id, s.name, s.email, s.roll_number AS "rollNumber", s.class, s.section, s.attendance,
+            ar.id AS "recordId", ar.status, ar.remarks
+     FROM students s
+     LEFT JOIN attendance_records ar
+       ON ar.student_id = s.id AND ar.date = $1
+     ${whereSql}
+     ORDER BY s.name ASC, s.id ASC`,
+    params
+  );
+  return rows;
+};
+
+// Bulk upsert attendance for a date
+export const upsertDaily = async ({ date, records, createdBy }) => {
+  // Expect records: [{ studentId, status, remarks? }]
+  await query('BEGIN');
+  try {
+    for (const r of records || []) {
+      // Sanitize status to allowed values
+      const status = ['present', 'absent', 'late'].includes(r.status) ? r.status : 'present';
+      await query(
+        `INSERT INTO attendance_records (student_id, date, status, remarks, created_by)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (student_id, date)
+         DO UPDATE SET status = EXCLUDED.status, remarks = EXCLUDED.remarks, created_by = EXCLUDED.created_by`,
+        [Number(r.studentId), date, status, r.remarks || null, createdBy || null]
+      );
+    }
+    await query('COMMIT');
+    return { success: true };
+  } catch (e) {
+    await query('ROLLBACK');
+    throw e;
+  }
+};

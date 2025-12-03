@@ -20,6 +20,36 @@ router.get(
   controller.list
 );
 
+// Daily attendance (admin/teacher) — must be BEFORE '/:id' to avoid being captured by param route
+router.get(
+  '/daily',
+  authenticate,
+  authorize('admin', 'teacher'),
+  [
+    query('date').isISO8601({ strict: false }),
+    query('class').optional().isString(),
+    query('section').optional().isString(),
+    query('q').optional().isString(),
+  ],
+  validate,
+  controller.listDaily
+);
+
+router.post(
+  '/daily',
+  authenticate,
+  authorize('admin', 'teacher'),
+  [
+    body('date').isISO8601({ strict: false }),
+    body('records').isArray({ min: 1 }),
+    body('records.*.studentId').isInt(),
+    body('records.*.status').isIn(['present','absent','late']),
+    body('records.*.remarks').optional().isString(),
+  ],
+  validate,
+  controller.upsertDaily
+);
+
 router.get(
   '/:id',
   authenticate,

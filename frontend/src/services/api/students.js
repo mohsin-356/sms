@@ -19,6 +19,7 @@ export const getPerformance = (id) => http.get(`/students/${id}/performance`);
 export const getFees = (id) => http.get(`/students/${id}/fees`);
 export const recordPayment = (id, data) => http.post(`/students/${id}/fees/payments`, data);
 export const createInvoice = (id, data) => http.post(`/students/${id}/fees/invoices`, data);
+export const updateInvoice = (id, invoiceId, data) => http.put(`/students/${id}/fees/invoices/${invoiceId}`, data);
 
 // Transport
 export const getTransport = (id) => http.get(`/students/${id}/transport`);

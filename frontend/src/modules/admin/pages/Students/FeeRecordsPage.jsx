@@ -6,7 +6,7 @@ import {
   Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalFooter, ModalBody, ModalCloseButton,
   FormControl, FormLabel, Input,
-  useDisclosure
+  useDisclosure, IconButton, Menu, MenuButton, MenuList, MenuItem, HStack, Portal
 } from '@chakra-ui/react';
 
 import { useNavigate } from 'react-router-dom';
@@ -20,8 +20,9 @@ import {
   MdWarning, MdPayment, MdPrint, MdEmail,
   MdFileDownload, MdLocalOffer, MdCalendarMonth,
   MdDirectionsBus, MdReceipt, MdVisibility, MdSearch,
-  MdFilterList, MdRemoveRedEye,
+  MdFilterList, MdRemoveRedEye, MdMoreVert, MdUpdate,
 } from 'react-icons/md';
+
 // API
 import * as studentsApi from '../../../../services/api/students';
 import { getStatusColor } from '../../../../utils/helpers';
@@ -38,6 +39,9 @@ export default function FeeRecordsPage() {
   const [payment, setPayment] = useState({ invoiceId: '', amount: '', method: 'Cash' });
   const [newInvoice, setNewInvoice] = useState({ amount: '', dueDate: '', status: 'pending' });
   const [busy, setBusy] = useState(false);
+  const [viewInv, setViewInv] = useState(null);
+  const [statusInv, setStatusInv] = useState(null);
+  const [statusVal, setStatusVal] = useState('pending');
 
   // Load students
   useEffect(() => {
@@ -76,6 +80,9 @@ export default function FeeRecordsPage() {
     onOpen();
   };
 
+  const openView = (invoice) => setViewInv(invoice);
+  const openChangeStatus = (invoice) => { setStatusInv(invoice); setStatusVal(invoice.status || 'pending'); };
+
   const submitPayment = async () => {
     try {
       await studentsApi.recordPayment(selectedId, { invoiceId: Number(payment.invoiceId), amount: Number(payment.amount), method: payment.method });
@@ -108,6 +115,19 @@ export default function FeeRecordsPage() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const submitStatus = async () => {
+    try {
+      setBusy(true);
+      await studentsApi.updateInvoice(selectedId, statusInv.id, { status: statusVal });
+      setStatusInv(null);
+      const payload = await studentsApi.getFees(selectedId);
+      setFees(payload || { invoices: [], totals: { totalInvoiced: 0, totalPaid: 0, totalOutstanding: 0 } });
+      toast({ title: 'Status changed', status: 'success' });
+    } catch (e) {
+      toast({ title: 'Failed to change status', status: 'error' });
+    } finally { setBusy(false); }
   };
 
   const refresh = async () => {
@@ -259,11 +279,16 @@ export default function FeeRecordsPage() {
                   <Td>{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '-'}</Td>
                   <Td>{inv.issuedAt ? new Date(inv.issuedAt).toLocaleDateString() : '-'}</Td>
                   <Td>
-                    {inv.outstanding > 0 && (
-                      <Button size='sm' colorScheme='blue' leftIcon={<MdPayment />} onClick={()=>openPayment(inv.id, inv.outstanding)}>
-                        Pay
-                      </Button>
-                    )}
+                    <Menu placement='bottom-end' isLazy>
+                      <MenuButton as={IconButton} size='sm' variant='outline' icon={<MdMoreVert />} aria-label='Actions' />
+                      <Portal>
+                        <MenuList zIndex={1500}>
+                          <MenuItem icon={<MdVisibility />} onClick={()=>openView(inv)}>View</MenuItem>
+                          <MenuItem icon={<MdUpdate />} onClick={()=>openChangeStatus(inv)}>Change Status</MenuItem>
+                          <MenuItem icon={<MdPayment />} onClick={()=>openPayment(inv.id, inv.outstanding)} isDisabled={(inv.outstanding||0)<=0}>Record Payment</MenuItem>
+                        </MenuList>
+                      </Portal>
+                    </Menu>
                   </Td>
                 </Tr>
               ))}
@@ -306,6 +331,55 @@ export default function FeeRecordsPage() {
           <ModalFooter>
             <Button variant='ghost' onClick={onClose}>Cancel</Button>
             <Button colorScheme='blue' onClick={submitPayment} isDisabled={!payment.invoiceId || !payment.amount}>Record</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* View Invoice Modal */}
+      <Modal isOpen={!!viewInv} onClose={()=>setViewInv(null)} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Invoice Details</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {viewInv && (
+              <Box>
+                <HStack justify='space-between' mb={2}><Text fontWeight='600'>Invoice</Text><Text>INV-{viewInv.id}</Text></HStack>
+                <HStack justify='space-between' mb={2}><Text fontWeight='600'>Amount</Text><Text>PKR {Math.round(viewInv.amount).toLocaleString()}</Text></HStack>
+                <HStack justify='space-between' mb={2}><Text fontWeight='600'>Paid</Text><Text>PKR {Math.round(viewInv.paid).toLocaleString()}</Text></HStack>
+                <HStack justify='space-between' mb={2}><Text fontWeight='600'>Outstanding</Text><Text>PKR {Math.round(viewInv.outstanding||0).toLocaleString()}</Text></HStack>
+                <HStack justify='space-between' mb={2}><Text fontWeight='600'>Status</Text><Badge colorScheme={getStatusColor(viewInv.status)}>{String(viewInv.status||'').replace(/_/g,' ').toUpperCase()}</Badge></HStack>
+                <HStack justify='space-between' mb={2}><Text fontWeight='600'>Due Date</Text><Text>{viewInv.dueDate ? new Date(viewInv.dueDate).toLocaleDateString() : '-'}</Text></HStack>
+                <HStack justify='space-between'><Text fontWeight='600'>Issued</Text><Text>{viewInv.issuedAt ? new Date(viewInv.issuedAt).toLocaleDateString() : '-'}</Text></HStack>
+              </Box>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={()=>setViewInv(null)}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Change Status Modal */}
+      <Modal isOpen={!!statusInv} onClose={()=>setStatusInv(null)} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Change Status</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <FormControl>
+              <FormLabel>Status</FormLabel>
+              <Select value={statusVal} onChange={(e)=>setStatusVal(e.target.value)}>
+                <option value='pending'>Pending</option>
+                <option value='in_progress'>In Progress</option>
+                <option value='paid'>Paid</option>
+                <option value='overdue'>Overdue</option>
+              </Select>
+            </FormControl>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant='ghost' onClick={()=>setStatusInv(null)}>Cancel</Button>
+            <Button colorScheme='blue' onClick={submitStatus} isLoading={busy}>Update</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

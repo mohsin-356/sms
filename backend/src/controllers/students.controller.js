@@ -135,6 +135,19 @@ export const createInvoice = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
+export const updateInvoice = async (req, res, next) => {
+  try {
+    await ensureFinanceConstraints();
+    const row = await students.updateInvoice(
+      Number(req.params.id),
+      Number(req.params.invoiceId),
+      req.body
+    );
+    if (!row) return res.status(404).json({ message: 'Invoice not found for student' });
+    return res.json(row);
+  } catch (e) { next(e); }
+};
+
 // Transport
 export const getTransport = async (req, res, next) => {
   try {

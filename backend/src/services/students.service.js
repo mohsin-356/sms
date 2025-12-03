@@ -218,6 +218,7 @@ export const recordPayment = async (studentId, { invoiceId, amount, method }) =>
     'INSERT INTO fee_payments (invoice_id, amount, method) VALUES ($1,$2,$3) RETURNING id, invoice_id AS "invoiceId", amount::float, method, paid_at AS "paidAt"',
     [invoiceId, amount, method || null]
   );
+  await recomputeFeeStatus(studentId);
   return rows[0];
 };
 
@@ -228,7 +229,49 @@ export const createInvoice = async (studentId, { amount, dueDate, status }) => {
      RETURNING id, student_id AS "studentId", amount::float, status, due_date AS "dueDate", issued_at AS "issuedAt"`,
     [studentId, amount, status || null, dueDate || null]
   );
+  await recomputeFeeStatus(studentId);
   return rows[0];
+};
+
+// Keep students.fee_status in sync with invoices
+const recomputeFeeStatus = async (studentId) => {
+  await query(
+    `WITH agg AS (
+       SELECT
+         BOOL_OR(status = 'overdue')    AS has_overdue,
+         BOOL_OR(status = 'in_progress') AS has_in_progress,
+         BOOL_OR(status = 'pending')     AS has_pending,
+         BOOL_OR(status = 'paid')        AS has_paid
+       FROM fee_invoices WHERE student_id = $1
+     )
+     UPDATE students s
+     SET fee_status = COALESCE(
+       (SELECT CASE
+          WHEN has_overdue THEN 'overdue'
+          WHEN has_in_progress THEN 'in_progress'
+          WHEN has_pending THEN 'pending'
+          WHEN has_paid THEN 'paid'
+          ELSE s.fee_status
+        END FROM agg),
+       s.fee_status
+     )
+     WHERE s.id = $1`,
+    [studentId]
+  );
+};
+
+export const updateInvoice = async (studentId, invoiceId, { amount, dueDate, status }) => {
+  const { rows } = await query(
+    `UPDATE fee_invoices
+     SET amount = COALESCE($3, amount),
+         due_date = COALESCE($4, due_date),
+         status = COALESCE($5, status)
+     WHERE id = $1 AND student_id = $2
+     RETURNING id, student_id AS "studentId", amount::float, status, due_date AS "dueDate", issued_at AS "issuedAt"`,
+    [invoiceId, studentId, amount ?? null, dueDate ?? null, status ?? null]
+  );
+  await recomputeFeeStatus(studentId);
+  return rows[0] || null;
 };
 
 export const getTransport = async (studentId) => {

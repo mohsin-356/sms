@@ -30,3 +30,19 @@ export const examPerformance = async (req, res, next) => {
     res.json({ items: data });
   } catch (e) { next(e); }
 };
+
+export const attendanceByClass = async (req, res, next) => {
+  try {
+    const { fromDate, toDate } = req.query;
+    const rows = await service.getAttendanceByClass({ fromDate, toDate });
+    res.json({ items: rows });
+  } catch (e) { next(e); }
+};
+
+export const attendanceHeatmap = async (req, res, next) => {
+  try {
+    const { fromDate, toDate, class: klass, section, location } = req.query;
+    const data = await service.getAttendanceHeatmap({ fromDate, toDate, klass, section, location });
+    res.json(data);
+  } catch (e) { next(e); }
+};

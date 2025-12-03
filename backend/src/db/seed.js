@@ -27,12 +27,20 @@ async function seed() {
       }
     }
 
-    // Seed a student
-    await client.query(
-      `INSERT INTO students (name, email, roll_number, class, section, rfid_tag, attendance, fee_status, bus_number, bus_assigned, parent_name, parent_phone, status)
-       VALUES ('Student Ahmed','student@mindspire.com','STD001','10','A','RFID-001',95.5,'paid','101',true,'Khan Sahab','+92 300 1234567','active')
-       ON CONFLICT DO NOTHING`
+    // Seed a student (idempotent by email or roll number)
+    const { rows: studentExists } = await client.query(
+      'SELECT id FROM students WHERE email = $1 OR roll_number = $2 LIMIT 1',
+      ['student@mindspire.com', 'STD001']
     );
+    if (!studentExists.length) {
+      await client.query(
+        `INSERT INTO students (name, email, roll_number, class, section, rfid_tag, attendance, fee_status, bus_number, bus_assigned, parent_name, parent_phone, status)
+         VALUES ('Student Ahmed','student@mindspire.com','STD001','10','A','RFID-001',95.5,'paid','101',true,'Khan Sahab','+92 300 1234567','active')`
+      );
+      console.log('Seeded demo student: student@mindspire.com');
+    } else {
+      console.log('Demo student already exists, skipping.');
+    }
 
     await client.query('COMMIT');
     console.log('Seed completed.');

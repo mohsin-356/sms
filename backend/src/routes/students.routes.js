@@ -150,6 +150,21 @@ router.post(
   studentController.createInvoice
 );
 
+router.put(
+  '/:id/fees/invoices/:invoiceId',
+  authenticate,
+  authorize('admin'),
+  [
+    param('id').isInt(),
+    param('invoiceId').isInt(),
+    body('amount').optional().isFloat({ gt: 0 }),
+    body('dueDate').optional().isISO8601(),
+    body('status').optional().isIn(['pending', 'in_progress', 'paid', 'overdue']),
+  ],
+  validate,
+  studentController.updateInvoice
+);
+
 router.post(
   '/:id/fees/payments',
   authenticate,

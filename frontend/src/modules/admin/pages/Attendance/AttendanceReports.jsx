@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
   Flex,
@@ -31,6 +31,7 @@ import {
   ModalBody,
   ModalFooter,
   useColorModeValue,
+  useToast,
   Progress,
   NumberInput,
   NumberInputField,
@@ -39,31 +40,121 @@ import { MdAssessment, MdCalendarMonth, MdCheckCircle, MdCancel, MdAvTimer, MdFi
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
-
-const mockSummary = {
-  overall: 91,
-  totalDays: 30,
-  present: 27,
-  absent: 2,
-  late: 1,
-};
-
-const mockClassReport = [
-  { class: '10-A', total: 30, present: 28, absent: 1, late: 1 },
-  { class: '10-B', total: 30, present: 26, absent: 3, late: 1 },
-  { class: '9-A', total: 30, present: 27, absent: 2, late: 1 },
-];
+import * as reportsApi from '../../../../services/api/reports';
+import { useAuth } from '../../../../contexts/AuthContext';
 
 export default function AttendanceReports() {
+  const toast = useToast();
+  const { loading: authLoading, isAuthenticated } = useAuth();
   const [range, setRange] = useState('this-month');
   const disc = useDisclosure();
   const editDisc = useDisclosure();
   const [selected, setSelected] = useState(null);
-  const [rows, setRows] = useState(mockClassReport);
+  const [rows, setRows] = useState([]);
   const [form, setForm] = useState({ present: 0, absent: 0, late: 0, total: 0, class: '' });
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const fetchingRef = useRef(false);
+  const [loading, setLoading] = useState(false);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
-  const totals = useMemo(() => mockSummary, []);
+  const totals = useMemo(() => {
+    const totalRecords = rows.reduce((acc, r) => acc + (r.present + r.absent + r.late), 0);
+    const present = rows.reduce((acc, r) => acc + r.present, 0);
+    const absent = rows.reduce((acc, r) => acc + r.absent, 0);
+    const late = rows.reduce((acc, r) => acc + r.late, 0);
+    const overall = totalRecords ? Math.round((present * 100) / totalRecords) : 0;
+    return { overall, totalDays: totalRecords, present, absent, late };
+  }, [rows]);
+
+  const computeRange = (value) => {
+    const now = new Date();
+    let from = '', to = '';
+    if (value === 'this-month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      from = start.toISOString().slice(0,10);
+      to = new Date().toISOString().slice(0,10);
+    } else if (value === 'last-month') {
+      const start = new Date(now.getFullYear(), now.getMonth()-1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      from = start.toISOString().slice(0,10);
+      to = end.toISOString().slice(0,10);
+    } else if (value === 'last-90') {
+      const start = new Date(now);
+      start.setDate(now.getDate()-90);
+      from = start.toISOString().slice(0,10);
+      to = new Date().toISOString().slice(0,10);
+    }
+    return { from, to };
+  };
+
+  const loadReports = async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+    try {
+      setLoading(true);
+      const params = {
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+      };
+      const [summary, byClass] = await Promise.all([
+        reportsApi.attendanceSummary(params),
+        reportsApi.attendanceByClass(params),
+      ]);
+      const items = Array.isArray(byClass?.items) ? byClass.items : (Array.isArray(byClass) ? byClass : []);
+      const mapped = (items || []).map((i) => ({
+        class: (i.class || '') + (i.section ? `-${i.section}` : ''),
+        present: Number(i.present || 0),
+        absent: Number(i.absent || 0),
+        late: Number(i.late || 0),
+        total: Number(i.total || 0),
+      }));
+      setRows(mapped);
+    } catch (e) {
+      const details = Array.isArray(e?.data?.errors) ? e.data.errors.map(x=>`${x.param}: ${x.msg}`).join(', ') : '';
+      const msg = (e?.data?.message || e?.message || 'Failed to load reports') + (details ? ` — ${details}` : '');
+      const id = 'attendance-reports-error';
+      if (!toast.isActive(id)) toast({ id, title: 'Failed to load reports', description: msg, status: 'error' });
+    } finally {
+      setLoading(false);
+      fetchingRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    const { from, to } = computeRange(range);
+    setFromDate(from);
+    setToDate(to);
+  }, [range]);
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) loadReports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, isAuthenticated, fromDate, toDate]);
+
+  const exportCSV = () => {
+    const header = ['Class','Present','Absent','Late','Overall %'];
+    const csvRows = rows.map(r => {
+      const overall = (r.present + r.absent + r.late) ? Math.round((r.present * 100) / (r.present + r.absent + r.late)) : 0;
+      return [r.class || '-', r.present, r.absent, r.late, overall];
+    });
+    const csv = [header, ...csvRows].map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'attendance_reports.csv'; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const exportPDF = () => {
+    const w = window.open('', '_blank'); if (!w) return;
+    const styles = `<style>body{font-family:Arial;padding:16px;} table{width:100%;border-collapse:collapse} th,td{border:1px solid #ddd;padding:8px;font-size:12px} th{background:#f5f5f5;text-align:left}</style>`;
+    const rowsHtml = rows.map(r=>{
+      const total = r.present + r.absent + r.late;
+      const overall = total ? Math.round((r.present*100)/total) : 0;
+      return `<tr><td>${r.class||'-'}</td><td>${r.present}</td><td>${r.absent}</td><td>${r.late}</td><td>${overall}%</td></tr>`;
+    }).join('');
+    w.document.write(`<html><head><title>Attendance Reports</title>${styles}</head><body><h2>Attendance Reports</h2><table><thead><tr><th>Class</th><th>Present</th><th>Absent</th><th>Late</th><th>Overall %</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>window.onload=function(){window.print();setTimeout(()=>window.close(),300);}</script></body></html>`);
+    w.document.close();
+  };
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -74,8 +165,8 @@ export default function AttendanceReports() {
           <Text color={textColorSecondary}>Insights and summaries across classes</Text>
         </Box>
         <ButtonGroup>
-          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
-          <Button leftIcon={<MdFileDownload />} colorScheme="blue">Download PDF</Button>
+          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue' onClick={exportCSV}>Export CSV</Button>
+          <Button leftIcon={<MdFileDownload />} colorScheme="blue" onClick={exportPDF}>Download PDF</Button>
         </ButtonGroup>
       </Flex>
 
@@ -133,10 +224,11 @@ export default function AttendanceReports() {
             </Thead>
             <Tbody>
               {rows.map((row) => {
-                const overall = Math.round((row.present / row.total) * 100);
+                const total = row.present + row.absent + row.late;
+                const overall = total ? Math.round((row.present * 100) / total) : 0;
                 return (
-                  <Tr key={row.class} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
-                    <Td><Text fontWeight='500'>{row.class}</Text></Td>
+                  <Tr key={row.class + String(row.total)} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                    <Td><Text fontWeight='500'>{row.class || '-'}</Text></Td>
                     <Td isNumeric><Badge colorScheme='green'>{row.present}</Badge></Td>
                     <Td isNumeric><Badge colorScheme='red'>{row.absent}</Badge></Td>
                     <Td isNumeric><Badge colorScheme='orange'>{row.late}</Badge></Td>
