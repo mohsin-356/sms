@@ -22,14 +22,39 @@ export const list = async ({ page = 1, pageSize = 50, q, class: cls, section }) 
   const { rows: countRows } = await query(countSql, params);
   const total = countRows[0]?.count || 0;
 
-  const dataSql = `SELECT id, name, email, roll_number AS "rollNumber", class, section, rfid_tag AS "rfidTag", attendance, fee_status AS "feeStatus", bus_number AS "busNumber", bus_assigned AS "busAssigned", parent_name AS "parentName", parent_phone AS "parentPhone", status, admission_date AS "admissionDate", avatar FROM students ${whereSql} ORDER BY id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+  const dataSql = `WITH inv AS (
+                     SELECT fi.student_id,
+                            BOOL_OR(fi.status = 'overdue')    AS has_overdue,
+                            BOOL_OR(fi.status = 'in_progress') AS has_in_progress,
+                            BOOL_OR(fi.status = 'pending')     AS has_pending,
+                            BOOL_OR(fi.status = 'paid')        AS has_paid
+                     FROM fee_invoices fi
+                     GROUP BY fi.student_id
+                   )
+                   SELECT s.id, s.name, s.email, s.roll_number AS "rollNumber", s.class, s.section, s.rfid_tag AS "rfidTag", s.attendance,
+                          COALESCE(
+                            CASE
+                              WHEN inv.has_overdue THEN 'overdue'
+                              WHEN inv.has_in_progress THEN 'in_progress'
+                              WHEN inv.has_pending THEN 'pending'
+                              WHEN inv.has_paid    THEN 'paid'
+                              ELSE s.fee_status
+                            END,
+                            s.fee_status
+                          ) AS "feeStatus",
+                          s.bus_number AS "busNumber", s.bus_assigned AS "busAssigned", s.parent_name AS "parentName", s.parent_phone AS "parentPhone", s.status, s.admission_date AS "admissionDate", s.avatar,
+                          s.personal, s.academic, s.parent, s.transport, s.fee
+                   FROM students s
+                   LEFT JOIN inv ON inv.student_id = s.id
+                   ${whereSql}
+                   ORDER BY s.id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
   const { rows } = await query(dataSql, [...params, pageSize, offset]);
   return { rows, total, page, pageSize };
 };
 
 export const getById = async (id) => {
   const { rows } = await query(
-    'SELECT id, name, email, roll_number AS "rollNumber", class, section, rfid_tag AS "rfidTag", attendance, fee_status AS "feeStatus", bus_number AS "busNumber", bus_assigned AS "busAssigned", parent_name AS "parentName", parent_phone AS "parentPhone", status, admission_date AS "admissionDate", avatar FROM students WHERE id = $1',
+    'SELECT id, name, email, roll_number AS "rollNumber", class, section, rfid_tag AS "rfidTag", attendance, fee_status AS "feeStatus", bus_number AS "busNumber", bus_assigned AS "busAssigned", parent_name AS "parentName", parent_phone AS "parentPhone", status, admission_date AS "admissionDate", avatar, personal, academic, parent, transport, fee FROM students WHERE id = $1',
     [id]
   );
   return rows[0] || null;
@@ -38,13 +63,35 @@ export const getById = async (id) => {
 export const create = async (data) => {
   const {
     name, email, rollNumber, class: cls, section, rfidTag, attendance, feeStatus,
-    busNumber, busAssigned, parentName, parentPhone, status = 'active', admissionDate, avatar
+    busNumber, busAssigned, parentName, parentPhone, status = 'active', admissionDate, avatar,
+    personal, academic, parent, transport, fee
   } = data;
   const { rows } = await query(
-    `INSERT INTO students (name, email, roll_number, class, section, rfid_tag, attendance, fee_status, bus_number, bus_assigned, parent_name, parent_phone, status, admission_date, avatar)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-     RETURNING id, name, email, roll_number AS "rollNumber", class, section, rfid_tag AS "rfidTag", attendance, fee_status AS "feeStatus", bus_number AS "busNumber", bus_assigned AS "busAssigned", parent_name AS "parentName", parent_phone AS "parentPhone", status, admission_date AS "admissionDate", avatar`,
-    [name, email || null, rollNumber || null, cls || null, section || null, rfidTag || null, attendance || 0, feeStatus || 'paid', busNumber || null, busAssigned ?? false, parentName || null, parentPhone || null, status, admissionDate || new Date(), avatar || null]
+    `INSERT INTO students (name, email, roll_number, class, section, rfid_tag, attendance, fee_status, bus_number, bus_assigned, parent_name, parent_phone, status, admission_date, avatar, personal, academic, parent, transport, fee)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+     RETURNING id, name, email, roll_number AS "rollNumber", class, section, rfid_tag AS "rfidTag", attendance, fee_status AS "feeStatus", bus_number AS "busNumber", bus_assigned AS "busAssigned", parent_name AS "parentName", parent_phone AS "parentPhone", status, admission_date AS "admissionDate", avatar, personal, academic, parent, transport, fee`,
+    [
+      name,
+      email || null,
+      rollNumber || null,
+      cls || null,
+      section || null,
+      rfidTag || null,
+      attendance || 0,
+      feeStatus || 'paid',
+      busNumber || null,
+      busAssigned ?? false,
+      parentName || null,
+      parentPhone || null,
+      status,
+      admissionDate || new Date(),
+      avatar || null,
+      personal ? JSON.stringify(personal) : '{}',
+      academic ? JSON.stringify(academic) : '{}',
+      parent ? JSON.stringify(parent) : '{}',
+      transport ? JSON.stringify(transport) : '{}',
+      fee ? JSON.stringify(fee) : '{}',
+    ]
   );
   return rows[0];
 };
@@ -53,11 +100,17 @@ export const update = async (id, data) => {
   const fields = [];
   const values = [];
   const map = {
-    name: 'name', email: 'email', rollNumber: 'roll_number', class: 'class', section: 'section', rfidTag: 'rfid_tag', attendance: 'attendance', feeStatus: 'fee_status', busNumber: 'bus_number', busAssigned: 'bus_assigned', parentName: 'parent_name', parentPhone: 'parent_phone', status: 'status', admissionDate: 'admission_date', avatar: 'avatar'
+    name: 'name', email: 'email', rollNumber: 'roll_number', class: 'class', section: 'section', rfidTag: 'rfid_tag', attendance: 'attendance', feeStatus: 'fee_status', busNumber: 'bus_number', busAssigned: 'bus_assigned', parentName: 'parent_name', parentPhone: 'parent_phone', status: 'status', admissionDate: 'admission_date', avatar: 'avatar',
+    personal: 'personal', academic: 'academic', parent: 'parent', transport: 'transport', fee: 'fee'
   };
   Object.entries(data || {}).forEach(([k, v]) => {
     if (map[k] !== undefined) {
-      values.push(v);
+      // Stringify JSONB fields
+      if (['personal','academic','parent','transport','fee'].includes(k) && v !== undefined) {
+        values.push(v ? JSON.stringify(v) : null);
+      } else {
+        values.push(v);
+      }
       fields.push(`${map[k]} = $${values.length}`);
     }
   });
@@ -145,15 +198,44 @@ export const getFees = async (studentId) => {
      ORDER BY fi.issued_at DESC`,
     [studentId]
   );
-  let totalInvoiced = 0, totalPaid = 0, totalOutstanding = 0;
+  let totalInvoiced = 0, totalPaid = 0, totalOutstanding = 0, overdueOutstanding = 0, overdueCount = 0;
   invoices.forEach(inv => {
     totalInvoiced += inv.amount;
     totalPaid += inv.paid;
     const outstanding = Math.max(inv.amount - inv.paid, 0);
     totalOutstanding += outstanding;
     inv.outstanding = outstanding;
+    const isOverdue = inv.dueDate && inv.status !== 'paid' && new Date(inv.dueDate) < new Date();
+    if (isOverdue) { overdueOutstanding += outstanding; overdueCount += 1; }
   });
-  return { invoices, totals: { totalInvoiced, totalPaid, totalOutstanding } };
+  return { invoices, totals: { totalInvoiced, totalPaid, totalOutstanding, overdueOutstanding, overdueCount } };
+};
+
+// Keep students.fee_status in sync with invoices for visibility in DB tools
+const recomputeFeeStatus = async (studentId) => {
+  await query(
+    `WITH agg AS (
+       SELECT
+         BOOL_OR(status = 'overdue')    AS has_overdue,
+         BOOL_OR(status = 'in_progress') AS has_in_progress,
+         BOOL_OR(status = 'pending')     AS has_pending,
+         BOOL_OR(status = 'paid')        AS has_paid
+       FROM fee_invoices WHERE student_id = $1
+     )
+     UPDATE students s
+     SET fee_status = COALESCE(
+       (SELECT CASE
+          WHEN has_overdue THEN 'overdue'
+          WHEN has_in_progress THEN 'in_progress'
+          WHEN has_pending THEN 'pending'
+          WHEN has_paid THEN 'paid'
+          ELSE s.fee_status
+        END FROM agg),
+       s.fee_status
+     )
+     WHERE s.id = $1`,
+    [studentId]
+  );
 };
 
 export const recordPayment = async (studentId, { invoiceId, amount, method }) => {
@@ -163,7 +245,33 @@ export const recordPayment = async (studentId, { invoiceId, amount, method }) =>
     'INSERT INTO fee_payments (invoice_id, amount, method) VALUES ($1,$2,$3) RETURNING id, invoice_id AS "invoiceId", amount::float, method, paid_at AS "paidAt"',
     [invoiceId, amount, method || null]
   );
+  await recomputeFeeStatus(studentId);
   return rows[0];
+};
+
+export const createInvoice = async (studentId, { amount, dueDate, status }) => {
+  const { rows } = await query(
+    `INSERT INTO fee_invoices (student_id, amount, status, due_date)
+     VALUES ($1,$2,COALESCE($3,'pending'),$4)
+     RETURNING id, student_id AS "studentId", amount::float, status, due_date AS "dueDate", issued_at AS "issuedAt"`,
+    [studentId, amount, status || null, dueDate || null]
+  );
+  await recomputeFeeStatus(studentId);
+  return rows[0];
+};
+
+export const updateInvoice = async (studentId, invoiceId, { amount, dueDate, status }) => {
+  const { rows } = await query(
+    `UPDATE fee_invoices
+     SET amount = COALESCE($3, amount),
+         due_date = COALESCE($4, due_date),
+         status = COALESCE($5, status)
+     WHERE id = $1 AND student_id = $2
+     RETURNING id, student_id AS "studentId", amount::float, status, due_date AS "dueDate", issued_at AS "issuedAt"`,
+    [invoiceId, studentId, amount ?? null, dueDate ?? null, status ?? null]
+  );
+  await recomputeFeeStatus(studentId);
+  return rows[0] || null;
 };
 
 export const getTransport = async (studentId) => {

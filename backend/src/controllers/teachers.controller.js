@@ -201,3 +201,267 @@ export const remove = async (req, res, next) => {
     next(e);
   }
 };
+
+export const listSchedules = async (req, res, next) => {
+  try {
+    const { teacherId, day, dayOfWeek } = req.query;
+    const schedules = await teachers.listSchedules({
+      teacherId: teacherId ? Number(teacherId) : undefined,
+      dayOfWeek: day ?? dayOfWeek,
+    });
+    return res.json(schedules);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const createScheduleSlot = async (req, res, next) => {
+  try {
+    const created = await teachers.createScheduleSlot({
+      teacherId: Number(req.body.teacherId),
+      dayOfWeek: req.body.dayOfWeek ?? req.body.day,
+      startTime: req.body.startTime,
+      endTime: req.body.endTime,
+      class: req.body.class ?? req.body.className,
+      section: req.body.section,
+      subject: req.body.subject,
+      room: req.body.room,
+      timeSlotIndex: req.body.timeSlotIndex ?? req.body.timeSlot,
+      timeSlotLabel: req.body.timeSlotLabel ?? req.body.label,
+    });
+    return res.status(201).json(created);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const updateScheduleSlot = async (req, res, next) => {
+  try {
+    const updated = await teachers.updateScheduleSlot(Number(req.params.scheduleId), req.body);
+    if (!updated) return res.status(404).json({ message: 'Schedule slot not found' });
+    return res.json(updated);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const deleteScheduleSlot = async (req, res, next) => {
+  try {
+    const ok = await teachers.deleteScheduleSlot(Number(req.params.scheduleId));
+    if (!ok) return res.status(404).json({ message: 'Schedule slot not found' });
+    return res.json({ success: true });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const listAttendance = async (req, res, next) => {
+  try {
+    const { date, teacherId } = req.query;
+    const records = await teachers.getAttendanceByDate({ date, teacherId: teacherId ? Number(teacherId) : undefined });
+    return res.json({ date, records });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const saveAttendance = async (req, res, next) => {
+  try {
+    const entries = Array.isArray(req.body.entries)
+      ? req.body.entries.map((entry) => ({
+          teacherId: Number(entry.teacherId),
+          status: entry.status,
+          checkInTime: entry.checkInTime,
+          checkOutTime: entry.checkOutTime,
+          remarks: entry.remarks,
+        }))
+      : [];
+    const records = await teachers.upsertAttendanceEntries({
+      date: req.body.date,
+      entries,
+      recordedBy: req.user?.id,
+    });
+    return res.json({ date: req.body.date, records });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const listPayrolls = async (req, res, next) => {
+  try {
+    const payrolls = await teachers.listPayrolls({
+      month: req.query.month,
+      status: req.query.status,
+      teacherId: req.query.teacherId ? Number(req.query.teacherId) : undefined,
+    });
+    return res.json(payrolls);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const createPayroll = async (req, res, next) => {
+  try {
+    const payload = {
+      teacherId: Number(req.body.teacherId),
+      periodMonth: req.body.periodMonth || req.body.month,
+      baseSalary: req.body.baseSalary,
+      allowances: req.body.allowances,
+      deductions: req.body.deductions,
+      bonuses: req.body.bonuses,
+      status: req.body.status,
+      paymentMethod: req.body.paymentMethod,
+      transactionReference: req.body.transactionReference,
+      paidOn: req.body.paidOn,
+      notes: req.body.notes,
+      createdBy: req.user?.id,
+    };
+    const created = await teachers.createPayroll(payload);
+    return res.status(201).json(created);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const updatePayroll = async (req, res, next) => {
+  try {
+    const updated = await teachers.updatePayroll(Number(req.params.id), req.body);
+    if (!updated) return res.status(404).json({ message: 'Payroll record not found' });
+    return res.json(updated);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const listPerformanceReviews = async (req, res, next) => {
+  try {
+    const reviews = await teachers.listPerformanceReviews({
+      periodType: req.query.periodType || req.query.period,
+      teacherId: req.query.teacherId ? Number(req.query.teacherId) : undefined,
+    });
+    return res.json(reviews);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const createPerformanceReview = async (req, res, next) => {
+  try {
+    const payload = {
+      teacherId: Number(req.body.teacherId),
+      periodType: req.body.periodType,
+      periodLabel: req.body.periodLabel,
+      periodStart: req.body.periodStart,
+      periodEnd: req.body.periodEnd,
+      overallScore: req.body.overallScore,
+      studentFeedbackScore: req.body.studentFeedbackScore,
+      attendanceScore: req.body.attendanceScore,
+      classManagementScore: req.body.classManagementScore,
+      examResultsScore: req.body.examResultsScore,
+      status: req.body.status,
+      improvement: req.body.improvement,
+      remarks: req.body.remarks,
+      createdBy: req.user?.id,
+    };
+    const created = await teachers.createPerformanceReview(payload);
+    return res.status(201).json(created);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const updatePerformanceReview = async (req, res, next) => {
+  try {
+    const updated = await teachers.updatePerformanceReview(Number(req.params.id), req.body);
+    if (!updated) return res.status(404).json({ message: 'Performance review not found' });
+    return res.json(updated);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const listSubjects = async (req, res, next) => {
+  try {
+    const subjects = await teachers.listSubjects();
+    return res.json(subjects);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const createSubject = async (req, res, next) => {
+  try {
+    const subject = await teachers.createSubject(req.body);
+    return res.status(201).json(subject);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const updateSubject = async (req, res, next) => {
+  try {
+    const subject = await teachers.updateSubject(Number(req.params.id), req.body);
+    if (!subject) return res.status(404).json({ message: 'Subject not found' });
+    return res.json(subject);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const removeSubject = async (req, res, next) => {
+  try {
+    const ok = await teachers.removeSubject(Number(req.params.id));
+    if (!ok) return res.status(404).json({ message: 'Subject not found' });
+    return res.json({ success: true });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const listSubjectAssignments = async (req, res, next) => {
+  try {
+    const assignments = await teachers.listSubjectAssignments({
+      teacherId: req.query.teacherId ? Number(req.query.teacherId) : undefined,
+      subjectId: req.query.subjectId ? Number(req.query.subjectId) : undefined,
+    });
+    return res.json(assignments);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const assignSubject = async (req, res, next) => {
+  try {
+    const assignment = await teachers.assignSubject({
+      teacherId: Number(req.body.teacherId),
+      subjectId: Number(req.body.subjectId),
+      isPrimary: req.body.isPrimary,
+      classes: req.body.classes,
+      academicYear: req.body.academicYear,
+      assignedBy: req.user?.id,
+    });
+    return res.status(201).json(assignment);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const updateSubjectAssignment = async (req, res, next) => {
+  try {
+    const assignment = await teachers.updateSubjectAssignment(Number(req.params.assignmentId), req.body);
+    if (!assignment) return res.status(404).json({ message: 'Subject assignment not found' });
+    return res.json(assignment);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const removeSubjectAssignment = async (req, res, next) => {
+  try {
+    const ok = await teachers.removeSubjectAssignment(Number(req.params.assignmentId));
+    if (!ok) return res.status(404).json({ message: 'Subject assignment not found' });
+    return res.json({ success: true });
+  } catch (e) {
+    next(e);
+  }
+};

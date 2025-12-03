@@ -6,6 +6,11 @@ import { validate } from '../middleware/validate.js';
 
 const router = Router();
 
+const attendanceStatuses = ['present', 'absent', 'late'];
+const payrollStatuses = ['pending', 'processing', 'paid', 'failed', 'cancelled'];
+const timePattern = /^([01]\d|2[0-3]):[0-5]\d(?:[:][0-5]\d)?$/;
+const monthPattern = /^\d{4}-\d{2}$/;
+
 router.get(
   '/',
   authenticate,
@@ -16,22 +21,6 @@ router.get(
   ],
   validate,
   teacherController.list
-);
-
-router.get(
-  '/:id',
-  authenticate,
-  [param('id').isInt()],
-  validate,
-  teacherController.getById
-);
-
-router.get(
-  '/:id/schedule',
-  authenticate,
-  [param('id').isInt()],
-  validate,
-  teacherController.getSchedule
 );
 
 const optionalString = (field) => body(field).optional({ checkFalsy: true }).isString().trim();
@@ -112,6 +101,327 @@ router.post(
   createTeacherValidators,
   validate,
   teacherController.create
+);
+
+router.get(
+  '/attendance',
+  authenticate,
+  [query('date').isISO8601(), query('teacherId').optional().isInt({ min: 1 })],
+  validate,
+  teacherController.listAttendance
+);
+
+router.post(
+  '/attendance',
+  authenticate,
+  authorize('admin'),
+  [
+    body('date').isISO8601(),
+    body('entries').isArray({ min: 1 }),
+    body('entries.*.teacherId').isInt({ min: 1 }),
+    body('entries.*.status').isIn(attendanceStatuses),
+    body('entries.*.checkInTime').optional({ checkFalsy: true }).matches(timePattern),
+    body('entries.*.checkOutTime').optional({ checkFalsy: true }).matches(timePattern),
+    body('entries.*.remarks').optional().isString().trim(),
+  ],
+  validate,
+  teacherController.saveAttendance
+);
+
+router.get(
+  '/payrolls',
+  authenticate,
+  [
+    query('month').optional().matches(monthPattern),
+    query('teacherId').optional().isInt({ min: 1 }),
+    query('status').optional().isIn(payrollStatuses),
+  ],
+  validate,
+  teacherController.listPayrolls
+);
+
+router.post(
+  '/payrolls',
+  authenticate,
+  authorize('admin'),
+  [
+    body('teacherId').isInt({ min: 1 }),
+    body('periodMonth').optional().matches(monthPattern),
+    body('month').optional().matches(monthPattern),
+    body('baseSalary').isFloat({ min: 0 }),
+    body('allowances').optional({ checkFalsy: true }).isFloat({ min: 0 }),
+    body('deductions').optional({ checkFalsy: true }).isFloat({ min: 0 }),
+    body('bonuses').optional({ checkFalsy: true }).isFloat({ min: 0 }),
+    body('status').optional().isIn(payrollStatuses),
+    optionalString('paymentMethod'),
+    optionalString('transactionReference'),
+    optionalString('notes'),
+    body('paidOn').optional({ checkFalsy: true }).isISO8601(),
+    body().custom((_, { req }) => {
+      if (!req.body.periodMonth && !req.body.month) {
+        throw new Error('periodMonth or month is required');
+      }
+      return true;
+    }),
+  ],
+  validate,
+  teacherController.createPayroll
+);
+
+router.patch(
+  '/payrolls/:id',
+  authenticate,
+  authorize('admin'),
+  [
+    param('id').isInt(),
+    body('periodMonth').optional().matches(monthPattern),
+    body('month').optional().matches(monthPattern),
+    body('baseSalary').optional({ checkFalsy: true }).isFloat({ min: 0 }),
+    body('allowances').optional({ checkFalsy: true }).isFloat({ min: 0 }),
+    body('deductions').optional({ checkFalsy: true }).isFloat({ min: 0 }),
+    body('bonuses').optional({ checkFalsy: true }).isFloat({ min: 0 }),
+    body('status').optional().isIn(payrollStatuses),
+    optionalString('paymentMethod'),
+    optionalString('transactionReference'),
+    optionalString('notes'),
+    body('paidOn').optional({ checkFalsy: true }).isISO8601(),
+  ],
+  validate,
+  teacherController.updatePayroll
+);
+
+router.get(
+  '/performance',
+  authenticate,
+  [query('periodType').optional().isString(), query('teacherId').optional().isInt({ min: 1 })],
+  validate,
+  teacherController.listPerformanceReviews
+);
+
+router.post(
+  '/performance',
+  authenticate,
+  authorize('admin'),
+  [
+    body('teacherId').isInt({ min: 1 }),
+    body('periodType').isString().trim().notEmpty(),
+    optionalString('periodLabel'),
+    body('periodStart').optional({ checkFalsy: true }).isISO8601(),
+    body('periodEnd').optional({ checkFalsy: true }).isISO8601(),
+    body('overallScore').optional({ checkFalsy: true }).isFloat({ min: 0, max: 100 }),
+    body('studentFeedbackScore').optional({ checkFalsy: true }).isFloat({ min: 0, max: 100 }),
+    body('attendanceScore').optional({ checkFalsy: true }).isFloat({ min: 0, max: 100 }),
+    body('classManagementScore').optional({ checkFalsy: true }).isFloat({ min: 0, max: 100 }),
+    body('examResultsScore').optional({ checkFalsy: true }).isFloat({ min: 0, max: 100 }),
+    optionalString('status'),
+    body('improvement').optional({ checkFalsy: true }).isFloat({ min: -100, max: 100 }),
+    optionalString('remarks'),
+  ],
+  validate,
+  teacherController.createPerformanceReview
+);
+
+router.patch(
+  '/performance/:id',
+  authenticate,
+  authorize('admin'),
+  [
+    param('id').isInt(),
+    body('teacherId').optional({ checkFalsy: true }).isInt({ min: 1 }),
+    body('periodType').optional({ checkFalsy: true }).isString().trim(),
+    optionalString('periodLabel'),
+    body('periodStart').optional({ checkFalsy: true }).isISO8601(),
+    body('periodEnd').optional({ checkFalsy: true }).isISO8601(),
+    body('overallScore').optional({ checkFalsy: true }).isFloat({ min: 0, max: 100 }),
+    body('studentFeedbackScore').optional({ checkFalsy: true }).isFloat({ min: 0, max: 100 }),
+    body('attendanceScore').optional({ checkFalsy: true }).isFloat({ min: 0, max: 100 }),
+    body('classManagementScore').optional({ checkFalsy: true }).isFloat({ min: 0, max: 100 }),
+    body('examResultsScore').optional({ checkFalsy: true }).isFloat({ min: 0, max: 100 }),
+    optionalString('status'),
+    body('improvement').optional({ checkFalsy: true }).isFloat({ min: -100, max: 100 }),
+    optionalString('remarks'),
+  ],
+  validate,
+  teacherController.updatePerformanceReview
+);
+
+router.get(
+  '/subjects',
+  authenticate,
+  [],
+  validate,
+  teacherController.listSubjects
+);
+
+router.post(
+  '/subjects',
+  authenticate,
+  authorize('admin'),
+  [body('name').isString().trim().notEmpty(), optionalString('code'), optionalString('department'), optionalString('description')],
+  validate,
+  teacherController.createSubject
+);
+
+router.patch(
+  '/subjects/:id',
+  authenticate,
+  authorize('admin'),
+  [
+    param('id').isInt(),
+    optionalString('name'),
+    optionalString('code'),
+    optionalString('department'),
+    optionalString('description'),
+  ],
+  validate,
+  teacherController.updateSubject
+);
+
+router.delete(
+  '/subjects/:id',
+  authenticate,
+  authorize('admin'),
+  [param('id').isInt()],
+  validate,
+  teacherController.removeSubject
+);
+
+router.get(
+  '/subjects/assignments',
+  authenticate,
+  [
+    query('teacherId').optional().isInt({ min: 1 }),
+    query('subjectId').optional().isInt({ min: 1 }),
+  ],
+  validate,
+  teacherController.listSubjectAssignments
+);
+
+router.post(
+  '/subjects/assignments',
+  authenticate,
+  authorize('admin'),
+  [
+    body('teacherId').isInt({ min: 1 }),
+    body('subjectId').isInt({ min: 1 }),
+    body('isPrimary').optional().isBoolean(),
+    body('classes').optional().isArray(),
+    optionalString('academicYear'),
+  ],
+  validate,
+  teacherController.assignSubject
+);
+
+router.patch(
+  '/subjects/assignments/:assignmentId',
+  authenticate,
+  authorize('admin'),
+  [
+    param('assignmentId').isInt(),
+    body('teacherId').optional({ checkFalsy: true }).isInt({ min: 1 }),
+    body('subjectId').optional({ checkFalsy: true }).isInt({ min: 1 }),
+    body('isPrimary').optional().isBoolean(),
+    body('classes').optional().isArray(),
+    optionalString('academicYear'),
+  ],
+  validate,
+  teacherController.updateSubjectAssignment
+);
+
+router.delete(
+  '/subjects/assignments/:assignmentId',
+  authenticate,
+  authorize('admin'),
+  [param('assignmentId').isInt()],
+  validate,
+  teacherController.removeSubjectAssignment
+);
+
+router.get(
+  '/schedules',
+  authenticate,
+  [
+    query('teacherId').optional().isInt({ min: 1 }),
+    query('day').optional().isString().trim(),
+    query('dayOfWeek').optional().isString().trim(),
+  ],
+  validate,
+  teacherController.listSchedules
+);
+
+router.post(
+  '/schedules',
+  authenticate,
+  authorize('admin'),
+  [
+    body('teacherId').isInt({ min: 1 }),
+    body('dayOfWeek').optional().isString().trim(),
+    body('day').optional().isString().trim(),
+    body('startTime').matches(timePattern),
+    body('endTime').matches(timePattern),
+    optionalString('class'),
+    optionalString('className'),
+    optionalString('section'),
+    optionalString('subject'),
+    optionalString('room'),
+    body('timeSlotIndex').optional({ checkFalsy: true }).isInt({ min: 1 }),
+    optionalString('timeSlotLabel'),
+    body().custom((_, { req }) => {
+      if (!req.body.dayOfWeek && !req.body.day) {
+        throw new Error('dayOfWeek or day is required');
+      }
+      return true;
+    }),
+  ],
+  validate,
+  teacherController.createScheduleSlot
+);
+
+router.put(
+  '/schedules/:scheduleId',
+  authenticate,
+  authorize('admin'),
+  [
+    param('scheduleId').isInt(),
+    body('dayOfWeek').optional().isString().trim(),
+    body('day').optional().isString().trim(),
+    body('startTime').optional({ checkFalsy: true }).matches(timePattern),
+    body('endTime').optional({ checkFalsy: true }).matches(timePattern),
+    optionalString('class'),
+    optionalString('className'),
+    optionalString('section'),
+    optionalString('subject'),
+    optionalString('room'),
+    body('timeSlotIndex').optional({ checkFalsy: true }).isInt({ min: 1 }),
+    optionalString('timeSlotLabel'),
+  ],
+  validate,
+  teacherController.updateScheduleSlot
+);
+
+router.delete(
+  '/schedules/:scheduleId',
+  authenticate,
+  authorize('admin'),
+  [param('scheduleId').isInt()],
+  validate,
+  teacherController.deleteScheduleSlot
+);
+
+router.get(
+  '/:id/schedule',
+  authenticate,
+  [param('id').isInt()],
+  validate,
+  teacherController.getSchedule
+);
+
+router.get(
+  '/:id',
+  authenticate,
+  [param('id').isInt()],
+  validate,
+  teacherController.getById
 );
 
 router.put(

@@ -390,6 +390,16 @@ const studentSlice = createSlice({
     setFormStep: (state, action) => {
       state.formStep = action.payload;
     },
+    setAllFormData: (state, action) => {
+      const next = action.payload || {};
+      state.formData = {
+        personal: next.personal || {},
+        academic: next.academic || {},
+        parent: next.parent || {},
+        transport: next.transport || {},
+        fee: next.fee || {},
+      };
+    },
     updateFormData: (state, action) => {
       const { step, data } = action.payload;
       switch(step) {
@@ -680,6 +690,7 @@ export const {
   setFilters,
   clearFilters,
   setFormStep,
+  setAllFormData,
   updateFormData,
   setFormErrors,
   clearFormData,

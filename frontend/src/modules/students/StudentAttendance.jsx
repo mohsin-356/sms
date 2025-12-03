@@ -34,9 +34,6 @@ import {
   Tooltip,
   InputGroup,
   InputLeftElement,
-  Card,
-  CardHeader,
-  CardBody,
   Stat,
   StatLabel,
   StatNumber,
@@ -63,6 +60,7 @@ import AttendanceCalendar from './components/attendance/AttendanceCalendar';
 import AttendanceDetailModal from './components/attendance/AttendanceDetailModal';
 import * as studentsApi from '../../services/api/students';
 import * as attendanceApi from '../../services/api/attendance';
+import Card from '../../components/card/Card';
 
 const StudentAttendance = () => {
   // States
@@ -90,15 +88,15 @@ const StudentAttendance = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const { data } = await studentsApi.list({ pageSize: 200 });
-        const rows = Array.isArray(data?.rows) ? data.rows : data;
+        const payload = await studentsApi.list({ pageSize: 200 });
+        const rows = Array.isArray(payload?.rows) ? payload.rows : (Array.isArray(payload) ? payload : []);
         setStudents((rows || []).slice(0, 100));
       } catch {}
       // Load today's attendance for all students
       try {
         const today = new Date().toISOString().split('T')[0];
-        const { data } = await attendanceApi.list({ startDate: today, endDate: today });
-        const rows = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data) ? data : []);
+        const payload = await attendanceApi.list({ startDate: today, endDate: today });
+        const rows = payload?.items || payload?.rows || (Array.isArray(payload) ? payload : []);
         const map = {};
         rows.forEach(r => {
           if (!map[r.studentId]) map[r.studentId] = {};
@@ -167,8 +165,8 @@ const StudentAttendance = () => {
       const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).toISOString().split('T')[0];
       const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).toISOString().split('T')[0];
       try {
-        const { data } = await attendanceApi.list({ studentId: selectedStudent.id, startDate: start, endDate: end, pageSize: 500 });
-        const rows = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data) ? data : []);
+        const payload = await attendanceApi.list({ studentId: selectedStudent.id, startDate: start, endDate: end, pageSize: 500 });
+        const rows = payload?.items || payload?.rows || (Array.isArray(payload) ? payload : []);
         const map = { ...(attendanceData[selectedStudent.id] || {}) };
         rows.forEach(r => {
           const d = new Date(r.date).toISOString().split('T')[0];
@@ -195,6 +193,54 @@ const StudentAttendance = () => {
     
     return matchesClass && matchesSection && matchesSearch;
   });
+  
+  // Export CSV of today's filtered attendance
+  const exportCSV = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const headers = ['Student','Roll No.','Class','Status','Check-In','Check-Out'];
+    const rows = filteredStudents.map((s) => {
+      const a = attendanceData[s.id]?.[today] || { status: 'not-marked', checkIn: '', checkOut: '' };
+      return [
+        '"' + (s.name || '') + '"',
+        s.rollNumber || '',
+        `${s.class || ''}-${s.section || ''}`,
+        a.status || '',
+        a.checkIn || '',
+        a.checkOut || ''
+      ].join(',');
+    });
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance_${today}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Print (browser print dialog)
+  const handlePrint = () => window.print();
+
+  // Refresh students and today's attendance
+  const refreshAll = async () => {
+    try {
+      const payload = await studentsApi.list({ pageSize: 200 });
+      const rows = Array.isArray(payload?.rows) ? payload.rows : (Array.isArray(payload) ? payload : []);
+      setStudents((rows || []).slice(0, 100));
+    } catch {}
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const payload = await attendanceApi.list({ startDate: today, endDate: today });
+      const rows = payload?.items || payload?.rows || (Array.isArray(payload) ? payload : []);
+      const map = {};
+      rows.forEach(r => {
+        if (!map[r.studentId]) map[r.studentId] = {};
+        map[r.studentId][today] = { status: r.status, checkIn: null, checkOut: null };
+      });
+      setAttendanceData(map);
+    } catch {}
+  };
   
   // Mark attendance for today
   const markAttendance = async (studentId, status, time) => {
@@ -246,10 +292,10 @@ const StudentAttendance = () => {
             <Button leftIcon={<MdDateRange />} colorScheme="blue" variant="outline">
               {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
             </Button>
-            <Button leftIcon={<MdDownload />} colorScheme="teal" variant="outline">
+            <Button leftIcon={<MdDownload />} colorScheme="teal" variant="outline" onClick={exportCSV}>
               Export
             </Button>
-            <Button leftIcon={<MdPrint />} colorScheme="purple" variant="outline">
+            <Button leftIcon={<MdPrint />} colorScheme="purple" variant="outline" onClick={handlePrint}>
               Print
             </Button>
           </ButtonGroup>
@@ -263,149 +309,139 @@ const StudentAttendance = () => {
         mb="20px"
       >
         <GridItem>
-          <Card>
-            <CardBody>
-              <Stat>
-                <StatLabel>Total Students</StatLabel>
-                <StatNumber>{students.length}</StatNumber>
-                <StatHelpText>
-                  <StatArrow type="increase" />
-                  4.5%
-                </StatHelpText>
-              </Stat>
-            </CardBody>
+          <Card p="20px">
+            <Stat>
+              <StatLabel>Total Students</StatLabel>
+              <StatNumber>{students.length}</StatNumber>
+              <StatHelpText>
+                <StatArrow type="increase" />
+                4.5%
+              </StatHelpText>
+            </Stat>
           </Card>
         </GridItem>
         <GridItem>
-          <Card>
-            <CardBody>
-              <Stat>
-                <StatLabel>Present Today</StatLabel>
-                <StatNumber>
-                  {students.filter(s => 
-                    getTodayAttendance(s.id).status === 'present' ||
-                    getTodayAttendance(s.id).status === 'late'
-                  ).length}
-                </StatNumber>
-                <StatHelpText>
-                  <StatArrow type="increase" />
-                  {Math.round((students.filter(s => 
-                    getTodayAttendance(s.id).status === 'present' ||
-                    getTodayAttendance(s.id).status === 'late'
-                  ).length / students.length) * 100)}%
-                </StatHelpText>
-              </Stat>
-            </CardBody>
+          <Card p="20px">
+            <Stat>
+              <StatLabel>Present Today</StatLabel>
+              <StatNumber>
+                {students.filter(s => 
+                  getTodayAttendance(s.id).status === 'present' ||
+                  getTodayAttendance(s.id).status === 'late'
+                ).length}
+              </StatNumber>
+              <StatHelpText>
+                <StatArrow type="increase" />
+                {Math.round((students.filter(s => 
+                  getTodayAttendance(s.id).status === 'present' ||
+                  getTodayAttendance(s.id).status === 'late'
+                ).length / students.length) * 100)}%
+              </StatHelpText>
+            </Stat>
           </Card>
         </GridItem>
         <GridItem>
-          <Card>
-            <CardBody>
-              <Stat>
-                <StatLabel>Absent Today</StatLabel>
-                <StatNumber>
-                  {students.filter(s => getTodayAttendance(s.id).status === 'absent').length}
-                </StatNumber>
-                <StatHelpText>
-                  <StatArrow type="decrease" />
-                  {Math.round((students.filter(s => 
-                    getTodayAttendance(s.id).status === 'absent'
-                  ).length / students.length) * 100)}%
-                </StatHelpText>
-              </Stat>
-            </CardBody>
+          <Card p="20px">
+            <Stat>
+              <StatLabel>Absent Today</StatLabel>
+              <StatNumber>
+                {students.filter(s => getTodayAttendance(s.id).status === 'absent').length}
+              </StatNumber>
+              <StatHelpText>
+                <StatArrow type="decrease" />
+                {Math.round((students.filter(s => 
+                  getTodayAttendance(s.id).status === 'absent'
+                ).length / students.length) * 100)}%
+              </StatHelpText>
+            </Stat>
           </Card>
         </GridItem>
         <GridItem>
-          <Card>
-            <CardBody>
-              <Stat>
-                <StatLabel>On Leave Today</StatLabel>
-                <StatNumber>
-                  {students.filter(s => getTodayAttendance(s.id).status === 'leave').length}
-                </StatNumber>
-                <StatHelpText>
-                  <StatArrow type="increase" />
-                  {Math.round((students.filter(s => 
-                    getTodayAttendance(s.id).status === 'leave'
-                  ).length / students.length) * 100)}%
-                </StatHelpText>
-              </Stat>
-            </CardBody>
+          <Card p="20px">
+            <Stat>
+              <StatLabel>On Leave Today</StatLabel>
+              <StatNumber>
+                {students.filter(s => getTodayAttendance(s.id).status === 'leave').length}
+              </StatNumber>
+              <StatHelpText>
+                <StatArrow type="increase" />
+                {Math.round((students.filter(s => 
+                  getTodayAttendance(s.id).status === 'leave'
+                ).length / students.length) * 100)}%
+              </StatHelpText>
+            </Stat>
           </Card>
         </GridItem>
       </Grid>
       
       {/* Filter Panel */}
-      <Card mb="20px">
-        <CardBody>
-          <Flex
-            direction={{ base: 'column', md: 'row' }}
-            gap={4}
-            alignItems={{ base: 'stretch', md: 'flex-end' }}
-          >
-            <Box flex="1">
-              <Text mb={1} fontSize="sm">Search</Text>
-              <InputGroup>
-                <InputLeftElement pointerEvents="none">
-                  <SearchIcon color="gray.300" />
-                </InputLeftElement>
-                <Input
-                  placeholder="Search by name or roll no..."
-                  value={filterValues.searchTerm}
-                  onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
-                />
-              </InputGroup>
-            </Box>
-            <Box width={{ base: '100%', md: '200px' }}>
-              <Text mb={1} fontSize="sm">Class</Text>
-              <Select
-                value={filterValues.class}
-                onChange={(e) => handleFilterChange('class', e.target.value)}
-              >
-                <option value="all">All Classes</option>
-                <option value="10">Class 10</option>
-                <option value="11">Class 11</option>
-                <option value="12">Class 12</option>
-              </Select>
-            </Box>
-            <Box width={{ base: '100%', md: '200px' }}>
-              <Text mb={1} fontSize="sm">Section</Text>
-              <Select
-                value={filterValues.section}
-                onChange={(e) => handleFilterChange('section', e.target.value)}
-              >
-                <option value="all">All Sections</option>
-                <option value="A">Section A</option>
-                <option value="B">Section B</option>
-                <option value="C">Section C</option>
-                <option value="D">Section D</option>
-              </Select>
-            </Box>
-            <Box width={{ base: '100%', md: '200px' }}>
-              <Text mb={1} fontSize="sm">Status</Text>
-              <Select
-                value={filterValues.attendanceStatus}
-                onChange={(e) => handleFilterChange('attendanceStatus', e.target.value)}
-              >
-                <option value="all">All Status</option>
-                <option value="present">Present</option>
-                <option value="absent">Absent</option>
-                <option value="late">Late</option>
-                <option value="leave">Leave</option>
-                <option value="not-marked">Not Marked</option>
-              </Select>
-            </Box>
-            <ButtonGroup>
-              <Button leftIcon={<MdFilterList />} colorScheme="blue">
-                Apply
-              </Button>
-              <Button leftIcon={<MdRefresh />} variant="ghost">
-                Reset
-              </Button>
-            </ButtonGroup>
-          </Flex>
-        </CardBody>
+      <Card mb="20px" p="20px">
+        <Flex
+          direction={{ base: 'column', md: 'row' }}
+          gap={4}
+          alignItems={{ base: 'stretch', md: 'flex-end' }}
+        >
+          <Box flex="1">
+            <Text mb={1} fontSize="sm">Search</Text>
+            <InputGroup>
+              <InputLeftElement pointerEvents="none">
+                <SearchIcon color="gray.300" />
+              </InputLeftElement>
+              <Input
+                placeholder="Search by name or roll no..."
+                value={filterValues.searchTerm}
+                onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+              />
+            </InputGroup>
+          </Box>
+          <Box width={{ base: '100%', md: '200px' }}>
+            <Text mb={1} fontSize="sm">Class</Text>
+            <Select
+              value={filterValues.class}
+              onChange={(e) => handleFilterChange('class', e.target.value)}
+            >
+              <option value="all">All Classes</option>
+              <option value="10">Class 10</option>
+              <option value="11">Class 11</option>
+              <option value="12">Class 12</option>
+            </Select>
+          </Box>
+          <Box width={{ base: '100%', md: '200px' }}>
+            <Text mb={1} fontSize="sm">Section</Text>
+            <Select
+              value={filterValues.section}
+              onChange={(e) => handleFilterChange('section', e.target.value)}
+            >
+              <option value="all">All Sections</option>
+              <option value="A">Section A</option>
+              <option value="B">Section B</option>
+              <option value="C">Section C</option>
+              <option value="D">Section D</option>
+            </Select>
+          </Box>
+          <Box width={{ base: '100%', md: '200px' }}>
+            <Text mb={1} fontSize="sm">Status</Text>
+            <Select
+              value={filterValues.attendanceStatus}
+              onChange={(e) => handleFilterChange('attendanceStatus', e.target.value)}
+            >
+              <option value="all">All Status</option>
+              <option value="present">Present</option>
+              <option value="absent">Absent</option>
+              <option value="late">Late</option>
+              <option value="leave">Leave</option>
+              <option value="not-marked">Not Marked</option>
+            </Select>
+          </Box>
+          <ButtonGroup>
+            <Button leftIcon={<MdFilterList />} colorScheme="blue">
+              Apply
+            </Button>
+            <Button leftIcon={<MdRefresh />} variant="ghost" onClick={() => { setFilterValues({ class: 'all', section: 'all', attendanceStatus: 'all', searchTerm: '' }); refreshAll(); }}>
+              Reset
+            </Button>
+          </ButtonGroup>
+        </Flex>
       </Card>
       
       {/* Main Content Tabs */}
@@ -419,9 +455,8 @@ const StudentAttendance = () => {
         <TabPanels>
           {/* Daily Attendance Tab */}
           <TabPanel p={0} pt={5}>
-            <Card overflowX="auto">
-              <CardBody p={0}>
-                <Table variant="simple">
+            <Card p="12px">
+              <Table variant="simple" size="sm" sx={{ 'th, td': { whiteSpace: 'nowrap' } }}>
                   <Thead bg={useColorModeValue('gray.50', 'gray.800')}>
                     <Tr>
                       <Th>Student</Th>
@@ -526,14 +561,12 @@ const StudentAttendance = () => {
                     })}
                   </Tbody>
                 </Table>
-              </CardBody>
             </Card>
           </TabPanel>
           
           {/* Monthly View Tab */}
           <TabPanel p={0} pt={5}>
-            <Card>
-              <CardBody>
+            <Card p={4}>
                 <Heading size="md" mb={4}>Monthly Attendance Overview</Heading>
                 <Text color="gray.600" mb={4}>
                   Select a student from the list below to view their detailed attendance for the month.
@@ -541,11 +574,11 @@ const StudentAttendance = () => {
                 
                 <Grid templateColumns={{ base: '1fr', lg: '300px 1fr' }} gap={6}>
                   <GridItem>
-                    <Card variant="outline" maxH="500px" overflow="auto">
-                      <CardHeader bg="gray.50" p={3}>
+                    <Card p={0} maxH="500px" overflow="auto">
+                      <Box bg="gray.50" p={3} borderBottomWidth="1px">
                         <Text fontWeight="bold">Students</Text>
-                      </CardHeader>
-                      <CardBody p={0}>
+                      </Box>
+                      <Box>
                         <VStack align="stretch" spacing={0} divider={<Divider />}>
                           {filteredStudents.map(student => (
                             <Flex
@@ -565,14 +598,14 @@ const StudentAttendance = () => {
                             </Flex>
                           ))}
                         </VStack>
-                      </CardBody>
+                      </Box>
                     </Card>
                   </GridItem>
                   
                   <GridItem>
                     {selectedStudent ? (
-                      <Card variant="outline">
-                        <CardHeader bg="gray.50" p={4}>
+                      <Card p={0}>
+                        <Box bg="gray.50" p={4} borderBottomWidth="1px">
                           <Flex justify="space-between" align="center">
                             <Flex align="center">
                               <Avatar size="sm" name={selectedStudent.name} src={selectedStudent.photo} mr={3} />
@@ -609,8 +642,8 @@ const StudentAttendance = () => {
                               />
                             </HStack>
                           </Flex>
-                        </CardHeader>
-                        <CardBody>
+                        </Box>
+                        <Box p={4}>
                           {/* Monthly Calendar View */}
                           <AttendanceCalendar 
                             studentId={selectedStudent.id} 
@@ -642,7 +675,7 @@ const StudentAttendance = () => {
                               <Text fontSize="sm">Days</Text>
                             </Card>
                           </Grid>
-                        </CardBody>
+                        </Box>
                       </Card>
                     ) : (
                       <Flex 
@@ -660,21 +693,19 @@ const StudentAttendance = () => {
                     )}
                   </GridItem>
                 </Grid>
-              </CardBody>
             </Card>
           </TabPanel>
           
           {/* Reports Tab */}
           <TabPanel p={0} pt={5}>
-            <Card>
-              <CardBody>
+            <Card p={4}>
                 <Heading size="md" mb={4}>Attendance Reports</Heading>
                 <Text color="gray.600" mb={6}>
                   Generate and view attendance reports for different time periods.
                 </Text>
                 
                 <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)' }} gap={6}>
-                  <Card variant="outline" p={4}>
+                  <Card p={4}>
                     <Heading size="sm" mb={4}>Class-wise Attendance</Heading>
                     <VStack align="stretch" spacing={4}>
                       <HStack justify="space-between">
@@ -697,7 +728,7 @@ const StudentAttendance = () => {
                     <Button colorScheme="blue" mt={4} width="full">View Full Report</Button>
                   </Card>
                   
-                  <Card variant="outline" p={4}>
+                  <Card p={4}>
                     <Heading size="sm" mb={4}>Monthly Comparison</Heading>
                     <VStack align="stretch" spacing={4}>
                       <HStack justify="space-between">
@@ -720,7 +751,6 @@ const StudentAttendance = () => {
                     <Button colorScheme="blue" mt={4} width="full">Generate Report</Button>
                   </Card>
                 </Grid>
-              </CardBody>
             </Card>
           </TabPanel>
         </TabPanels>

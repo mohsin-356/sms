@@ -83,13 +83,16 @@ function AddStudent() {
     { title: 'Review', description: 'Verify details' },
   ];
 
-  // Clear form when component unmounts
+  // Clear form when component mounts
   useEffect(() => {
+    // Reset form on load so a previous Edit session doesn't prefill Add
+    dispatch(clearFormData());
+    dispatch(setFormStep(1));
     return () => {
       // Don't clear form data on component unmount to prevent accidental data loss
       // if someone navigates away and comes back
     };
-  }, []);
+  }, [dispatch]);
 
   // Handle next step
   const handleNextStep = () => {
@@ -122,7 +125,7 @@ function AddStudent() {
     if (hasFormData) {
       setIsLeaveAlertOpen(true);
     } else {
-      navigate('/admin/students');
+      navigate('/admin/students/list');
     }
   };
 
@@ -130,7 +133,7 @@ function AddStudent() {
   const confirmLeave = () => {
     dispatch(clearFormData());
     setIsLeaveAlertOpen(false);
-    navigate('/admin/students');
+    navigate('/admin/students/list');
   };
 
   // Handle form submission
@@ -160,9 +163,42 @@ function AddStudent() {
       status: 'active',
       admissionDate: combinedData.admissionDate,
       avatar: combinedData.photo || null,
+      // full nested objects for detailed persistence
+      personal: formData.personal,
+      academic: formData.academic,
+      parent: formData.parent,
+      transport: formData.transport,
+      fee: formData.fee,
     };
 
-    studentsApi.create(payload)
+    // Sanitize payload to satisfy backend validators
+    const sanitized = Object.fromEntries(
+      Object.entries(payload).filter(([_, v]) => v !== '' && v !== null && v !== undefined)
+    );
+
+    // Validate email; if invalid, drop it so backend optional().isEmail() doesn't fail
+    if (sanitized.email) {
+      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(sanitized.email));
+      if (!emailOk) delete sanitized.email;
+    }
+
+    // Normalize admissionDate: if provided but invalid, drop it
+    if (sanitized.admissionDate) {
+      const ts = Date.parse(sanitized.admissionDate);
+      if (Number.isNaN(ts)) delete sanitized.admissionDate;
+    }
+
+    // Attendance must be 0..100 number
+    sanitized.attendance = Math.max(0, Math.min(100, Number(sanitized.attendance) || 0));
+
+    // Fee status allowed values only
+    const allowedFee = new Set(['paid', 'pending', 'overdue']);
+    if (!allowedFee.has(sanitized.feeStatus)) sanitized.feeStatus = 'paid';
+
+    // Ensure boolean
+    sanitized.busAssigned = Boolean(sanitized.busAssigned);
+
+    studentsApi.create(sanitized)
       .then(() => {
         toast({
           title: 'Success',
@@ -173,10 +209,14 @@ function AddStudent() {
           position: 'top',
         });
         dispatch(clearFormData());
-        navigate('/admin/students');
+        navigate('/admin/students/list');
       })
       .catch((err) => {
-        const message = err?.response?.data?.message || 'Failed to add student. Please try again.';
+        const baseMessage = (err && (err.data?.message || err.message)) || 'Failed to add student. Please try again.';
+        const details = Array.isArray(err?.data?.errors)
+          ? err.data.errors.map((e) => `${e.param}: ${e.msg}`).join('; ')
+          : null;
+        const message = details ? `${baseMessage} — ${details}` : baseMessage;
         toast({
           title: 'Error',
           description: message,

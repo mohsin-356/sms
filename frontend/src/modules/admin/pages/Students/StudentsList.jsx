@@ -25,6 +25,13 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+  Portal,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
 } from '@chakra-ui/react';
 // Custom components
 import Card from '../../../../components/card/Card';
@@ -44,6 +51,9 @@ import {
 import { getStatusColor } from '../../../../utils/helpers';
 // API
 import * as studentsApi from '../../../../services/api/students';
+// Embedded views
+import StudentProfile from './StudentProfile';
+import EditStudent from './EditStudent';
 
 export default function StudentsList() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,28 +62,31 @@ export default function StudentsList() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [viewId, setViewId] = useState(null);
+  const [editId, setEditId] = useState(null);
   const navigate = useNavigate();
   const toast = useToast();
 
   // Fetch students from backend
+  const refreshList = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const params = {};
+      if (searchQuery) params.q = searchQuery;
+      if (filterClass !== 'all') params.class = filterClass;
+      const payload = await studentsApi.list(params);
+      const rows = Array.isArray(payload?.rows) ? payload.rows : payload; // accept either shape
+      setStudents(rows || []);
+    } catch (e) {
+      setError('Failed to load students');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetch = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        const params = {};
-        if (searchQuery) params.q = searchQuery;
-        if (filterClass !== 'all') params.class = filterClass;
-        const { data } = await studentsApi.list(params);
-        const rows = Array.isArray(data?.rows) ? data.rows : data; // accept either shape
-        setStudents(rows || []);
-      } catch (e) {
-        setError('Failed to load students');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetch();
+    refreshList();
   }, [searchQuery, filterClass]);
 
   // Filter students
@@ -95,24 +108,18 @@ export default function StudentsList() {
   };
 
   const handleEditStudent = (studentId) => {
-    navigate(`/admin/students/edit/${studentId}`);
+    setEditId(studentId);
   };
 
   const handleViewStudent = (studentId) => {
-    navigate(`/admin/students/${studentId}`);
+    setViewId(studentId);
   };
 
   const handleDeleteStudent = async (student) => {
     try {
       await studentsApi.remove(student.id);
       toast({ title: 'Deleted', description: `${student.name} removed`, status: 'success' });
-      // refresh list
-      const params = {};
-      if (searchQuery) params.q = searchQuery;
-      if (filterClass !== 'all') params.class = filterClass;
-      const { data } = await studentsApi.list(params);
-      const rows = Array.isArray(data?.rows) ? data.rows : data;
-      setStudents(rows || []);
+      await refreshList();
     } catch (e) {
       toast({ title: 'Failed to delete', status: 'error' });
     }
@@ -270,40 +277,42 @@ export default function StudentsList() {
                     </Badge>
                   </Td>
                   <Td>
-                    <Menu>
+                    <Menu placement='bottom-end' isLazy>
                       <MenuButton
                         as={IconButton}
                         icon={<MdMoreVert />}
                         variant='ghost'
                         size='sm'
                       />
-                      <MenuList>
-                        <MenuItem
-                          icon={<MdRemoveRedEye />}
-                          onClick={() => handleViewStudent(student.id)}
-                        >
-                          View Details
-                        </MenuItem>
-                        <MenuItem
-                          icon={<MdEdit />}
-                          onClick={() => handleEditStudent(student.id)}
-                        >
-                          Edit Student
-                        </MenuItem>
-                        <MenuItem
-                          icon={<MdEmail />}
-                          onClick={() => handleContactParent(student)}
-                        >
-                          Contact Parent
-                        </MenuItem>
-                        <MenuItem
-                          icon={<MdDelete />}
-                          color='red.500'
-                          onClick={() => handleDeleteStudent(student)}
-                        >
-                          Delete Student
-                        </MenuItem>
-                      </MenuList>
+                      <Portal>
+                        <MenuList zIndex={1800} minW='220px' boxShadow='xl'>
+                          <MenuItem
+                            icon={<MdRemoveRedEye />}
+                            onClick={() => handleViewStudent(student.id)}
+                          >
+                            View Details
+                          </MenuItem>
+                          <MenuItem
+                            icon={<MdEdit />}
+                            onClick={() => handleEditStudent(student.id)}
+                          >
+                            Edit Student
+                          </MenuItem>
+                          <MenuItem
+                            icon={<MdEmail />}
+                            onClick={() => handleContactParent(student)}
+                          >
+                            Contact Parent
+                          </MenuItem>
+                          <MenuItem
+                            icon={<MdDelete />}
+                            color='red.500'
+                            onClick={() => handleDeleteStudent(student)}
+                          >
+                            Delete Student
+                          </MenuItem>
+                        </MenuList>
+                      </Portal>
                     </Menu>
                   </Td>
                 </Tr>
@@ -318,6 +327,40 @@ export default function StudentsList() {
           </Flex>
         )}
       </Card>
+      {/* View Details Modal */}
+      <Modal isOpen={!!viewId} onClose={() => setViewId(null)} size='6xl' scrollBehavior='inside' isCentered motionPreset='scale'>
+        <ModalOverlay bg='blackAlpha.600' backdropFilter='blur(6px)' />
+        <ModalContent rounded='2xl' boxShadow='2xl' borderWidth='1px' borderColor='blackAlpha.200' overflow='hidden'
+          maxW={{ base: '94vw', md: '78vw', lg: '56vw', xl: '48vw', '2xl': '42vw' }}>
+          <ModalHeader bgGradient='linear(to-r, blue.500, purple.500)' color='white' py={4}>Student Details</ModalHeader>
+          <ModalCloseButton color='white' />
+          <ModalBody pb={6} bg='white' px={{ base: 3, md: 5, lg: 6 }}>
+            {viewId && (
+              <StudentProfile id={viewId} embedded onClose={() => setViewId(null)} />
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      {/* Edit Student Modal */}
+      <Modal isOpen={!!editId} onClose={() => setEditId(null)} size='6xl' scrollBehavior='inside' isCentered motionPreset='slideInBottom'>
+        <ModalOverlay bg='blackAlpha.600' backdropFilter='blur(6px)' />
+        <ModalContent rounded='2xl' boxShadow='2xl' borderWidth='1px' borderColor='blackAlpha.200' overflow='hidden'
+          maxW={{ base: '92vw', md: '82vw', lg: '68vw', xl: '60vw' }}>
+          <ModalHeader bgGradient='linear(to-r, teal.500, green.500)' color='white' py={4}>Edit Student</ModalHeader>
+          <ModalCloseButton color='white' />
+          <ModalBody pb={6} bg='white' px={{ base: 3, md: 5, lg: 6 }}>
+            {editId && (
+              <EditStudent
+                id={editId}
+                embedded
+                onClose={() => setEditId(null)}
+                onSaved={() => { setEditId(null); refreshList(); }}
+              />
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 }

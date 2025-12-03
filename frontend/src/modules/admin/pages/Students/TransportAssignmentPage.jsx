@@ -14,25 +14,29 @@ export default function TransportAssignmentPage() {
   const [students, setStudents] = useState([]);
   const [transportByStudent, setTransportByStudent] = useState({}); // { [id]: { busNumber, ... } }
   const [buses, setBuses] = useState([]);
+  const [routes, setRoutes] = useState([]);
+  const [stops, setStops] = useState([]);
   const assignDisc = useDisclosure();
-  const [assignState, setAssignState] = useState({ studentId: null, busId: '' });
+  const [assignState, setAssignState] = useState({ studentId: null, busId: '', routeId: '', pickupStopId: '', dropStopId: '' });
 
   // Load students and buses
   useEffect(() => {
     const load = async () => {
       try {
-        const [{ data: studentsRes }, { data: busesRes }] = await Promise.all([
+        const [studentsRes, busesRes, routesRes] = await Promise.all([
           studentsApi.list({ pageSize: 200 }),
           transportApi.listBuses(),
+          transportApi.listRoutes(),
         ]);
-        const rows = Array.isArray(studentsRes?.rows) ? studentsRes.rows : studentsRes;
+        const rows = Array.isArray(studentsRes?.rows) ? studentsRes.rows : (Array.isArray(studentsRes) ? studentsRes : []);
         setStudents(rows || []);
-        setBuses(Array.isArray(busesRes) ? busesRes : (busesRes?.rows || []));
+        setBuses(Array.isArray(busesRes?.items) ? busesRes.items : (Array.isArray(busesRes) ? busesRes : []));
+        setRoutes(Array.isArray(routesRes?.items) ? routesRes.items : (Array.isArray(routesRes) ? routesRes : []));
         // Fetch transport info per student (best-effort)
         (rows || []).slice(0, 100).forEach(async (s) => {
           try {
-            const { data } = await studentsApi.getTransport(s.id);
-            setTransportByStudent(prev => ({ ...prev, [s.id]: data || {} }));
+            const payload = await studentsApi.getTransport(s.id);
+            setTransportByStudent(prev => ({ ...prev, [s.id]: payload || {} }));
           } catch {}
         });
       } catch (e) {
@@ -43,16 +47,27 @@ export default function TransportAssignmentPage() {
   }, []);
 
   const openAssign = (studentId) => {
-    setAssignState({ studentId, busId: '' });
+    const current = transportByStudent[studentId] || {};
+    setAssignState({
+      studentId,
+      busId: current.busId ? String(current.busId) : '',
+      routeId: current.routeId ? String(current.routeId) : '',
+      pickupStopId: current.pickupStopId ? String(current.pickupStopId) : '',
+      dropStopId: current.dropStopId ? String(current.dropStopId) : '',
+    });
     assignDisc.onOpen();
   };
 
   const saveAssign = async () => {
     try {
-      await studentsApi.updateTransport(assignState.studentId, { busId: assignState.busId ? Number(assignState.busId) : null });
-      // Refresh single student's transport
-      const { data } = await studentsApi.getTransport(assignState.studentId);
-      setTransportByStudent(prev => ({ ...prev, [assignState.studentId]: data || {} }));
+      await studentsApi.updateTransport(assignState.studentId, {
+        busId: assignState.busId ? Number(assignState.busId) : null,
+        routeId: assignState.routeId ? Number(assignState.routeId) : null,
+        pickupStopId: assignState.pickupStopId ? Number(assignState.pickupStopId) : null,
+        dropStopId: assignState.dropStopId ? Number(assignState.dropStopId) : null,
+      });
+      const payload = await studentsApi.getTransport(assignState.studentId);
+      setTransportByStudent(prev => ({ ...prev, [assignState.studentId]: payload || {} }));
       toast({ title: 'Transport updated', status: 'success' });
       assignDisc.onClose();
     } catch (e) {
@@ -60,6 +75,17 @@ export default function TransportAssignmentPage() {
       toast({ title: 'Error', description: message, status: 'error' });
     }
   };
+
+  useEffect(() => {
+    const loadStops = async () => {
+      if (!assignState.routeId) { setStops([]); return; }
+      try {
+        const payload = await transportApi.listRouteStops(assignState.routeId);
+        setStops(Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : []));
+      } catch (_) { setStops([]); }
+    };
+    loadStops();
+  }, [assignState.routeId]);
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -283,12 +309,27 @@ export default function TransportAssignmentPage() {
       <Modal isOpen={assignDisc.isOpen} onClose={assignDisc.onClose} isCentered>
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>Assign Bus</ModalHeader>
+          <ModalHeader>Assign Transport</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <Select placeholder='Select bus' value={assignState.busId} onChange={(e)=>setAssignState(s=>({ ...s, busId: e.target.value }))}>
+            <Select placeholder='Select bus' value={assignState.busId} onChange={(e)=>setAssignState(s=>({ ...s, busId: e.target.value }))} mb={3}>
               {buses.map(b => (
                 <option key={b.id} value={b.id}>{b.number}</option>
+              ))}
+            </Select>
+            <Select placeholder='Select route' value={assignState.routeId} onChange={(e)=>setAssignState(s=>({ ...s, routeId: e.target.value, pickupStopId: '', dropStopId: '' }))} mb={3}>
+              {routes.map(r => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </Select>
+            <Select placeholder='Pickup stop' value={assignState.pickupStopId} onChange={(e)=>setAssignState(s=>({ ...s, pickupStopId: e.target.value }))} mb={3}>
+              {stops.map(st => (
+                <option key={st.id} value={st.id}>{st.name}</option>
+              ))}
+            </Select>
+            <Select placeholder='Drop stop' value={assignState.dropStopId} onChange={(e)=>setAssignState(s=>({ ...s, dropStopId: e.target.value }))}>
+              {stops.map(st => (
+                <option key={st.id} value={st.id}>{st.name}</option>
               ))}
             </Select>
           </ModalBody>

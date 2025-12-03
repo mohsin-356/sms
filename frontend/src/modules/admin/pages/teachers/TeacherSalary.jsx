@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Heading,
@@ -19,7 +19,6 @@ import {
   MenuList,
   MenuItem,
   Input,
-  Select,
   FormControl,
   FormLabel,
   InputGroup,
@@ -27,10 +26,7 @@ import {
   HStack,
   useColorModeValue,
   useToast,
-  Stat,
-  StatLabel,
-  StatNumber,
-  StatHelpText,
+  Spinner,
 } from '@chakra-ui/react';
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
@@ -38,132 +34,301 @@ import IconBox from 'components/icons/IconBox';
 import { 
   MdAttachMoney, 
   MdCalendarToday, 
-  MdPeople, 
   MdLocalPrintshop,
   MdFileDownload,
   MdMoreVert,
   MdSearch,
   MdCheckCircle,
 } from 'react-icons/md';
+import * as teacherApi from '../../../../services/api/teachers';
+
+const statusColorMap = {
+  paid: 'green',
+  processing: 'blue',
+  pending: 'orange',
+  failed: 'red',
+  cancelled: 'gray',
+};
 
 const TeacherSalary = () => {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM format
+  const [payrolls, setPayrolls] = useState([]);
+  const [payrollLoading, setPayrollLoading] = useState(false);
+  const [teachers, setTeachers] = useState([]);
+  const [teachersLoading, setTeachersLoading] = useState(false);
+  const [processingMap, setProcessingMap] = useState({});
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const toast = useToast();
   
   // Colors
   const textColor = useColorModeValue('gray.800', 'white');
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
-  
-  // Mock salary data
-  const salaryData = [
-    {
-      id: 1,
-      teacherId: 'TCH001',
-      teacherName: 'Robert Smith',
-      designation: 'Senior Math Teacher',
-      basicSalary: 50000,
-      allowances: 8000,
-      deductions: 5000,
-      totalSalary: 53000,
-      status: 'paid',
-      paidOn: '2025-10-05',
-      accountDetails: {
-        bank: 'ABC Bank',
-        accountNumber: '****6789',
-      },
-    },
-    {
-      id: 2,
-      teacherId: 'TCH002',
-      teacherName: 'Sarah Johnson',
-      designation: 'Biology Teacher',
-      basicSalary: 45000,
-      allowances: 6000,
-      deductions: 4500,
-      totalSalary: 46500,
-      status: 'paid',
-      paidOn: '2025-10-05',
-      accountDetails: {
-        bank: 'XYZ Bank',
-        accountNumber: '****1234',
-      },
-    },
-    {
-      id: 3,
-      teacherId: 'TCH003',
-      teacherName: 'Michael Brown',
-      designation: 'English Teacher',
-      basicSalary: 42000,
-      allowances: 5500,
-      deductions: 4200,
-      totalSalary: 43300,
-      status: 'processing',
-      paidOn: null,
-      accountDetails: {
-        bank: 'DEF Bank',
-        accountNumber: '****5678',
-      },
-    },
-    {
-      id: 4,
-      teacherId: 'TCH004',
-      teacherName: 'David Wilson',
-      designation: 'Computer Science Teacher',
-      basicSalary: 48000,
-      allowances: 7000,
-      deductions: 4800,
-      totalSalary: 50200,
-      status: 'paid',
-      paidOn: '2025-10-04',
-      accountDetails: {
-        bank: 'GHI Bank',
-        accountNumber: '****9012',
-      },
-    },
-    {
-      id: 5,
-      teacherId: 'TCH005',
-      teacherName: 'Jennifer Lee',
-      designation: 'Chemistry Teacher',
-      basicSalary: 46000,
-      allowances: 6500,
-      deductions: 4600,
-      totalSalary: 47900,
-      status: 'pending',
-      paidOn: null,
-      accountDetails: {
-        bank: 'JKL Bank',
-        accountNumber: '****3456',
-      },
-    },
-  ];
-  
-  // Calculate summary stats
-  const totalSalaryAmount = salaryData.reduce((sum, item) => sum + item.totalSalary, 0);
-  const paidCount = salaryData.filter(item => item.status === 'paid').length;
-  const pendingCount = salaryData.filter(item => item.status === 'pending' || item.status === 'processing').length;
-  
-  // Handle process payment
-  const handleProcessPayment = (teacherId) => {
-    toast({
-      title: 'Payment Processed',
-      description: `Salary payment for ${teacherId} has been processed successfully.`,
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
+  const tableHeaderBg = useColorModeValue('gray.50', 'gray.800');
+
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat('en-PK', {
+        style: 'currency',
+        currency: 'PKR',
+        maximumFractionDigits: 0,
+      }),
+    []
+  );
+
+  const formatAmount = useCallback((value) => currencyFormatter.format(Number(value || 0)), [currencyFormatter]);
+
+  const fetchPayrolls = useCallback(async () => {
+    if (!month) return;
+    setPayrollLoading(true);
+    try {
+      const data = await teacherApi.getPayrolls({ month });
+      setPayrolls(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(error);
+      setPayrolls([]);
+      toast({
+        title: 'Failed to load payrolls',
+        description: error?.message || 'Please try again later.',
+        status: 'error',
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
+      setPayrollLoading(false);
+    }
+  }, [month, toast]);
+
+  useEffect(() => {
+    fetchPayrolls();
+  }, [fetchPayrolls]);
+
+  const fetchTeachers = useCallback(async () => {
+    setTeachersLoading(true);
+    try {
+      const response = await teacherApi.list({ page: 1, pageSize: 200 });
+      const rows = Array.isArray(response?.rows) ? response.rows : Array.isArray(response) ? response : [];
+      setTeachers(rows);
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Failed to load teachers',
+        description: error?.message || 'Please try again later.',
+        status: 'error',
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
+      setTeachersLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchTeachers();
+  }, [fetchTeachers]);
+
+  const payrollMap = useMemo(() => {
+    return payrolls.reduce((acc, row) => {
+      if (row?.teacherId) acc[row.teacherId] = row;
+      return acc;
+    }, {});
+  }, [payrolls]);
+
+  const computeTotalAmount = useCallback(({ baseSalary = 0, allowances = 0, deductions = 0, bonuses = 0 }) => {
+    const total = Number(baseSalary || 0) + Number(allowances || 0) + Number(bonuses || 0) - Number(deductions || 0);
+    return Math.max(0, Number(total.toFixed(0)));
+  }, []);
+
+  const teacherRows = useMemo(() => {
+    const rows = teachers.map((teacher) => {
+      const payroll = payrollMap[teacher.id];
+      const baseSalary = Number(payroll?.baseSalary ?? teacher.baseSalary ?? 0);
+      const allowances = Number(payroll?.allowances ?? teacher.allowances ?? 0);
+      const deductions = Number(payroll?.deductions ?? teacher.deductions ?? 0);
+      const bonuses = Number(payroll?.bonuses ?? 0);
+      const totalAmount = Number(payroll?.totalAmount ?? computeTotalAmount({ baseSalary, allowances, deductions, bonuses }));
+      return {
+        key: payroll?.id ?? `teacher-${teacher.id}`,
+        payrollId: payroll?.id,
+        teacherId: teacher.id,
+        teacherName: teacher.name,
+        employeeId: teacher.employeeId,
+        designation: teacher.designation,
+        baseSalary,
+        allowances,
+        deductions,
+        bonuses,
+        totalAmount,
+        status: payroll?.status ?? 'pending',
+        paidOn: payroll?.paidOn ?? null,
+        paymentMethod: payroll?.paymentMethod ?? teacher.paymentMethod,
+      };
+    });
+
+    const knownTeacherIds = new Set(teachers.map((teacher) => teacher.id));
+    payrolls.forEach((payroll) => {
+      if (!knownTeacherIds.has(payroll.teacherId)) {
+        rows.push({
+          key: payroll.id,
+          payrollId: payroll.id,
+          teacherId: payroll.teacherId,
+          teacherName: payroll.teacherName || `Teacher #${payroll.teacherId}`,
+          employeeId: payroll.employeeId,
+          designation: payroll.designation,
+          baseSalary: Number(payroll.baseSalary || 0),
+          allowances: Number(payroll.allowances || 0),
+          deductions: Number(payroll.deductions || 0),
+          bonuses: Number(payroll.bonuses || 0),
+          totalAmount: Number(payroll.totalAmount || 0),
+          status: payroll.status || 'pending',
+          paidOn: payroll.paidOn || null,
+          paymentMethod: payroll.paymentMethod,
+        });
+      }
+    });
+
+    return rows;
+  }, [teachers, payrollMap, payrolls, computeTotalAmount]);
+
+  const stats = useMemo(() => {
+    const totalBudget = teacherRows.reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
+    const processed = teacherRows.filter((row) => row.status === 'paid').length;
+    const pending = teacherRows.filter((row) => row.status === 'pending' || row.status === 'processing').length;
+    return { totalBudget, processed, pending };
+  }, [teacherRows]);
+
+  const filteredRows = useMemo(() => {
+    if (!searchQuery) return teacherRows;
+    const query = searchQuery.toLowerCase();
+    return teacherRows.filter((row) => {
+      const nameMatch = row.teacherName?.toLowerCase().includes(query);
+      const idMatch = row.employeeId?.toLowerCase().includes(query);
+      const teacherIdMatch = String(row.teacherId || '').toLowerCase().includes(query);
+      return nameMatch || idMatch || teacherIdMatch;
+    });
+  }, [teacherRows, searchQuery]);
+
+  const formatStatus = (status) =>
+    (status || 'pending')
+      .split('_')
+      .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+      .join(' ');
+
+  const replacePayrollInState = (updatedPayroll) => {
+    if (!updatedPayroll) return;
+    setPayrolls((prev) => {
+      const exists = prev.some((row) => row.id === updatedPayroll.id);
+      if (exists) {
+        return prev.map((row) => (row.id === updatedPayroll.id ? updatedPayroll : row));
+      }
+      return [...prev, updatedPayroll];
     });
   };
 
-  // Handle bulk process
-  const handleBulkProcess = () => {
-    toast({
-      title: 'Bulk Payment Initiated',
-      description: 'All pending salary payments have been initiated.',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
+  const createOrUpdatePayroll = async (row, payload) => {
+    if (row.payrollId) {
+      return teacherApi.updatePayroll(row.payrollId, payload);
+    }
+    return teacherApi.createPayroll({
+      teacherId: row.teacherId,
+      periodMonth: month,
+      baseSalary: row.baseSalary,
+      allowances: row.allowances,
+      deductions: row.deductions,
+      bonuses: row.bonuses,
+      status: payload.status,
+      paidOn: payload.paidOn,
+      paymentMethod: row.paymentMethod,
     });
+  };
+
+  const handleProcessPayment = async (row) => {
+    if (!row || row.status === 'paid') return;
+    setProcessingMap((prev) => ({ ...prev, [row.teacherId]: true }));
+    try {
+      const payload = {
+        status: 'paid',
+        paidOn: new Date().toISOString().split('T')[0],
+      };
+      const updated = await createOrUpdatePayroll(row, payload);
+      replacePayrollInState(updated);
+      toast({
+        title: 'Payment processed',
+        description: `${row.teacherName} marked as paid.`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Failed to process payment',
+        description: error?.message || 'Please try again.',
+        status: 'error',
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
+      setProcessingMap((prev) => {
+        const next = { ...prev };
+        delete next[row.teacherId];
+        return next;
+      });
+    }
+  };
+
+  const handleBulkProcess = async () => {
+    const pendingRows = teacherRows.filter((row) => row.status === 'pending' || row.status === 'processing');
+    if (!pendingRows.length) {
+      toast({
+        title: 'No pending payrolls',
+        description: 'All payrolls are already marked as paid.',
+        status: 'info',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    setBulkProcessing(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const results = await Promise.all(
+        pendingRows.map((row) =>
+          createOrUpdatePayroll(row, {
+            status: 'paid',
+            paidOn: today,
+          })
+        )
+      );
+      setPayrolls((prev) => {
+        const map = new Map(prev.map((row) => [row.id, row]));
+        results.forEach((item) => {
+          if (item?.id) {
+            map.set(item.id, item);
+          }
+        });
+        return Array.from(map.values());
+      });
+      toast({
+        title: 'Bulk payment processed',
+        description: `${pendingRows.length} payroll${pendingRows.length > 1 ? 's' : ''} updated successfully.`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Bulk processing failed',
+        description: error?.message || 'Please try again.',
+        status: 'error',
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
+      setBulkProcessing(false);
+    }
   };
   
   return (
@@ -213,6 +378,8 @@ const TeacherSalary = () => {
             size="md" 
             onClick={handleBulkProcess}
             leftIcon={<Icon as={MdCheckCircle} />}
+            isLoading={bulkProcessing}
+            loadingText="Processing"
           >
             Process All Pending Payments
           </Button>
@@ -225,8 +392,8 @@ const TeacherSalary = () => {
           compact
           startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdAttachMoney} w='24px' h='24px' color='white' />} />}
           name='Total Salary Budget'
-          value={`₹${totalSalaryAmount.toLocaleString()}`}
-          growth='+3%'
+          value={formatAmount(stats.totalBudget)}
+          growth='Current month'
           trendData={[40,45,43,47,50,55]}
           trendColor='#01B574'
         />
@@ -234,18 +401,18 @@ const TeacherSalary = () => {
           compact
           startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdCheckCircle} w='24px' h='24px' color='white' />} />}
           name='Processed Payments'
-          value={String(paidCount)}
-          growth='+1%'
-          trendData={[1,2,2,3,3,paidCount]}
+          value={String(stats.processed)}
+          growth='Marked as paid'
+          trendData={[1,2,2,3,3,stats.processed]}
           trendColor='#4481EB'
         />
         <MiniStatistics
           compact
           startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#FFB36D 0%,#FD7853 100%)' icon={<Icon as={MdCalendarToday} w='24px' h='24px' color='white' />} />}
           name='Pending Payments'
-          value={String(pendingCount)}
-          growth='+0%'
-          trendData={[pendingCount, pendingCount-1, pendingCount, pendingCount]}
+          value={String(stats.pending)}
+          growth='Awaiting processing'
+          trendData={[stats.pending, Math.max(stats.pending - 1, 0), stats.pending, stats.pending]}
           trendColor='#FD7853'
         />
       </SimpleGrid>
@@ -258,75 +425,102 @@ const TeacherSalary = () => {
             <InputLeftElement pointerEvents="none">
               <Icon as={MdSearch} color="gray.400" />
             </InputLeftElement>
-            <Input placeholder="Search by name or ID" />
+            <Input
+              placeholder="Search by name or ID"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </InputGroup>
         </Flex>
         
         <Box overflowX="auto">
           <Table variant="simple">
-            <Thead bg={useColorModeValue('gray.50', 'gray.800')}>
+            <Thead bg={tableHeaderBg}>
               <Tr>
                 <Th>Teacher</Th>
                 <Th>Designation</Th>
                 <Th isNumeric>Basic Salary</Th>
                 <Th isNumeric>Allowances</Th>
                 <Th isNumeric>Deductions</Th>
+                <Th isNumeric>Bonuses</Th>
                 <Th isNumeric>Total Amount</Th>
+                <Th>Paid On</Th>
                 <Th>Status</Th>
                 <Th>Action</Th>
               </Tr>
             </Thead>
             <Tbody>
-              {salaryData.map((salary) => (
-                <Tr key={salary.id}>
-                  <Td>
-                    <Box>
-                      <Text fontWeight="medium">{salary.teacherName}</Text>
-                      <Text fontSize="sm" color={textColorSecondary}>{salary.teacherId}</Text>
-                    </Box>
-                  </Td>
-                  <Td>{salary.designation}</Td>
-                  <Td isNumeric>₹{salary.basicSalary.toLocaleString()}</Td>
-                  <Td isNumeric>₹{salary.allowances.toLocaleString()}</Td>
-                  <Td isNumeric>₹{salary.deductions.toLocaleString()}</Td>
-                  <Td isNumeric fontWeight="bold">₹{salary.totalSalary.toLocaleString()}</Td>
-                  <Td>
-                    <Badge
-                      colorScheme={
-                        salary.status === 'paid' ? 'green' : 
-                        salary.status === 'processing' ? 'blue' : 'orange'
-                      }
-                      variant="solid"
-                      borderRadius="full"
-                      px={2}
-                      py={1}
-                    >
-                      {salary.status === 'paid' 
-                        ? 'Paid' 
-                        : salary.status === 'processing' 
-                        ? 'Processing' 
-                        : 'Pending'}
-                    </Badge>
-                  </Td>
-                  <Td>
-                    <Menu>
-                      <MenuButton
-                        as={Button}
-                        variant="ghost"
-                        size="sm"
-                        rightIcon={<Icon as={MdMoreVert} />}
-                      >
-                        Actions
-                      </MenuButton>
-                      <MenuList>
-                        <MenuItem onClick={() => handleProcessPayment(salary.teacherId)}>Process Payment</MenuItem>
-                        <MenuItem>View Details</MenuItem>
-                        <MenuItem>Download Slip</MenuItem>
-                      </MenuList>
-                    </Menu>
+              {payrollLoading || teachersLoading ? (
+                <Tr>
+                  <Td colSpan={10}>
+                    <Flex align="center" justify="center" py={8}>
+                      <Spinner size="sm" mr={3} />
+                      <Text>Loading payrolls...</Text>
+                    </Flex>
                   </Td>
                 </Tr>
-              ))}
+              ) : filteredRows.length === 0 ? (
+                <Tr>
+                  <Td colSpan={10}>
+                    <Text textAlign="center" py={6} color={textColorSecondary}>
+                      No payroll records found for the selected month.
+                    </Text>
+                  </Td>
+                </Tr>
+              ) : (
+                filteredRows.map((row) => (
+                  <Tr key={row.key}>
+                    <Td>
+                      <Box>
+                        <Text fontWeight="medium">{row.teacherName}</Text>
+                        <Text fontSize="sm" color={textColorSecondary}>
+                          {row.employeeId || `Teacher #${row.teacherId}`}
+                        </Text>
+                      </Box>
+                    </Td>
+                    <Td>{row.designation || '—'}</Td>
+                    <Td isNumeric>{formatAmount(row.baseSalary)}</Td>
+                    <Td isNumeric>{formatAmount(row.allowances)}</Td>
+                    <Td isNumeric>{formatAmount(row.deductions)}</Td>
+                    <Td isNumeric>{formatAmount(row.bonuses)}</Td>
+                    <Td isNumeric fontWeight="bold">{formatAmount(row.totalAmount)}</Td>
+                    <Td>{row.paidOn ? new Date(row.paidOn).toLocaleDateString() : '—'}</Td>
+                    <Td>
+                      <Badge
+                        colorScheme={statusColorMap[row.status] || 'gray'}
+                        variant="solid"
+                        borderRadius="full"
+                        px={2}
+                        py={1}
+                      >
+                        {formatStatus(row.status)}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      <Menu>
+                        <MenuButton
+                          as={Button}
+                          variant="ghost"
+                          size="sm"
+                          rightIcon={<Icon as={MdMoreVert} />}
+                        >
+                          Actions
+                        </MenuButton>
+                        <MenuList>
+                          <MenuItem
+                            onClick={() => handleProcessPayment(row)}
+                            isDisabled={row.status === 'paid' || processingMap[row.teacherId]}
+                          >
+                            {processingMap[row.teacherId] ? 'Processing...' : 'Process Payment'}
+                          </MenuItem>
+                          <MenuItem>View Details</MenuItem>
+                          <MenuItem>Download Slip</MenuItem>
+                        </MenuList>
+                      </Menu>
+                    </Td>
+                  </Tr>
+                ))
+              )}
             </Tbody>
           </Table>
         </Box>

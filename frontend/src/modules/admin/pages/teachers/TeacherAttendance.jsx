@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Heading,
@@ -12,7 +12,6 @@ import {
   Select,
   Button,
   HStack,
-  Badge,
   Flex,
   Icon,
   SimpleGrid,
@@ -22,12 +21,15 @@ import {
   Input,
   IconButton,
   Avatar,
+  Spinner,
+  useToast,
 } from '@chakra-ui/react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import { MdCalendarToday, MdCheckCircle, MdCancel, MdAccessTime } from 'react-icons/md';
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
+import * as teacherApi from '../../../../services/api/teachers';
 
 const TeacherAttendance = () => {
   // Date state
@@ -35,88 +37,94 @@ const TeacherAttendance = () => {
   const [selectedDate, setSelectedDate] = useState(
     today.toISOString().split('T')[0]
   );
+
+  const [teacherRows, setTeacherRows] = useState([]);
+  const [attendanceMap, setAttendanceMap] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
   
   // Colors
   const textColor = useColorModeValue('gray.800', 'white');
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   
-  // Mock teachers data
-  const teachers = [
-    {
-      id: 1,
-      name: "Robert Smith",
-      photo: "https://bit.ly/ryan-florence",
-      department: "Mathematics",
-      employeeId: "TCH001"
-    },
-    {
-      id: 2,
-      name: "Sarah Johnson",
-      photo: "https://bit.ly/sage-adebayo",
-      department: "Biology",
-      employeeId: "TCH002"
-    },
-    {
-      id: 3,
-      name: "Michael Brown",
-      photo: "https://bit.ly/kent-c-dodds",
-      department: "English",
-      employeeId: "TCH003"
-    },
-    {
-      id: 4,
-      name: "David Wilson",
-      photo: "https://bit.ly/prosper-baba",
-      department: "Computer Science",
-      employeeId: "TCH004"
-    },
-    {
-      id: 5,
-      name: "Jennifer Lee",
-      photo: "https://bit.ly/code-beast",
-      department: "Chemistry",
-      employeeId: "TCH005"
+  const normalizeTime = (value) => {
+    if (!value) return '';
+    return String(value).slice(0, 5);
+  };
+
+  const defaultEntry = useMemo(() => ({ status: 'absent', checkInTime: '', checkOutTime: '' }), []);
+
+  const fetchAttendance = useCallback(async () => {
+    if (!selectedDate) return;
+    setLoading(true);
+    try {
+      const response = await teacherApi.getAttendance({ date: selectedDate });
+      const records = Array.isArray(response?.records) ? response.records : [];
+      const normalized = records
+        .filter((record) => record?.teacherId)
+        .map((record) => ({
+          teacherId: record.teacherId,
+          name: record.teacherName || 'Unknown',
+          photo: record.avatar || '',
+          employeeId: record.employeeId || '—',
+          department: record.department || '—',
+          status: record.status || 'absent',
+          checkInTime: normalizeTime(record.checkInTime),
+          checkOutTime: normalizeTime(record.checkOutTime),
+        }));
+      setTeacherRows(normalized);
+      setAttendanceMap(() => {
+        const next = {};
+        normalized.forEach((record) => {
+          next[record.teacherId] = {
+            status: record.status || 'absent',
+            checkInTime: record.checkInTime || '',
+            checkOutTime: record.checkOutTime || '',
+          };
+        });
+        return next;
+      });
+    } catch (error) {
+      console.error(error);
+      setTeacherRows([]);
+      setAttendanceMap({});
+      toast({
+        title: 'Failed to load attendance',
+        description: error?.message || 'Please try again later.',
+        status: 'error',
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
-  
-  // Mock attendance data
-  const [attendanceData, setAttendanceData] = useState({
-    '2025-11-12': {
-      1: 'present',
-      2: 'present',
-      3: 'absent',
-      4: 'present',
-      5: 'late'
-    }
-  });
-  
-  // Initialize attendance for selected date if not exists
-  if (!attendanceData[selectedDate]) {
-    const newAttendance = {};
-    teachers.forEach(teacher => {
-      // Generate random attendance for demo purposes
-      const status = Math.random() > 0.2 
-        ? 'present' 
-        : (Math.random() > 0.5 ? 'absent' : 'late');
-      
-      newAttendance[teacher.id] = status;
-    });
-    
-    setAttendanceData(prev => ({
-      ...prev,
-      [selectedDate]: newAttendance
-    }));
-  }
+  }, [selectedDate, toast]);
+
+  useEffect(() => {
+    fetchAttendance();
+  }, [fetchAttendance]);
   
   // Handle attendance status change
+  const updateAttendanceEntry = (teacherId, changes) => {
+    setAttendanceMap((prev) => {
+      const existing = prev[teacherId] || defaultEntry;
+      return {
+        ...prev,
+        [teacherId]: {
+          ...existing,
+          ...changes,
+        },
+      };
+    });
+  };
+
   const handleStatusChange = (teacherId, status) => {
-    setAttendanceData(prev => ({
-      ...prev,
-      [selectedDate]: {
-        ...prev[selectedDate],
-        [teacherId]: status
-      }
-    }));
+    updateAttendanceEntry(teacherId, { status });
+  };
+
+  const handleTimeChange = (teacherId, field, value) => {
+    updateAttendanceEntry(teacherId, { [field]: value });
   };
   
   // Handle date change
@@ -132,8 +140,40 @@ const TeacherAttendance = () => {
   };
   
   // Handle save attendance
-  const handleSaveAttendance = () => {
-    alert(`Attendance for ${formatDate(selectedDate)} has been saved successfully!`);
+  const handleSaveAttendance = async () => {
+    if (!selectedDate || !teacherRows.length) return;
+    setSaving(true);
+    try {
+      const entries = teacherRows.map((row) => {
+        const entry = attendanceMap[row.teacherId] || defaultEntry;
+        return {
+          teacherId: row.teacherId,
+          status: entry.status || 'absent',
+          checkInTime: entry.checkInTime || null,
+          checkOutTime: entry.checkOutTime || null,
+        };
+      });
+      await teacherApi.saveAttendance({ date: selectedDate, entries });
+      toast({
+        title: 'Attendance saved',
+        description: formatDate(selectedDate),
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      fetchAttendance();
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Failed to save attendance',
+        description: error?.message || 'Please try again.',
+        status: 'error',
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
   
   // Format date for display
@@ -143,17 +183,14 @@ const TeacherAttendance = () => {
   };
   
   // Calculate attendance stats
-  const calculateStats = () => {
-    const records = attendanceData[selectedDate] || {};
-    const total = Object.keys(records).length;
-    const present = Object.values(records).filter(status => status === 'present').length;
-    const absent = Object.values(records).filter(status => status === 'absent').length;
-    const late = Object.values(records).filter(status => status === 'late').length;
-    
-    return { present, absent, late, total };
-  };
-  
-  const stats = calculateStats();
+  const stats = useMemo(() => {
+    const total = teacherRows.length;
+    const statuses = teacherRows.map((row) => (attendanceMap[row.teacherId]?.status) || 'absent');
+    const present = statuses.filter((status) => status === 'present').length;
+    const absent = statuses.filter((status) => status === 'absent').length;
+    const late = statuses.filter((status) => status === 'late').length;
+    return { total, present, absent, late };
+  }, [attendanceMap, teacherRows]);
   
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -201,6 +238,8 @@ const TeacherAttendance = () => {
             colorScheme="blue" 
             size="md"
             onClick={handleSaveAttendance}
+            isLoading={saving}
+            isDisabled={!teacherRows.length || saving}
             leftIcon={<Icon as={MdCheckCircle} />}
           >
             Save Attendance
@@ -267,42 +306,68 @@ const TeacherAttendance = () => {
               </Tr>
             </Thead>
             <Tbody>
-              {teachers.map(teacher => {
-                const attendanceStatus = 
-                  attendanceData[selectedDate]?.[teacher.id] || 'absent';
-                
-                return (
-                  <Tr key={teacher.id}>
-                    <Td>
-                      <Flex align="center">
-                        <Avatar src={teacher.photo} name={teacher.name} size="sm" mr={3} />
-                        <Text fontWeight="medium">{teacher.name}</Text>
-                      </Flex>
-                    </Td>
-                    <Td>{teacher.employeeId}</Td>
-                    <Td>{teacher.department}</Td>
-                    <Td>
-                      <Select
-                        value={attendanceStatus}
-                        onChange={(e) => handleStatusChange(teacher.id, e.target.value)}
-                        width="full"
-                      >
-                        <option value="present">Present</option>
-                        <option value="absent">Absent</option>
-                        <option value="late">Late</option>
-                      </Select>
-                    </Td>
-                    <Td>
-                      {attendanceStatus === 'present' || attendanceStatus === 'late' ? 
-                        (attendanceStatus === 'late' ? '09:15 AM' : '08:30 AM') : 
-                        '-'}
-                    </Td>
-                    <Td>
-                      {attendanceStatus === 'present' ? '04:30 PM' : '-'}
-                    </Td>
-                  </Tr>
-                );
-              })}
+              {loading ? (
+                <Tr>
+                  <Td colSpan={6}>
+                    <Flex align="center" justify="center" py={10}>
+                      <Spinner size="sm" mr={3} />
+                      <Text>Loading attendance...</Text>
+                    </Flex>
+                  </Td>
+                </Tr>
+              ) : teacherRows.length === 0 ? (
+                <Tr>
+                  <Td colSpan={6}>
+                    <Text textAlign="center" py={6} color={textColorSecondary}>
+                      No teachers found for the selected date.
+                    </Text>
+                  </Td>
+                </Tr>
+              ) : (
+                teacherRows.map((teacher) => {
+                  const attendanceEntry = attendanceMap[teacher.teacherId] || defaultEntry;
+                  const attendanceStatus = attendanceEntry.status || 'absent';
+                  return (
+                    <Tr key={teacher.teacherId}>
+                      <Td>
+                        <Flex align="center">
+                          <Avatar src={teacher.photo} name={teacher.name} size="sm" mr={3} />
+                          <Text fontWeight="medium">{teacher.name}</Text>
+                        </Flex>
+                      </Td>
+                      <Td>{teacher.employeeId}</Td>
+                      <Td>{teacher.department}</Td>
+                      <Td>
+                        <Select
+                          value={attendanceStatus}
+                          onChange={(e) => handleStatusChange(teacher.teacherId, e.target.value)}
+                          width="full"
+                        >
+                          <option value="present">Present</option>
+                          <option value="absent">Absent</option>
+                          <option value="late">Late</option>
+                        </Select>
+                      </Td>
+                      <Td>
+                        <Input
+                          type="time"
+                          value={attendanceEntry.checkInTime || ''}
+                          onChange={(e) => handleTimeChange(teacher.teacherId, 'checkInTime', e.target.value)}
+                          isDisabled={attendanceStatus === 'absent'}
+                        />
+                      </Td>
+                      <Td>
+                        <Input
+                          type="time"
+                          value={attendanceEntry.checkOutTime || ''}
+                          onChange={(e) => handleTimeChange(teacher.teacherId, 'checkOutTime', e.target.value)}
+                          isDisabled={attendanceStatus === 'absent'}
+                        />
+                      </Td>
+                    </Tr>
+                  );
+                })
+              )}
             </Tbody>
           </Table>
         </Box>

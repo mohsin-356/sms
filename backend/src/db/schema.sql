@@ -28,6 +28,14 @@ CREATE TABLE IF NOT EXISTS students (
   avatar TEXT
 );
 
+-- Extended JSON fields to store full details from Add Student form
+ALTER TABLE students
+  ADD COLUMN IF NOT EXISTS personal JSONB,
+  ADD COLUMN IF NOT EXISTS academic JSONB,
+  ADD COLUMN IF NOT EXISTS parent JSONB,
+  ADD COLUMN IF NOT EXISTS transport JSONB,
+  ADD COLUMN IF NOT EXISTS fee JSONB;
+
 CREATE TABLE IF NOT EXISTS teachers (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -173,6 +181,27 @@ ALTER TABLE teachers
 ALTER TABLE teachers
   ADD CONSTRAINT teachers_payment_method_check CHECK (payment_method IN ('bank','cash','cheque'));
 
+-- Class sections (grade/section master)
+CREATE TABLE IF NOT EXISTS class_sections (
+  id SERIAL PRIMARY KEY,
+  class_name TEXT NOT NULL,
+  section TEXT NOT NULL,
+  academic_year TEXT NOT NULL DEFAULT '',
+  class_teacher_id INTEGER REFERENCES teachers(id) ON DELETE SET NULL,
+  capacity INTEGER NOT NULL DEFAULT 30 CHECK (capacity > 0),
+  enrolled_students INTEGER NOT NULL DEFAULT 0 CHECK (enrolled_students >= 0),
+  room TEXT,
+  medium TEXT,
+  shift TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','archived')),
+  notes TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE (class_name, section, academic_year)
+);
+
+CREATE INDEX IF NOT EXISTS idx_class_sections_teacher ON class_sections (class_teacher_id);
+
 -- Teacher schedules
 CREATE TABLE IF NOT EXISTS teacher_schedules (
   id SERIAL PRIMARY KEY,
@@ -184,6 +213,127 @@ CREATE TABLE IF NOT EXISTS teacher_schedules (
   section TEXT,
   subject TEXT
 );
+
+ALTER TABLE teacher_schedules
+  ADD COLUMN IF NOT EXISTS room TEXT,
+  ADD COLUMN IF NOT EXISTS time_slot_index INTEGER,
+  ADD COLUMN IF NOT EXISTS time_slot_label TEXT,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'teacher_schedule_unique_slot'
+  ) THEN
+    ALTER TABLE teacher_schedules
+      ADD CONSTRAINT teacher_schedule_unique_slot UNIQUE (teacher_id, day_of_week, start_time);
+  END IF;
+END $$;
+
+-- Academic subjects master
+CREATE TABLE IF NOT EXISTS subjects (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  code TEXT,
+  department TEXT,
+  description TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Teacher <> subject allocation
+CREATE TABLE IF NOT EXISTS teacher_subject_assignments (
+  id SERIAL PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+  classes JSONB NOT NULL DEFAULT '[]'::jsonb,
+  academic_year TEXT NOT NULL DEFAULT '',
+  assigned_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE teacher_subject_assignments
+  ALTER COLUMN academic_year SET DEFAULT '';
+
+UPDATE teacher_subject_assignments SET academic_year = '' WHERE academic_year IS NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'teacher_subject_assignments_unique'
+  ) THEN
+    ALTER TABLE teacher_subject_assignments
+      ADD CONSTRAINT teacher_subject_assignments_unique UNIQUE (teacher_id, subject_id, academic_year);
+  END IF;
+END $$;
+
+-- Teacher attendance records
+CREATE TABLE IF NOT EXISTS teacher_attendance (
+  id SERIAL PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  attendance_date DATE NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('present','absent','late')),
+  check_in_time TIME,
+  check_out_time TIME,
+  remarks TEXT,
+  recorded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE (teacher_id, attendance_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_teacher_attendance_date ON teacher_attendance (attendance_date);
+CREATE INDEX IF NOT EXISTS idx_teacher_attendance_teacher ON teacher_attendance (teacher_id);
+
+-- Teacher payroll records
+CREATE TABLE IF NOT EXISTS teacher_payrolls (
+  id SERIAL PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  period_month DATE NOT NULL,
+  base_salary NUMERIC(12,2) NOT NULL DEFAULT 0,
+  allowances NUMERIC(12,2) NOT NULL DEFAULT 0,
+  deductions NUMERIC(12,2) NOT NULL DEFAULT 0,
+  bonuses NUMERIC(12,2) NOT NULL DEFAULT 0,
+  total_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','processing','paid','failed','cancelled')),
+  payment_method TEXT,
+  transaction_reference TEXT,
+  paid_on TIMESTAMP,
+  notes TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE (teacher_id, period_month)
+);
+
+CREATE INDEX IF NOT EXISTS idx_teacher_payrolls_period ON teacher_payrolls (period_month);
+CREATE INDEX IF NOT EXISTS idx_teacher_payrolls_status ON teacher_payrolls (status);
+
+-- Teacher performance reviews
+CREATE TABLE IF NOT EXISTS teacher_performance_reviews (
+  id SERIAL PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  period_type TEXT NOT NULL,
+  period_label TEXT,
+  period_start DATE,
+  period_end DATE,
+  overall_score NUMERIC(5,2),
+  student_feedback_score NUMERIC(5,2),
+  attendance_score NUMERIC(5,2),
+  class_management_score NUMERIC(5,2),
+  exam_results_score NUMERIC(5,2),
+  status TEXT,
+  improvement NUMERIC(5,2),
+  remarks TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_teacher_performance_period ON teacher_performance_reviews (period_type, period_label);
 
 -- Assignments
 CREATE TABLE IF NOT EXISTS assignments (
@@ -339,3 +489,112 @@ CREATE TABLE IF NOT EXISTS exam_results (
 CREATE INDEX IF NOT EXISTS idx_attendance_student_date ON attendance_records (student_id, date);
 CREATE INDEX IF NOT EXISTS idx_fee_invoices_status ON fee_invoices (status);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id, is_read);
+
+-- View: Flatten full student JSONB details into separate columns for reporting/pgAdmin
+CREATE OR REPLACE VIEW student_full_flat AS
+SELECT
+  s.id,
+  s.name,
+  s.email,
+  s.roll_number AS roll_number,
+  s.class,
+  s.section,
+  s.rfid_tag AS rfid_tag,
+  s.attendance,
+  s.fee_status AS fee_status,
+  s.bus_number AS bus_number,
+  s.bus_assigned AS bus_assigned,
+  s.parent_name AS parent_name,
+  s.parent_phone AS parent_phone,
+  s.status,
+  s.admission_date AS admission_date,
+  s.avatar,
+  -- personal
+  s.personal->>'name' AS personal_name,
+  s.personal->>'gender' AS personal_gender,
+  s.personal->>'dateOfBirth' AS personal_date_of_birth,
+  s.personal->>'bloodGroup' AS personal_blood_group,
+  s.personal->>'religion' AS personal_religion,
+  s.personal->>'nationality' AS personal_nationality,
+  s.personal->>'cnic' AS personal_cnic,
+  s.personal->>'email' AS personal_email,
+  s.personal->>'phone' AS personal_phone,
+  s.personal->'address'->>'street' AS personal_address_street,
+  s.personal->'address'->>'city' AS personal_address_city,
+  s.personal->'address'->>'province' AS personal_address_province,
+  s.personal->'address'->>'postalCode' AS personal_address_postal_code,
+  s.personal->>'medicalConditions' AS personal_medical_conditions,
+  -- academic
+  s.academic->>'admissionNumber' AS academic_admission_number,
+  s.academic->>'academicYear' AS academic_year,
+  s.academic->>'previousSchool' AS academic_previous_school,
+  s.academic->>'previousClass' AS academic_previous_class,
+  s.academic->>'specialNeeds' AS academic_special_needs,
+  s.academic->>'rollNumber' AS academic_roll_number,
+  s.academic->>'class' AS academic_class,
+  s.academic->>'section' AS academic_section,
+  s.academic->>'rfidTag' AS academic_rfid_tag,
+  s.academic->>'admissionDate' AS academic_admission_date,
+  s.academic->'previousEducation'->>'schoolName' AS academic_prev_school_name,
+  s.academic->'previousEducation'->>'class' AS academic_prev_class,
+  s.academic->'previousEducation'->>'lastAttendedDate' AS academic_prev_last_attended,
+  s.academic->'previousEducation'->>'transferCertificateNo' AS academic_prev_tc_no,
+  s.academic->'previousEducation'->>'remarks' AS academic_prev_remarks,
+  s.academic->>'stream' AS academic_stream,
+  -- parent (father)
+  s.parent->'father'->>'name' AS father_name,
+  s.parent->'father'->>'cnic' AS father_cnic,
+  s.parent->'father'->>'phone' AS father_phone,
+  s.parent->'father'->>'email' AS father_email,
+  s.parent->'father'->>'occupation' AS father_occupation,
+  (s.parent->'father'->>'income')::numeric AS father_income,
+  -- parent (mother)
+  s.parent->'mother'->>'name' AS mother_name,
+  s.parent->'mother'->>'cnic' AS mother_cnic,
+  s.parent->'mother'->>'phone' AS mother_phone,
+  s.parent->'mother'->>'email' AS mother_email,
+  s.parent->'mother'->>'occupation' AS mother_occupation,
+  (s.parent->'mother'->>'income')::numeric AS mother_income,
+  -- guardian
+  s.parent->'guardian'->>'name' AS guardian_name,
+  s.parent->'guardian'->>'relationship' AS guardian_relationship,
+  s.parent->'guardian'->>'phone' AS guardian_phone,
+  s.parent->'guardian'->>'cnic' AS guardian_cnic,
+  -- emergency
+  s.parent->'emergency'->>'name' AS emergency_name,
+  s.parent->'emergency'->>'phone' AS emergency_phone,
+  s.parent->'emergency'->>'relationship' AS emergency_relationship,
+  s.parent->>'familySize' AS family_size,
+  s.parent->>'familyNotes' AS family_notes,
+  -- transport
+  (s.transport->>'usesTransport')::boolean AS transport_uses_transport,
+  s.transport->>'busNumber' AS transport_bus_number,
+  s.transport->>'route' AS transport_route,
+  s.transport->>'pickupPoint' AS transport_pickup_point,
+  s.transport->>'dropPoint' AS transport_drop_point,
+  s.transport->>'pickupTime' AS transport_pickup_time,
+  s.transport->>'dropTime' AS transport_drop_time,
+  s.transport->>'notes' AS transport_notes,
+  s.transport->>'feeCategory' AS transport_fee_category,
+  s.transport->>'alternativeMode' AS transport_alternative_mode,
+  s.transport->>'vanServiceProvider' AS transport_van_service_provider,
+  s.transport->>'vanDriverContact' AS transport_van_driver_contact,
+  -- fee
+  s.fee->>'feePlan' AS fee_plan,
+  s.fee->>'academicYear' AS fee_academic_year,
+  (s.fee->>'isNewAdmission')::boolean AS fee_is_new_admission,
+  (s.fee->>'tuitionFee')::numeric AS fee_tuition_fee,
+  (s.fee->>'admissionFee')::numeric AS fee_admission_fee,
+  (s.fee->>'transportFee')::numeric AS fee_transport_fee,
+  (s.fee->>'libraryFee')::numeric AS fee_library_fee,
+  (s.fee->>'labFee')::numeric AS fee_lab_fee,
+  (s.fee->>'examFee')::numeric AS fee_exam_fee,
+  (s.fee->>'activityFee')::numeric AS fee_activity_fee,
+  s.fee->'discount'->>'type' AS fee_discount_type,
+  (s.fee->'discount'->>'value')::numeric AS fee_discount_value,
+  s.fee->'discount'->>'reason' AS fee_discount_reason,
+  s.fee->'discount'->>'approvedBy' AS fee_discount_approved_by,
+  s.fee->>'paymentSchedule' AS fee_payment_schedule,
+  s.fee->>'firstPaymentDue' AS fee_first_payment_due,
+  s.fee->'paymentMethods' AS fee_payment_methods
+FROM students s;

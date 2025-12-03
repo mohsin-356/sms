@@ -1,7 +1,10 @@
 import * as students from '../services/students.service.js';
+import cloudinary from '../config/cloudinary.js';
+import { ensureStudentExtendedColumns, ensureFinanceConstraints } from '../db/autoMigrate.js';
 
 export const list = async (req, res, next) => {
   try {
+    await ensureStudentExtendedColumns();
     const { page = 1, pageSize = 50, q, class: cls, section } = req.query;
     const result = await students.list({ page: Number(page), pageSize: Number(pageSize), q, class: cls, section });
     return res.json(result);
@@ -10,6 +13,7 @@ export const list = async (req, res, next) => {
 
 export const getById = async (req, res, next) => {
   try {
+    await ensureStudentExtendedColumns();
     const student = await students.getById(Number(req.params.id));
     if (!student) return res.status(404).json({ message: 'Student not found' });
     return res.json(student);
@@ -18,14 +22,38 @@ export const getById = async (req, res, next) => {
 
 export const create = async (req, res, next) => {
   try {
-    const created = await students.create(req.body);
+    await ensureStudentExtendedColumns();
+    const payload = { ...req.body };
+    // Upload base64 avatar to Cloudinary if provided
+    if (payload.avatar && typeof payload.avatar === 'string' && payload.avatar.startsWith('data:')) {
+      try {
+        const upload = await cloudinary.uploader.upload(payload.avatar, { folder: 'students' });
+        payload.avatar = upload.secure_url;
+      } catch (_) {
+        // If upload fails, drop avatar to avoid storing large base64
+        payload.avatar = null;
+      }
+    }
+    const created = await students.create(payload);
     return res.status(201).json(created);
   } catch (e) { next(e); }
 };
 
 export const update = async (req, res, next) => {
   try {
-    const updated = await students.update(Number(req.params.id), req.body);
+    await ensureStudentExtendedColumns();
+    const data = { ...req.body };
+    // Upload base64 avatar to Cloudinary if provided on update
+    if (data.avatar && typeof data.avatar === 'string' && data.avatar.startsWith('data:')) {
+      try {
+        const upload = await cloudinary.uploader.upload(data.avatar, { folder: 'students' });
+        data.avatar = upload.secure_url;
+      } catch (_) {
+        // Keep existing avatar if upload fails
+        delete data.avatar;
+      }
+    }
+    const updated = await students.update(Number(req.params.id), data);
     if (!updated) return res.status(404).json({ message: 'Student not found' });
     return res.json(updated);
   } catch (e) { next(e); }
@@ -84,6 +112,7 @@ export const getPerformance = async (req, res, next) => {
 // Fees
 export const getFees = async (req, res, next) => {
   try {
+    await ensureFinanceConstraints();
     const data = await students.getFees(Number(req.params.id));
     return res.json(data);
   } catch (e) { next(e); }
@@ -91,9 +120,27 @@ export const getFees = async (req, res, next) => {
 
 export const recordPayment = async (req, res, next) => {
   try {
+    await ensureFinanceConstraints();
     const created = await students.recordPayment(Number(req.params.id), req.body);
     if (!created) return res.status(404).json({ message: 'Invoice not found for student' });
     return res.status(201).json(created);
+  } catch (e) { next(e); }
+};
+
+export const createInvoice = async (req, res, next) => {
+  try {
+    await ensureFinanceConstraints();
+    const created = await students.createInvoice(Number(req.params.id), req.body);
+    return res.status(201).json(created);
+  } catch (e) { next(e); }
+};
+
+export const updateInvoice = async (req, res, next) => {
+  try {
+    await ensureFinanceConstraints();
+    const row = await students.updateInvoice(Number(req.params.id), Number(req.params.invoiceId), req.body);
+    if (!row) return res.status(404).json({ message: 'Invoice not found for student' });
+    return res.json(row);
   } catch (e) { next(e); }
 };
 

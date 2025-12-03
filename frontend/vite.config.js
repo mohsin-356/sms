@@ -38,25 +38,13 @@ export default defineConfig({
     },
     extensions: ['.mjs', '.js', '.jsx', '.ts', '.tsx', '.json']
   },
-  esbuild: {
-    loader: 'jsx',
-    include: /src\/.*\.jsx?$/,
-    exclude: []
-  },
   optimizeDeps: {
+    entries: ['index.html'],
     esbuildOptions: {
-      plugins: [
-        {
-          name: 'load-js-files-as-jsx',
-          setup(build) {
-            build.onLoad({ filter: /src\/.*\.js$/ }, async (args) => ({
-              loader: 'jsx',
-              contents: 'import React from "react"; ' + 'export default {}',
-            }))
-          },
-        },
-      ],
-    },
+      loader: {
+        '.js': 'jsx'
+      }
+    }
   },
   build: {
     outDir: 'dist', // Output directory for build

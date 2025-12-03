@@ -45,12 +45,15 @@ import {
 // SMS Component Imports
 import AdminDashboard from './modules/admin/pages/Dashboard';
 import StudentsList from './modules/admin/pages/Students/StudentsList';
+import EditStudent from './modules/admin/pages/Students/EditStudent';
+import StudentProfile from './modules/admin/pages/Students/StudentProfile';
 import AttendanceMonitor from './modules/admin/pages/Attendance/AttendanceMonitor';
 
 // Student Module Components
 import StudentListTest from './modules/students/StudentListTest';
 import StudentList from './modules/students/StudentList';
 import AddStudent from './modules/students/AddStudent';
+import StudentAttendance from './modules/students/StudentAttendance';
 // Other student components will be imported as they are developed
 
 // Placeholder component for pages under development
@@ -101,21 +104,21 @@ export const getSMSRoutes = () => {
           name: 'Edit Student',
           layout: '/admin',
           path: '/students/edit/:id',
-          component: <ComingSoon />,
+          component: <EditStudent />,
           hidden: true,
         },
         {
           name: 'Student Profile',
           layout: '/admin',
           path: '/students/profile/:id',
-          component: <ComingSoon />,
+          component: <StudentProfile />,
           hidden: true,
         },
         {
           name: 'Attendance',
           layout: '/admin',
           path: '/students/attendance',
-          component: <AttendanceMonitor />,
+          component: <StudentAttendance />,
         },
         {
           name: 'Student Attendance',
