@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
   Flex,
@@ -31,29 +31,30 @@ import {
   FormControl,
   FormLabel,
   useColorModeValue,
+  useToast,
 } from '@chakra-ui/react';
 import { MdListAlt, MdCheckCircle, MdCancel, MdCreditCard, MdSearch, MdFilterList, MdFileDownload, MdPictureAsPdf, MdRemoveRedEye, MdEdit } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import * as rfidApi from '../../../../services/api/rfid';
+import { useAuth } from '../../../../contexts/AuthContext';
 
-const mockLogs = [
-  { id: 'L-001', time: '08:23 AM', student: 'Ahsan Ali', studentId: 'STU-1001', card: 'RFID-001A', bus: '101', status: 'Success', location: 'Main Gate' },
-  { id: 'L-002', time: '08:25 AM', student: 'Sara Khan', studentId: 'STU-1002', card: 'RFID-002B', bus: '101', status: 'Success', location: 'Main Gate' },
-  { id: 'L-003', time: '08:41 AM', student: 'Hamza Iqbal', studentId: 'STU-1003', card: 'RFID-003C', bus: '102', status: 'Failed', location: 'Bus #102' },
-  { id: 'L-004', time: '02:37 PM', student: 'Aisha Noor', studentId: 'STU-1004', card: 'RFID-004D', bus: '101', status: 'Success', location: 'Main Gate' },
-  { id: 'L-005', time: '02:45 PM', student: 'Usman Ahmed', studentId: 'STU-1005', card: 'RFID-005E', bus: '102', status: 'Success', location: 'Bus #102' },
-];
+// Data will be fetched from backend
 
 export default function RFIDLogs() {
+  const toast = useToast();
+  const { loading: authLoading, isAuthenticated } = useAuth();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [location, setLocation] = useState('all');
-  const [rows, setRows] = useState(mockLogs);
+  const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
   const viewDisc = useDisclosure();
   const editDisc = useDisclosure();
   const [form, setForm] = useState({ status: 'Success', location: '' });
+  const [saving, setSaving] = useState(false);
+  const fetchingRef = useRef(false);
 
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
 
@@ -61,22 +62,109 @@ export default function RFIDLogs() {
     return rows.filter((l) => {
       const matchesSearch =
         !search ||
-        l.student.toLowerCase().includes(search.toLowerCase()) ||
-        l.studentId.toLowerCase().includes(search.toLowerCase()) ||
-        l.card.toLowerCase().includes(search.toLowerCase());
-      const matchesStatus = status === 'all' || l.status.toLowerCase() === status;
-      const matchesLocation = location === 'all' || l.location.toLowerCase().includes(location);
+        (l.student || '').toLowerCase().includes(search.toLowerCase()) ||
+        (l.studentId || '').toLowerCase().includes(search.toLowerCase()) ||
+        (l.card || '').toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = status === 'all' || (l.status || '').toLowerCase() === status;
+      const matchesLocation = location === 'all' || (l.location || '').toLowerCase().includes(location);
       return matchesSearch && matchesStatus && matchesLocation;
     });
   }, [rows, search, status, location]);
 
   const stats = useMemo(() => {
-    const total = mockLogs.length;
-    const success = mockLogs.filter((l) => l.status === 'Success').length;
-    const failed = mockLogs.filter((l) => l.status === 'Failed').length;
-    const uniqueCards = new Set(mockLogs.map((l) => l.card)).size;
+    const total = rows.length;
+    const success = rows.filter((l) => (l.status || '').toLowerCase() === 'success').length;
+    const failed = rows.filter((l) => (l.status || '').toLowerCase() === 'failed').length;
+    const uniqueCards = new Set(rows.map((l) => l.card)).size;
     return { total, success, failed, uniqueCards };
-  }, []);
+  }, [rows]);
+
+  const mapToUi = (r) => ({
+    id: r.id,
+    time: r.scanTime ? new Date(r.scanTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
+    student: r.studentName || '-',
+    studentId: r.rollNumber || (r.studentId ? String(r.studentId) : '-'),
+    card: r.cardNumber || '-',
+    bus: r.busNumber || '-',
+    status: (r.status || '').toLowerCase() === 'failed' ? 'Failed' : 'Success',
+    location: r.location || '-',
+  });
+
+  const load = async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+    try {
+      const params = {
+        q: search || undefined,
+        status: status !== 'all' ? status : undefined,
+        location: location !== 'all' ? location : undefined,
+        pageSize: 200,
+      };
+      const data = await rfidApi.list(params);
+      const list = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []));
+      setRows(list.map(mapToUi));
+    } catch (e) {
+      const details = Array.isArray(e?.data?.errors) ? e.data.errors.map(x=>`${x.path || x.param || 'field'}: ${x.msg}`).join(', ') : '';
+      const msg = (e?.data?.message || e?.message || 'Failed to load RFID logs') + (details ? ` — ${details}` : '');
+      const id = 'rfid-logs-error';
+      if (!toast.isActive(id)) toast({ id, title: 'Failed to load RFID logs', description: msg, status: 'error' });
+    } finally {
+      fetchingRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      load();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, isAuthenticated, status, location, search]);
+
+  const exportCSV = () => {
+    const header = ['Time','Student','ID','Card','Bus','Status','Location'];
+    const csvRows = filtered.map(l => [l.time, l.student, l.studentId, l.card, l.bus, l.status, l.location]);
+    const csv = [header, ...csvRows].map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'rfid_logs.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPDF = () => {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const styles = `
+      <style>
+        body { font-family: Arial, sans-serif; padding: 16px; }
+        h2 { margin: 0 0 12px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
+        th { background: #f5f5f5; text-align: left; }
+      </style>`;
+    const rowsHtml = filtered.map(l => `
+      <tr>
+        <td>${l.time}</td>
+        <td>${l.student}</td>
+        <td>${l.studentId}</td>
+        <td>${l.card}</td>
+        <td>${l.bus}</td>
+        <td>${l.status}</td>
+        <td>${l.location}</td>
+      </tr>
+    `).join('');
+    w.document.write(`
+      <html><head><title>RFID Logs</title>${styles}</head><body>
+      <h2>RFID Logs</h2>
+      <table>
+        <thead><tr><th>Time</th><th>Student</th><th>ID</th><th>Card</th><th>Bus</th><th>Status</th><th>Location</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <script>window.onload = function(){ window.print(); setTimeout(()=>window.close(), 300); };</script>
+      </body></html>
+    `);
+    w.document.close();
+  };
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -87,8 +175,8 @@ export default function RFIDLogs() {
           <Text color={textColorSecondary}>Live and historical RFID scan records</Text>
         </Box>
         <ButtonGroup>
-          <Button leftIcon={<Icon as={MdFileDownload} />} variant="outline" colorScheme="blue">Export CSV</Button>
-          <Button leftIcon={<Icon as={MdPictureAsPdf} />} colorScheme="blue">Export PDF</Button>
+          <Button leftIcon={<Icon as={MdFileDownload} />} variant="outline" colorScheme="blue" onClick={exportCSV}>Export CSV</Button>
+          <Button leftIcon={<Icon as={MdPictureAsPdf} />} colorScheme="blue" onClick={exportPDF}>Export PDF</Button>
         </ButtonGroup>
       </Flex>
 
@@ -117,7 +205,7 @@ export default function RFIDLogs() {
               icon={<Icon w='28px' h='28px' as={MdCheckCircle} color='white' />}
             />
           }
-          endContent={<Badge colorScheme='green'>{Math.round((stats.success / stats.total) * 100)}%</Badge>}
+          endContent={<Badge colorScheme='green'>{stats.total ? Math.round((stats.success / stats.total) * 100) : 0}%</Badge>}
         />
         <MiniStatistics
           name="Failed"
@@ -256,10 +344,17 @@ export default function RFIDLogs() {
           </ModalBody>
           <ModalFooter>
             <Button variant='ghost' mr={3} onClick={editDisc.onClose}>Cancel</Button>
-            <Button colorScheme='blue' onClick={()=>{
+            <Button colorScheme='blue' isLoading={saving} onClick={async ()=>{
               if(!selected) return;
-              setRows(prev => prev.map(r => r.id===selected.id ? { ...r, status: form.status, location: form.location } : r));
-              editDisc.onClose();
+              try {
+                setSaving(true);
+                await rfidApi.update(selected.id, { status: (form.status || '').toLowerCase(), location: form.location });
+                toast({ title: 'Log updated', status: 'success' });
+                await load();
+                editDisc.onClose();
+              } catch (e) {
+                toast({ title: 'Failed to update log', status: 'error' });
+              } finally { setSaving(false); }
             }}>Save</Button>
           </ModalFooter>
         </ModalContent>

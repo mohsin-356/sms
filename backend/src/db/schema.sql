@@ -36,6 +36,13 @@ ALTER TABLE students
   ADD COLUMN IF NOT EXISTS transport JSONB,
   ADD COLUMN IF NOT EXISTS fee JSONB;
 
+-- Allow 'in_progress' in students.fee_status for parity with invoices aggregation
+ALTER TABLE students
+  DROP CONSTRAINT IF EXISTS students_fee_status_check;
+
+ALTER TABLE students
+  ADD CONSTRAINT students_fee_status_check CHECK (fee_status IN ('paid','pending','in_progress','overdue'));
+
 CREATE TABLE IF NOT EXISTS teachers (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -223,6 +230,26 @@ ALTER TABLE teacher_schedules
 
 DO $$
 BEGIN
+  -- Deduplicate existing schedule slots before adding unique constraint
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      SELECT teacher_id, day_of_week, start_time, COUNT(*) AS c
+      FROM teacher_schedules
+      GROUP BY teacher_id, day_of_week, start_time
+      HAVING COUNT(*) > 1
+    ) d
+  ) THEN
+    WITH ranked AS (
+      SELECT id,
+             ROW_NUMBER() OVER (PARTITION BY teacher_id, day_of_week, start_time ORDER BY id) AS rn
+      FROM teacher_schedules
+    )
+    DELETE FROM teacher_schedules t
+    USING ranked r
+    WHERE t.id = r.id AND r.rn > 1;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conname = 'teacher_schedule_unique_slot'
   ) THEN
@@ -413,6 +440,18 @@ CREATE TABLE IF NOT EXISTS student_transport (
   drop_stop_id INTEGER REFERENCES route_stops(id) ON DELETE SET NULL
 );
 
+-- RFID scan logs
+CREATE TABLE IF NOT EXISTS rfid_logs (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER REFERENCES students(id) ON DELETE SET NULL,
+  card_number TEXT,
+  bus_number TEXT,
+  status TEXT NOT NULL DEFAULT 'success' CHECK (status IN ('success','failed')),
+  location TEXT,
+  scan_time TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- Finance: Invoices and Payments
 CREATE TABLE IF NOT EXISTS fee_invoices (
   id SERIAL PRIMARY KEY,
@@ -422,6 +461,13 @@ CREATE TABLE IF NOT EXISTS fee_invoices (
   due_date DATE,
   issued_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+-- Ensure invoices can be marked 'in_progress' by UI
+ALTER TABLE fee_invoices
+  DROP CONSTRAINT IF EXISTS fee_invoices_status_check;
+
+ALTER TABLE fee_invoices
+  ADD CONSTRAINT fee_invoices_status_check CHECK (status IN ('pending','in_progress','paid','overdue'));
 
 CREATE TABLE IF NOT EXISTS fee_payments (
   id SERIAL PRIMARY KEY,

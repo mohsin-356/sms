@@ -1,6 +1,6 @@
 import { query } from '../config/db.js';
 
-export const getOverview = async () => {
+const getOverview = async () => {
   const [students, teachers, assignments, invoices] = await Promise.all([
     query('SELECT COUNT(*)::int AS count FROM students'),
     query('SELECT COUNT(*)::int AS count FROM teachers'),
@@ -16,7 +16,71 @@ export const getOverview = async () => {
   };
 };
 
-export const getAttendanceSummary = async ({ fromDate, toDate }) => {
+const getAttendanceHeatmap = async ({ fromDate, toDate, klass, section, location }) => {
+  // Determine denominator: total students in scope
+  const scopeParams = [];
+  const scopeWhere = [];
+  if (klass) { scopeParams.push(klass); scopeWhere.push(`class = $${scopeParams.length}`); }
+  if (section) { scopeParams.push(section); scopeWhere.push(`section = $${scopeParams.length}`); }
+  const scopeSql = scopeWhere.length ? `WHERE ${scopeWhere.join(' AND ')}` : '';
+  const totalStudentsRes = await query(`SELECT COUNT(*)::int AS c FROM students ${scopeSql}`, scopeParams);
+  const denom = Number(totalStudentsRes.rows?.[0]?.c || 0) || 0;
+
+  // Aggregate RFID logs into weekday (1-6) and 8 periods across 08:00-16:00
+  const params = [];
+  const where = ["rl.student_id IS NOT NULL"]; // only mapped scans
+  if (fromDate) { params.push(fromDate); where.push(`rl.scan_time::date >= $${params.length}`); }
+  if (toDate) { params.push(toDate); where.push(`rl.scan_time::date <= $${params.length}`); }
+  if (klass) { params.push(klass); where.push(`s.class = $${params.length}`); }
+  if (section) { params.push(section); where.push(`s.section = $${params.length}`); }
+  if (location) { params.push(location); where.push(`rl.location = $${params.length}`); }
+  // Only Mon..Sat (1..6)
+  where.push(`EXTRACT(DOW FROM rl.scan_time) BETWEEN 1 AND 6`);
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const { rows } = await query(
+    `SELECT 
+        (EXTRACT(DOW FROM rl.scan_time))::int AS dow,
+        LEAST(GREATEST(FLOOR(EXTRACT(HOUR FROM rl.scan_time)) - 8, 0), 7)::int AS period,
+        COUNT(DISTINCT rl.student_id)::int AS count
+     FROM rfid_logs rl
+     LEFT JOIN students s ON s.id = rl.student_id
+     ${whereSql}
+     GROUP BY dow, period
+     ORDER BY dow, period`,
+    params
+  );
+  const items = rows.map(r => ({
+    dow: Number(r.dow),
+    period: Number(r.period),
+    count: Number(r.count),
+    pct: denom ? Math.round((Number(r.count) * 100) / denom) : 0,
+  }));
+  return { denom, items };
+};
+
+const getAttendanceByClass = async ({ fromDate, toDate }) => {
+  const params = [];
+  const where = ['ar.student_id IS NOT NULL'];
+  if (fromDate) { params.push(fromDate); where.push(`ar.date >= $${params.length}`); }
+  if (toDate) { params.push(toDate); where.push(`ar.date <= $${params.length}`); }
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const { rows } = await query(
+    `SELECT s.class, s.section,
+            COUNT(*)::int AS total,
+            SUM(CASE WHEN ar.status = 'present' THEN 1 ELSE 0 END)::int AS present,
+            SUM(CASE WHEN ar.status = 'absent' THEN 1 ELSE 0 END)::int AS absent,
+            SUM(CASE WHEN ar.status = 'late' THEN 1 ELSE 0 END)::int AS late
+     FROM attendance_records ar
+     LEFT JOIN students s ON s.id = ar.student_id
+     ${whereSql}
+     GROUP BY s.class, s.section
+     ORDER BY s.class NULLS LAST, s.section NULLS LAST`,
+    params
+  );
+  return rows;
+};
+
+const getAttendanceSummary = async ({ fromDate, toDate }) => {
   const params = [];
   const where = [];
   if (fromDate) { params.push(fromDate); where.push(`date >= $${params.length}`); }
@@ -37,7 +101,7 @@ export const getAttendanceSummary = async ({ fromDate, toDate }) => {
   return { counts, total, pct };
 };
 
-export const getFinanceSummary = async ({ fromDate, toDate }) => {
+const getFinanceSummary = async ({ fromDate, toDate }) => {
   const params = [];
   const where = [];
   if (fromDate) { params.push(fromDate); where.push(`issued_at >= $${params.length}`); }
@@ -69,7 +133,7 @@ export const getFinanceSummary = async ({ fromDate, toDate }) => {
   };
 };
 
-export const getExamPerformance = async ({ examId }) => {
+const getExamPerformance = async ({ examId }) => {
   const params = [];
   let where = '';
   if (examId) { params.push(examId); where = `WHERE er.exam_id = $1`; }
@@ -81,4 +145,13 @@ export const getExamPerformance = async ({ examId }) => {
     params
   );
   return rows;
+};
+
+export {
+  getOverview,
+  getAttendanceHeatmap,
+  getAttendanceByClass,
+  getAttendanceSummary,
+  getFinanceSummary,
+  getExamPerformance,
 };

@@ -35,4 +35,28 @@ router.get(
   controller.examPerformance
 );
 
+router.get(
+  '/attendance-by-class',
+  authenticate,
+  authorize('admin'),
+  [query('fromDate').optional().isISO8601(), query('toDate').optional().isISO8601()],
+  validate,
+  controller.attendanceByClass
+);
+
+router.get(
+  '/attendance-heatmap',
+  authenticate,
+  authorize('admin'),
+  [
+    query('fromDate').optional().isISO8601(),
+    query('toDate').optional().isISO8601(),
+    query('class').optional().isString(),
+    query('section').optional().isString(),
+    query('location').optional().isString(),
+  ],
+  validate,
+  controller.attendanceHeatmap
+);
+
 export default router;

@@ -51,7 +51,7 @@ import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
 import { MdClass, MdPeople, MdTrendingUp, MdSchool, MdSearch, MdAssignment, MdFileDownload, MdPictureAsPdf, MdRefresh, MdRemoveRedEye, MdEdit, MdMoreVert, MdDelete } from 'react-icons/md';
-import { jsPDF } from 'jspdf';
+import jsPDF from 'jspdf';
 import * as classesApi from '../../../../services/api/classes';
 import * as teacherApi from '../../../../services/api/teachers';
 

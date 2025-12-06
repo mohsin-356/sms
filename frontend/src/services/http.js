@@ -26,8 +26,14 @@ const withTimeout = (promise, ms) => {
 const baseURL = (config.API_BASE_URL || 'http://localhost:5000/api').replace(/\/$/, '');
 
 const request = async (method, url, { params, data, headers } = {}) => {
-  const qs = params
-    ? '?' + new URLSearchParams(params).toString()
+  // Drop undefined/null query params to avoid sending 'undefined' strings
+  const cleanedParams = params
+    ? Object.fromEntries(
+        Object.entries(params).filter(([, v]) => v !== undefined && v !== null)
+      )
+    : undefined;
+  const qs = cleanedParams && Object.keys(cleanedParams).length > 0
+    ? '?' + new URLSearchParams(cleanedParams).toString()
     : '';
   const fullUrl = baseURL + url + qs;
 

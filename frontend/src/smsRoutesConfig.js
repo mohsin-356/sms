@@ -48,6 +48,7 @@ import StudentsList from './modules/admin/pages/Students/StudentsList';
 import EditStudent from './modules/admin/pages/Students/EditStudent';
 import StudentProfile from './modules/admin/pages/Students/StudentProfile';
 import AttendanceMonitor from './modules/admin/pages/Attendance/AttendanceMonitor';
+import AdminDailyAttendance from './modules/admin/pages/Attendance/AdminDailyAttendance';
 
 // Student Module Components
 import StudentListTest from './modules/students/StudentListTest';
@@ -284,7 +285,7 @@ export const getSMSRoutes = () => {
           name: 'Daily Attendance',
           layout: '/admin',
           path: '/attendance/daily',
-          component: <AttendanceMonitor />,
+          component: <AdminDailyAttendance />,
         },
         {
           name: 'RFID Logs',
