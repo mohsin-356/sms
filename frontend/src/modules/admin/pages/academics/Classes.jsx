@@ -45,6 +45,7 @@ import {
   FormLabel,
   Spinner,
   Textarea,
+  Portal,
 } from '@chakra-ui/react';
 import { AddIcon } from '@chakra-ui/icons';
 import Card from 'components/card/Card.js';
@@ -693,7 +694,7 @@ export default function Classes() {
                       </Badge>
                     </Td>
                     <Td>
-                      <Menu>
+                      <Menu placement='bottom-end' isLazy>
                         <MenuButton
                           as={IconButton}
                           icon={<MdMoreVert />}
@@ -701,20 +702,22 @@ export default function Classes() {
                           size='sm'
                           aria-label='Class actions'
                         />
-                        <MenuList>
-                          <MenuItem icon={<MdRemoveRedEye />} onClick={() => handleOpenView(c)}>
-                            View Details
-                          </MenuItem>
-                          <MenuItem icon={<MdEdit />} onClick={() => handleOpenEdit(c)}>
-                            Edit Class
-                          </MenuItem>
-                          <MenuItem icon={<MdSchool />} onClick={() => navigate('/admin/students/list')}>
-                            Open Students
-                          </MenuItem>
-                          <MenuItem icon={<MdDelete />} color='red.500' onClick={() => confirmDeleteClass(c)}>
-                            Delete Class
-                          </MenuItem>
-                        </MenuList>
+                        <Portal>
+                          <MenuList zIndex={1800} minW='220px' boxShadow='xl'>
+                            <MenuItem icon={<MdRemoveRedEye />} onClick={() => handleOpenView(c)}>
+                              View Details
+                            </MenuItem>
+                            <MenuItem icon={<MdEdit />} onClick={() => handleOpenEdit(c)}>
+                              Edit Class
+                            </MenuItem>
+                            <MenuItem icon={<MdSchool />} onClick={() => navigate('/admin/students/list')}>
+                              Open Students
+                            </MenuItem>
+                            <MenuItem icon={<MdDelete />} color='red.500' onClick={() => confirmDeleteClass(c)}>
+                              Delete Class
+                            </MenuItem>
+                          </MenuList>
+                        </Portal>
                       </Menu>
                     </Td>
                   </Tr>

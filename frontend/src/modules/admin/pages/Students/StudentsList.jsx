@@ -51,6 +51,7 @@ import {
 import { getStatusColor } from '../../../../utils/helpers';
 // API
 import * as studentsApi from '../../../../services/api/students';
+import useClassOptions from '../../../../hooks/useClassOptions';
 // Embedded views
 import StudentProfile from './StudentProfile';
 import EditStudent from './EditStudent';
@@ -66,6 +67,7 @@ export default function StudentsList() {
   const [editId, setEditId] = useState(null);
   const navigate = useNavigate();
   const toast = useToast();
+  const { classOptions } = useClassOptions();
 
   // Fetch students from backend
   const refreshList = async () => {
@@ -177,10 +179,9 @@ export default function StudentsList() {
             icon={<MdFilterList />}
           >
             <option value='all'>All Classes</option>
-            <option value='9'>Class 9</option>
-            <option value='10'>Class 10</option>
-            <option value='11'>Class 11</option>
-            <option value='12'>Class 12</option>
+            {classOptions.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
           </Select>
           
           <Select

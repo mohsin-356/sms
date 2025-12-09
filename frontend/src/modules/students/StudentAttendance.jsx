@@ -28,6 +28,7 @@ import {
   ModalBody,
   ModalCloseButton,
   useDisclosure,
+  useToast,
   useColorModeValue,
   IconButton,
   Icon,
@@ -61,6 +62,7 @@ import AttendanceDetailModal from './components/attendance/AttendanceDetailModal
 import * as studentsApi from '../../services/api/students';
 import * as attendanceApi from '../../services/api/attendance';
 import Card from '../../components/card/Card';
+import useClassOptions from '../../hooks/useClassOptions';
 
 const StudentAttendance = () => {
   // States
@@ -83,6 +85,12 @@ const StudentAttendance = () => {
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const textColor = useColorModeValue('gray.800', 'white');
+  const toast = useToast();
+
+  // Dynamic class/section options from backend
+  const { classOptions, sectionOptions } = useClassOptions({
+    selectedClass: filterValues.class !== 'all' ? filterValues.class : null,
+  });
   
   // Load students and today's attendance
   useEffect(() => {
@@ -100,7 +108,11 @@ const StudentAttendance = () => {
         const map = {};
         rows.forEach(r => {
           if (!map[r.studentId]) map[r.studentId] = {};
-          map[r.studentId][today] = { status: r.status, checkIn: null, checkOut: null };
+          map[r.studentId][today] = {
+            status: r.status,
+            checkIn: r.checkInTime || null,
+            checkOut: r.checkOutTime || null
+          };
         });
         setAttendanceData(map);
       } catch {}
@@ -236,7 +248,11 @@ const StudentAttendance = () => {
       const map = {};
       rows.forEach(r => {
         if (!map[r.studentId]) map[r.studentId] = {};
-        map[r.studentId][today] = { status: r.status, checkIn: null, checkOut: null };
+        map[r.studentId][today] = {
+          status: r.status,
+          checkIn: r.checkInTime || null,
+          checkOut: r.checkOutTime || null
+        };
       });
       setAttendanceData(map);
     } catch {}
@@ -246,19 +262,29 @@ const StudentAttendance = () => {
   const markAttendance = async (studentId, status, time) => {
     const today = new Date().toISOString().split('T')[0];
     try {
-      await attendanceApi.create({ studentId, date: today, status, remarks: null });
-      // reflect locally
+      const row = await attendanceApi.create({ studentId, date: today, status, remarks: null });
       const updated = { ...attendanceData };
       if (!updated[studentId]) updated[studentId] = {};
       if (!updated[studentId][today]) updated[studentId][today] = { status, checkIn: null, checkOut: null };
+      // Prefer server-returned times
+      updated[studentId][today].status = row?.status || status;
       if (time === 'checkIn') {
-        updated[studentId][today].checkIn = new Date().toLocaleTimeString();
-        updated[studentId][today].status = status;
+        updated[studentId][today].checkIn = row?.checkInTime || updated[studentId][today].checkIn || new Date().toLocaleTimeString();
       } else if (time === 'checkOut') {
-        updated[studentId][today].checkOut = new Date().toLocaleTimeString();
+        updated[studentId][today].checkOut = row?.checkOutTime || updated[studentId][today].checkOut || new Date().toLocaleTimeString();
       }
       setAttendanceData(updated);
-    } catch {}
+      toast({ title: time === 'checkIn' ? 'Checked in' : 'Checked out', status: 'success', duration: 2000 });
+    } catch (e) {
+      const details = Array.isArray(e?.data?.errors) ? e.data.errors.map(x=>`${x.param}: ${x.msg}`).join(', ') : '';
+      toast({
+        title: 'Failed to mark attendance',
+        description: (e?.data?.message || e?.message || 'Request failed') + (details ? ` — ${details}` : ''),
+        status: 'error',
+        duration: 4000,
+        isClosable: true,
+      });
+    }
   };
   
   // Get today's attendance status for a student
@@ -401,9 +427,9 @@ const StudentAttendance = () => {
               onChange={(e) => handleFilterChange('class', e.target.value)}
             >
               <option value="all">All Classes</option>
-              <option value="10">Class 10</option>
-              <option value="11">Class 11</option>
-              <option value="12">Class 12</option>
+              {classOptions.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
             </Select>
           </Box>
           <Box width={{ base: '100%', md: '200px' }}>
@@ -413,10 +439,9 @@ const StudentAttendance = () => {
               onChange={(e) => handleFilterChange('section', e.target.value)}
             >
               <option value="all">All Sections</option>
-              <option value="A">Section A</option>
-              <option value="B">Section B</option>
-              <option value="C">Section C</option>
-              <option value="D">Section D</option>
+              {sectionOptions.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
             </Select>
           </Box>
           <Box width={{ base: '100%', md: '200px' }}>

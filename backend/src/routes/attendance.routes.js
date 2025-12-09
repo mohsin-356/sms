@@ -42,9 +42,9 @@ router.post(
   [
     body('date').isISO8601({ strict: false }),
     body('records').isArray({ min: 1 }),
-    body('records.*.studentId').isInt(),
+    body('records.*.studentId').customSanitizer((v) => (typeof v === 'number' ? v : parseInt(v, 10))).isInt().toInt(),
     body('records.*.status').isIn(['present','absent','late']),
-    body('records.*.remarks').optional().isString(),
+    body('records.*.remarks').optional({ nullable: true }).isString(),
   ],
   validate,
   controller.upsertDaily
@@ -63,10 +63,10 @@ router.post(
   authenticate,
   authorize('admin', 'teacher'),
   [
-    body('studentId').isInt(),
-    body('date').isISO8601(),
+    body('studentId').customSanitizer((v) => (typeof v === 'number' ? v : parseInt(v, 10))).isInt().toInt(),
+    body('date').isISO8601({ strict: false }),
     body('status').isIn(['present', 'absent', 'late', 'leave']),
-    body('remarks').optional().isString(),
+    body('remarks').optional({ nullable: true }).isString(),
   ],
   validate,
   controller.create

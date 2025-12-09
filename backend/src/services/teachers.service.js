@@ -430,11 +430,27 @@ export const create = async (payload = {}) => {
   });
   const placeholders = columns.map((_, idx) => `$${idx + 1}`);
 
-  const { rows } = await query(
-    `INSERT INTO teachers (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING ${teacherSelect}`,
-    values
-  );
-  return mapTeacherRow(rows[0]);
+  try {
+    const { rows } = await query(
+      `INSERT INTO teachers (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING ${teacherSelect}`,
+      values
+    );
+    return mapTeacherRow(rows[0]);
+  } catch (err) {
+    // Map PG unique violations to user-friendly API errors
+    if (err && err.code === '23505') {
+      const e = new Error(
+        err.constraint === 'teachers_email_key'
+          ? 'Email already in use'
+          : err.constraint === 'teachers_employee_id_key'
+          ? 'Employee ID already in use'
+          : 'Duplicate value violates unique constraint'
+      );
+      e.status = 409;
+      throw e;
+    }
+    throw err;
+  }
 };
 
 export const update = async (id, payload = {}) => {

@@ -394,12 +394,18 @@ CREATE TABLE IF NOT EXISTS attendance_records (
   id SERIAL PRIMARY KEY,
   student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
   date DATE NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('present','absent','late')),
+  status TEXT NOT NULL CHECK (status IN ('present','absent','late','leave')),
   remarks TEXT,
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   UNIQUE(student_id, date)
 );
+ALTER TABLE attendance_records
+  ADD COLUMN IF NOT EXISTS check_in_time TIME,
+  ADD COLUMN IF NOT EXISTS check_out_time TIME;
+
+ALTER TABLE attendance_records DROP CONSTRAINT IF EXISTS attendance_records_status_check;
+ALTER TABLE attendance_records ADD CONSTRAINT attendance_records_status_check CHECK (status IN ('present','absent','late','leave'));
 
 -- Transport: Buses and Routes
 CREATE TABLE IF NOT EXISTS buses (

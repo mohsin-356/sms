@@ -22,11 +22,13 @@ import {
   updateFormData,
   selectStudentFormData,
 } from '../../../../redux/features/students/studentSlice';
+import useClassOptions from '../../../../hooks/useClassOptions';
 
 function AcademicInfoForm() {
   const dispatch = useAppDispatch();
   const formData = useAppSelector(selectStudentFormData);
   const academicInfo = formData.academic;
+  const { classOptions, sectionsByClass, sectionOptions, loading } = useClassOptions({ selectedClass: academicInfo.class || null });
   
   // Handle input changes
   const handleInputChange = (field, value) => {
@@ -118,21 +120,23 @@ function AcademicInfoForm() {
           <FormLabel>Class</FormLabel>
           <Select
             value={academicInfo.class || ''}
-            onChange={(e) => handleInputChange('class', e.target.value)}
+            onChange={(e) => {
+              const nextClass = e.target.value;
+              handleInputChange('class', nextClass);
+              const allowed = sectionsByClass[nextClass] || [];
+              if (academicInfo.section && !allowed.includes(academicInfo.section)) {
+                handleInputChange('section', '');
+              }
+            }}
             placeholder="Select class"
+            isDisabled={loading}
           >
-            <option value="1">Class 1</option>
-            <option value="2">Class 2</option>
-            <option value="3">Class 3</option>
-            <option value="4">Class 4</option>
-            <option value="5">Class 5</option>
-            <option value="6">Class 6</option>
-            <option value="7">Class 7</option>
-            <option value="8">Class 8</option>
-            <option value="9">Class 9</option>
-            <option value="10">Class 10</option>
-            <option value="11">Class 11</option>
-            <option value="12">Class 12</option>
+            {loading && classOptions.length === 0 && (
+              <option value="" disabled>Loading classes...</option>
+            )}
+            {classOptions.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
           </Select>
         </FormControl>
         
@@ -142,12 +146,11 @@ function AcademicInfoForm() {
             value={academicInfo.section || ''}
             onChange={(e) => handleInputChange('section', e.target.value)}
             placeholder="Select section"
+            isDisabled={loading || !academicInfo.class}
           >
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-            <option value="D">D</option>
-            <option value="E">E</option>
+            {sectionOptions.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
           </Select>
         </FormControl>
         
