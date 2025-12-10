@@ -24,11 +24,13 @@ import {
   useColorModeValue,
   Spinner,
   useToast,
+  Wrap,
+  WrapItem,
 } from '@chakra-ui/react';
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
-import { MdSchedule, MdAccessTime, MdGridOn, MdAssignment, MdUpdate, MdCalendarToday, MdChevronLeft, MdChevronRight, MdViewWeek, MdViewModule, MdFileDownload, MdPictureAsPdf } from 'react-icons/md';
+import { MdSchedule, MdAccessTime, MdGridOn, MdAssignment, MdUpdate, MdCalendarToday, MdChevronLeft, MdChevronRight, MdViewWeek, MdViewModule, MdFileDownload, MdPictureAsPdf, MdDelete } from 'react-icons/md';
 import * as teacherApi from '../../../../services/api/teachers';
 import useClassOptions from '../../../../hooks/useClassOptions';
 
@@ -148,6 +150,11 @@ export default function Timetable() {
 
   // Grid data by day -> slotIndex -> value
   const grid = useMemo(() => {
+    const resolveSlotIndex = (s) => {
+      if (s.timeSlotIndex !== undefined && s.timeSlotIndex !== null) return Number(s.timeSlotIndex);
+      const idx = timeSlots.findIndex((ts) => String(ts.start) === String(s.startTime) && String(ts.end) === String(s.endTime));
+      return idx >= 0 ? idx + 1 : null;
+    };
     const out = {};
     days.forEach((d) => { out[d] = Array(Math.max(1, slotKeys.length)).fill(''); });
     schedules.forEach((s) => {
@@ -156,15 +163,8 @@ export default function Timetable() {
       if (c !== cls || sec !== section) return;
       const day = s.dayName || s.day;
       if (!out[day]) return;
-      let idx;
-      if (s.timeSlotIndex !== undefined && s.timeSlotIndex !== null && slotKeys.length) {
-        idx = slotKeys.indexOf(Number(s.timeSlotIndex));
-      } else if (slotKeys.length && s.startTime) {
-        // fallback: approximate by ordered startTime index
-        idx = slotKeys.indexOf(slotKeys.find((_, i) => i >= 0));
-      } else {
-        idx = 0;
-      }
+      const slotIndex = resolveSlotIndex(s);
+      const idx = slotIndex ? slotKeys.indexOf(slotIndex) : -1;
       if (idx < 0 || idx >= out[day].length) return;
       const label = s.subject || '—';
       const room = s.room ? ` • ${s.room}` : '';
@@ -227,9 +227,14 @@ export default function Timetable() {
     const dow = dayNameToNumber[dn];
     const teacherId = Number(selectedTeacher) || null;
     if (!teacherId) return;
-    const rel = schedules.filter((s) => (s.className || s.class) === cls && (s.section || '') === section && (s.dayName || s.day) === dn);
+    const rel = schedules.filter((s) => (s.dayName || s.day) === dn && Number(s.teacherId) === teacherId);
     const byIndex = new Map();
-    rel.forEach((s) => { if (s.timeSlotIndex) byIndex.set(Number(s.timeSlotIndex), s); });
+    const resolveSlotIndex = (s) => {
+      if (s.timeSlotIndex !== undefined && s.timeSlotIndex !== null) return Number(s.timeSlotIndex);
+      const idx = timeSlots.findIndex((ts) => String(ts.start) === String(s.startTime) && String(ts.end) === String(s.endTime));
+      return idx >= 0 ? idx + 1 : null;
+    };
+    rel.forEach((s) => { const idx = resolveSlotIndex(s); if (idx) byIndex.set(idx, s); });
     for (let i = 0; i < values.length; i++) {
       const subject = String(values[i] || '').trim();
       const slotIndex = i + 1;
@@ -239,27 +244,107 @@ export default function Timetable() {
         if (existing) {
           const updates = {};
           if (existing.subject !== subject) updates.subject = subject;
+          const exClass = existing.className || existing.class;
+          if (exClass !== cls) updates.class = cls;
+          const exSec = existing.section || '';
+          if (exSec !== section) updates.section = section;
+          if (Number(existing.timeSlotIndex) !== slotIndex) updates.timeSlotIndex = slotIndex;
+          if (existing.startTime !== slotMeta.start) updates.startTime = slotMeta.start;
+          if (existing.endTime !== slotMeta.end) updates.endTime = slotMeta.end;
+          if ((existing.timeSlotLabel || '') !== (slotMeta.label || `P${slotIndex}`)) updates.timeSlotLabel = slotMeta.label || `P${slotIndex}`;
+          if (String(existing.dayOfWeek || existing.day) !== String(dow)) updates.dayOfWeek = String(dow);
           if (Object.keys(updates).length) {
             await teacherApi.updateScheduleSlot(existing.id, { ...updates });
           }
         } else {
-          await teacherApi.createScheduleSlot({
-            teacherId,
-            dayOfWeek: String(dow),
-            startTime: slotMeta.start,
-            endTime: slotMeta.end,
-            class: cls,
-            section,
-            subject,
-            room: null,
-            timeSlotIndex: slotIndex,
-            timeSlotLabel: slotMeta.label || `P${slotIndex}`,
-          });
+          try {
+            await teacherApi.createScheduleSlot({
+              teacherId,
+              dayOfWeek: String(dow),
+              startTime: slotMeta.start,
+              endTime: slotMeta.end,
+              class: cls,
+              section,
+              subject,
+              room: null,
+              timeSlotIndex: slotIndex,
+              timeSlotLabel: slotMeta.label || `P${slotIndex}`,
+            });
+          } catch (e) {
+            const msg = String(e?.message || '').toLowerCase();
+            if (msg.includes('duplicate') || msg.includes('unique')) {
+              const fresh = await teacherApi.listSchedules({ teacherId, dayOfWeek: String(dow) });
+              const rows = Array.isArray(fresh) ? fresh : Array.isArray(fresh?.rows) ? fresh.rows : [];
+              let target = rows.find((r) => Number(r.timeSlotIndex) === slotIndex);
+              if (!target) {
+                target = rows.find((r) => String(r.startTime) === String(slotMeta.start) && String(r.endTime) === String(slotMeta.end));
+              }
+              if (target) {
+                await teacherApi.updateScheduleSlot(target.id, {
+                  subject,
+                  class: cls,
+                  section,
+                  startTime: slotMeta.start,
+                  endTime: slotMeta.end,
+                  timeSlotIndex: slotIndex,
+                  timeSlotLabel: slotMeta.label || `P${slotIndex}`,
+                  dayOfWeek: String(dow),
+                });
+              } else {
+                throw e;
+              }
+            } else {
+              throw e;
+            }
+          }
         }
       } else if (existing) {
         await teacherApi.deleteScheduleSlot(existing.id);
       }
     }
+  };
+
+  const deletePeriodForDate = async (date, idx) => {
+    if (!cls || !section) return;
+    const dn = days[date.getDay() === 0 ? 6 : date.getDay() - 1];
+    const teacherId = Number(selectedTeacher) || null;
+    if (!teacherId) return;
+    const rel = schedules.filter((s) => (s.className || s.class) === cls && (s.section || '') === section && (s.dayName || s.day) === dn && Number(s.teacherId) === teacherId);
+    const byIndex = new Map();
+    const resolveSlotIndex = (s) => {
+      if (s.timeSlotIndex !== undefined && s.timeSlotIndex !== null) return Number(s.timeSlotIndex);
+      const k = timeSlots.findIndex((ts) => String(ts.start) === String(s.startTime) && String(ts.end) === String(s.endTime));
+      return k >= 0 ? k + 1 : null;
+    };
+    rel.forEach((s) => { const k = resolveSlotIndex(s); if (k) byIndex.set(k, s); });
+    const existing = byIndex.get(idx + 1);
+    if (existing) {
+      await teacherApi.deleteScheduleSlot(existing.id);
+      const next = [...editValues];
+      next[idx] = '';
+      setEditValues(next);
+      toast({ title: `Period P${idx + 1} deleted`, status: 'success', duration: 2000 });
+      await fetchSchedules();
+    } else {
+      const next = [...editValues];
+      next[idx] = '';
+      setEditValues(next);
+    }
+  };
+
+  const deleteWholeDay = async (date) => {
+    if (!cls || !section) return;
+    const dn = days[date.getDay() === 0 ? 6 : date.getDay() - 1];
+    const teacherId = Number(selectedTeacher) || null;
+    if (!teacherId) return;
+    const rel = schedules.filter((s) => (s.className || s.class) === cls && (s.section || '') === section && (s.dayName || s.day) === dn && Number(s.teacherId) === teacherId);
+    if (rel.length) {
+      await Promise.allSettled(rel.map((r) => teacherApi.deleteScheduleSlot(r.id)));
+    }
+    const count = modalPeriodCount || (periodLabels.length || 6);
+    setEditValues(Array.from({ length: count }, () => ''));
+    await fetchSchedules();
+    toast({ title: `All periods deleted for ${dn}`, status: 'success', duration: 2200 });
   };
 
   return (
@@ -297,28 +382,36 @@ export default function Timetable() {
       <Card mb={5}>
         <Flex p={4} justifyContent="space-between" alignItems="center" direction={{ base: 'column', md: 'row' }} gap={4}>
           <HStack>
-            <Select w="180px" value={cls || ''} onChange={(e) => setCls(e.target.value)} placeholder="Select class">
+            <Select size="sm" w="180px" value={cls || ''} onChange={(e) => setCls(e.target.value)} placeholder="Select class">
               {classOptions.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </Select>
-            <Select w="140px" value={section || ''} onChange={(e) => setSection(e.target.value)} placeholder="Select section" isDisabled={!cls}>
+            <Select size="sm" w="140px" value={section || ''} onChange={(e) => setSection(e.target.value)} placeholder="Select section" isDisabled={!cls}>
               {sectionOptions.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </Select>
-            <Select w="220px" value={selectedTeacher || ''} onChange={(e) => setSelectedTeacher(e.target.value)} placeholder={teacherLoading ? 'Loading teachers...' : 'Select teacher'} isDisabled={teacherLoading || !cls}>
+            <Select size="sm" w="220px" value={selectedTeacher || ''} onChange={(e) => setSelectedTeacher(e.target.value)} placeholder={teacherLoading ? 'Loading teachers...' : 'Select teacher'} isDisabled={teacherLoading || !cls}>
               {teacherOptions.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </Select>
           </HStack>
-          <HStack>
-            <Button leftIcon={<MdUpdate />} colorScheme="blue" onClick={fetchSchedules} isLoading={loading}>Refresh</Button>
-            <Button leftIcon={<MdAssignment />} variant="outline" colorScheme="blue">Generate Report</Button>
-            <Button leftIcon={<MdFileDownload />} variant="outline" colorScheme="blue">Export CSV</Button>
-            <Button leftIcon={<MdPictureAsPdf />} colorScheme="blue">Export PDF</Button>
-          </HStack>
+          <Wrap justify="flex-end" spacing={2}>
+            <WrapItem>
+              <Button size="sm" leftIcon={<MdUpdate />} colorScheme="blue" onClick={fetchSchedules} isLoading={loading} variant="solid">Refresh</Button>
+            </WrapItem>
+            <WrapItem>
+              <Button size="sm" leftIcon={<MdAssignment />} variant="outline" colorScheme="blue">Generate Report</Button>
+            </WrapItem>
+            <WrapItem>
+              <Button size="sm" leftIcon={<MdFileDownload />} variant="outline" colorScheme="blue">Export CSV</Button>
+            </WrapItem>
+            <WrapItem>
+              <Button size="sm" leftIcon={<MdPictureAsPdf />} variant="solid" colorScheme="blue">Export PDF</Button>
+            </WrapItem>
+          </Wrap>
         </Flex>
       </Card>
 
@@ -354,17 +447,21 @@ export default function Timetable() {
       {/* Views */}
       {view==='day' && (
         <Card>
-          <Heading size="md" p={4} borderBottomWidth={1} borderColor={useColorModeValue('gray.200', 'gray.700')}>
-            {cls} - Section {section} • {selectedDate.toDateString()}
-          </Heading>
+          <Flex p={4} borderBottomWidth={1} borderColor={useColorModeValue('gray.200', 'gray.700')} align="center" justify="space-between">
+            <Heading size="md">
+              {cls} - Section {section} • {selectedDate.toDateString()}
+            </Heading>
+            <Button leftIcon={<MdDelete />} colorScheme='red' variant='outline' onClick={()=>deleteWholeDay(selectedDate)}>Delete Day</Button>
+          </Flex>
           <Box p={4}>
             <Grid templateColumns={`160px 1fr`} gap={2}>
               {periodLabels.map((p, i)=> (
                 <React.Fragment key={p}>
                   <GridItem><Text fontWeight='600'>{p}</Text></GridItem>
                   <GridItem>
-                    <Box borderWidth='1px' borderRadius='md' p={3} cursor='pointer' onClick={()=>{ const existing=[...getScheduleForDate(selectedDate)]; const baseCount=periodLabels.length||6; const count=Math.max(existing.length||0, baseCount); const padded=[...existing]; while(padded.length<count) padded.push(''); setModalPeriodCount(count); setEditValues(padded); editDisc.onOpen(); }}>
+                    <Box role='group' position='relative' borderWidth='1px' borderRadius='md' p={3} cursor='pointer' onClick={()=>{ const existing=[...getScheduleForDate(selectedDate)]; const baseCount=periodLabels.length||6; const count=Math.max(existing.length||0, baseCount); const padded=[...existing]; while(padded.length<count) padded.push(''); setModalPeriodCount(count); setEditValues(padded); editDisc.onOpen(); }}>
                       <Text>{getScheduleForDate(selectedDate)[i] || '- (click to edit)'}</Text>
+                      <IconButton aria-label={`Delete P${i+1}`} icon={<MdDelete />} size='xs' colorScheme='red' variant='ghost' position='absolute' top='4px' right='4px' opacity={0} _groupHover={{ opacity: 1 }} onClick={(e)=>{ e.stopPropagation(); deletePeriodForDate(selectedDate, i); }} />
                     </Box>
                   </GridItem>
                 </React.Fragment>
@@ -395,8 +492,9 @@ export default function Timetable() {
                     <GridItem><Text fontWeight="600">{dayName(dateObj)}<br/><Text as='span' fontWeight='400' color={textColorSecondary}>{fmt(dateObj)}</Text></Text></GridItem>
                     {periodLabels.map((p, i) => (
                       <GridItem key={`${fmt(dateObj)}-${p}`}>
-                        <Box borderWidth="1px" borderRadius="md" p={3} textAlign="center" cursor='pointer' _hover={{ bg: useColorModeValue('gray.50','gray.700') }} onClick={()=>{ setSelectedDate(dateObj); const existing=[...getScheduleForDate(dateObj)]; const baseCount=periodLabels.length||6; const count=Math.max(existing.length||0, baseCount); const padded=[...existing]; while(padded.length<count) padded.push(''); setModalPeriodCount(count); setEditValues(padded); editDisc.onOpen(); }}>
+                        <Box role='group' position='relative' borderWidth="1px" borderRadius="md" p={3} textAlign="center" cursor='pointer' _hover={{ bg: useColorModeValue('gray.50','gray.700') }} onClick={()=>{ setSelectedDate(dateObj); const existing=[...getScheduleForDate(dateObj)]; const baseCount=periodLabels.length||6; const count=Math.max(existing.length||0, baseCount); const padded=[...existing]; while(padded.length<count) padded.push(''); setModalPeriodCount(count); setEditValues(padded); editDisc.onOpen(); }}>
                           <Text>{getScheduleForDate(dateObj)[i] || '-'}</Text>
+                          <IconButton aria-label={`Delete ${p}`} icon={<MdDelete />} size='xs' colorScheme='red' variant='ghost' position='absolute' top='4px' right='4px' opacity={0} _groupHover={{ opacity: 1 }} onClick={(e)=>{ e.stopPropagation(); deletePeriodForDate(dateObj, i); }} />
                         </Box>
                       </GridItem>
                     ))}
@@ -444,12 +542,15 @@ export default function Timetable() {
                 {Array.from({length:12}).map((_,i)=>(<option key={i+1} value={i+1}>{i+1}</option>))}
               </Select>
             </HStack>
-            <Grid templateColumns='120px 1fr' gap={3}>
+            <Grid templateColumns='120px 1fr 40px' gap={3}>
               {Array.from({length: modalPeriodCount || (periodLabels.length||6)}).map((_, idx)=> (
                 <React.Fragment key={`edit-${idx}`}>
                   <GridItem><Text fontWeight='600'>{`P${idx+1}`}</Text></GridItem>
                   <GridItem>
                     <Input placeholder='Subject' value={editValues[idx] || ''} onChange={(e)=>{ const v=[...editValues]; v[idx]=e.target.value; setEditValues(v); }} />
+                  </GridItem>
+                  <GridItem display='flex' alignItems='center' justifyContent='center'>
+                    <IconButton aria-label={`Delete P${idx+1}`} size='sm' colorScheme='red' variant='ghost' icon={<MdDelete />} onClick={()=>deletePeriodForDate(selectedDate, idx)} />
                   </GridItem>
                 </React.Fragment>
               ))}
@@ -457,6 +558,7 @@ export default function Timetable() {
           </ModalBody>
           <ModalFooter>
             <Button variant='ghost' mr={3} onClick={editDisc.onClose}>Cancel</Button>
+            <Button variant='outline' colorScheme='red' mr={3} leftIcon={<MdDelete />} onClick={()=>deleteWholeDay(selectedDate)}>Delete Day</Button>
             <Button colorScheme='blue' onClick={async ()=>{ try { const count=modalPeriodCount || (periodLabels.length||6); const values=editValues.slice(0, count); setScheduleForDate(selectedDate, values); await upsertBackendForDate(selectedDate, values); await fetchSchedules(); toast({ title: 'Timetable saved', status: 'success', duration: 2500, isClosable: true }); editDisc.onClose(); } catch (e) { toast({ title: 'Save failed', description: e?.message || 'Unable to save timetable', status: 'error', duration: 3500, isClosable: true }); } }}>Save</Button>
           </ModalFooter>
         </ModalContent>
