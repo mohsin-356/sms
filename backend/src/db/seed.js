@@ -42,6 +42,127 @@ async function seed() {
       console.log('Demo student already exists, skipping.');
     }
 
+    // Seed demo teachers if not present (by email)
+    const demoTeachers = [
+      {
+        name: 'Teacher Ayesha',
+        email: 'ayesha.teacher@mindspire.com',
+        employeeId: 'T-1001',
+        department: 'Science & Mathematics',
+        designation: 'Senior Lecturer',
+        subjects: ['Mathematics', 'Physics'],
+        classes: ['Class 9', 'Class 10'],
+        baseSalary: 120000,
+      },
+      {
+        name: 'Teacher Bilal',
+        email: 'bilal.teacher@mindspire.com',
+        employeeId: 'T-1002',
+        department: 'Languages',
+        designation: 'Lecturer',
+        subjects: ['English'],
+        classes: ['Class 8', 'Class 9'],
+        baseSalary: 95000,
+      },
+      {
+        name: 'Teacher Sana',
+        email: 'sana.teacher@mindspire.com',
+        employeeId: 'T-1003',
+        department: 'Humanities',
+        designation: 'Assistant Lecturer',
+        subjects: ['History', 'Geography'],
+        classes: ['Class 7', 'Class 8'],
+        baseSalary: 85000,
+      },
+    ];
+
+    for (const t of demoTeachers) {
+      const { rows: existing } = await client.query('SELECT id FROM teachers WHERE email = $1', [t.email]);
+      if (!existing.length) {
+        const insertRes = await client.query(
+          `INSERT INTO teachers (
+            name, email, employee_id, department, designation,
+            subjects, classes, base_salary
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+          [
+            t.name,
+            t.email,
+            t.employeeId,
+            t.department,
+            t.designation,
+            JSON.stringify(t.subjects),
+            JSON.stringify(t.classes),
+            t.baseSalary,
+          ]
+        );
+        console.log('Seeded teacher:', t.email);
+      } else {
+        console.log('Teacher already exists:', t.email);
+      }
+    }
+
+    // Seed teacher performance reviews for the seeded teachers if none exist
+    const { rows: teacherRowsForPerf } = await client.query('SELECT id, name FROM teachers ORDER BY id ASC LIMIT 10');
+    if (teacherRowsForPerf.length) {
+      // Check if there are any performance reviews already
+      const { rows: perfExists } = await client.query('SELECT id FROM teacher_performance_reviews LIMIT 1');
+      if (!perfExists.length) {
+        for (const t of teacherRowsForPerf) {
+          const samples = [
+            {
+              periodType: 'current-semester',
+              periodLabel: 'Spring 2025',
+              overall: 88,
+              feedback: 90,
+              attendance: 92,
+              classMgmt: 85,
+              exams: 87,
+              status: 'excellent',
+              improvement: 5,
+            },
+            {
+              periodType: 'annual',
+              periodLabel: 'Academic Year 2024-2025',
+              overall: 76,
+              feedback: 78,
+              attendance: 80,
+              classMgmt: 72,
+              exams: 75,
+              status: 'good',
+              improvement: 2,
+            },
+          ];
+          for (const s of samples) {
+            await client.query(
+              `INSERT INTO teacher_performance_reviews (
+                 teacher_id, period_type, period_label, period_start, period_end,
+                 overall_score, student_feedback_score, attendance_score,
+                 class_management_score, exam_results_score, status, improvement, remarks
+               ) VALUES ($1,$2,$3,NULL,NULL,$4,$5,$6,$7,$8,$9,$10,$11)`,
+              [
+                t.id,
+                s.periodType,
+                s.periodLabel,
+                s.overall,
+                s.feedback,
+                s.attendance,
+                s.classMgmt,
+                s.exams,
+                s.status,
+                s.improvement,
+                `Auto-seeded review for ${t.name}`,
+              ]
+            );
+          }
+        }
+        console.log('Seeded teacher performance reviews.');
+      } else {
+        console.log('Teacher performance reviews already exist, skipping.');
+      }
+    } else {
+      console.log('No teachers found; skipping performance review seed.');
+    }
+
     const defaultSubjects = [
       { name: 'Mathematics', code: 'MATH', department: 'Science & Mathematics' },
       { name: 'Physics', code: 'PHYS', department: 'Science & Mathematics' },

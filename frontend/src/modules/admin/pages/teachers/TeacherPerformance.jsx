@@ -51,6 +51,7 @@ import {
   MdAssessment,
   MdBarChart,
   MdTimer,
+  MdAdd,
 } from 'react-icons/md';
 import * as teacherApi from '../../../../services/api/teachers';
 
@@ -66,15 +67,34 @@ const TeacherPerformance = () => {
   const [selectedPeriod, setSelectedPeriod] = useState(periodOptions[0].value);
   const [performanceData, setPerformanceData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingTeachers, setLoadingTeachers] = useState(false);
   const [detailReview, setDetailReview] = useState(null);
   const [analyticsReview, setAnalyticsReview] = useState(null);
   const [editReview, setEditReview] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [teachers, setTeachers] = useState([]);
+  const [newForm, setNewForm] = useState({
+    teacherId: '',
+    periodType: periodOptions[0].value,
+    periodLabel: '',
+    periodStart: '',
+    periodEnd: '',
+    overallScore: '',
+    studentFeedbackScore: '',
+    attendanceScore: '',
+    classManagementScore: '',
+    examResultsScore: '',
+    status: 'pending',
+    improvement: '',
+    remarks: '',
+  });
+  const [savingNew, setSavingNew] = useState(false);
   const toast = useToast();
   const detailDisclosure = useDisclosure();
   const analyticsDisclosure = useDisclosure();
   const editDisclosure = useDisclosure();
+  const newDisclosure = useDisclosure();
 
   // Colors
   const textColor = useColorModeValue('gray.800', 'white');
@@ -137,6 +157,24 @@ const TeacherPerformance = () => {
     fetchPerformance();
   }, [fetchPerformance]);
 
+  // Load teachers for selection in New Assessment modal
+  const loadTeachers = useCallback(async () => {
+    setLoadingTeachers(true);
+    try {
+      const res = await teacherApi.list({ page: 1, pageSize: 100 });
+      setTeachers(Array.isArray(res?.rows) ? res.rows : []);
+    } catch (e) {
+      console.error(e);
+      setTeachers([]);
+    } finally {
+      setLoadingTeachers(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTeachers();
+  }, [loadTeachers]);
+
   const averageOverall = useMemo(() => {
     if (!performanceData.length) return 0;
     const total = performanceData.reduce((sum, item) => sum + Number(item.overallScore || 0), 0);
@@ -188,6 +226,15 @@ const TeacherPerformance = () => {
     setEditForm(null);
   };
 
+  const openNewModal = () => {
+    setNewForm((prev) => ({ ...(prev || {}), periodType: selectedPeriod }));
+    newDisclosure.onOpen();
+  };
+
+  const closeNewModal = () => {
+    newDisclosure.onClose();
+  };
+
   const updateEditField = (field, value) => {
     setEditForm((prev) => ({
       ...(prev || {}),
@@ -233,6 +280,40 @@ const TeacherPerformance = () => {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleNewSubmit = async (e) => {
+    e?.preventDefault();
+    if (!newForm || !newForm.teacherId || !newForm.periodType) {
+      toast({ title: 'Teacher and period are required', status: 'warning', duration: 3000, isClosable: true });
+      return;
+    }
+    setSavingNew(true);
+    try {
+      const payload = {
+        teacherId: Number(newForm.teacherId),
+        periodType: newForm.periodType,
+        periodLabel: newForm.periodLabel || null,
+        periodStart: newForm.periodStart || null,
+        periodEnd: newForm.periodEnd || null,
+        status: newForm.status || 'pending',
+        remarks: newForm.remarks || null,
+      };
+      ['overallScore','studentFeedbackScore','attendanceScore','classManagementScore','examResultsScore','improvement'].forEach((f) => {
+        const v = newForm[f];
+        payload[f] = v === '' || v === null || v === undefined ? null : Number(v);
+      });
+
+      const created = await teacherApi.createPerformanceReview(payload);
+      setPerformanceData((prev) => (created?.periodType === selectedPeriod ? [created, ...prev] : prev));
+      toast({ title: 'Performance review created', status: 'success', duration: 3000, isClosable: true });
+      closeNewModal();
+    } catch (error) {
+      console.error(error);
+      toast({ title: 'Failed to create review', description: error?.message || 'Please try again.', status: 'error', duration: 4000, isClosable: true });
+    } finally {
+      setSavingNew(false);
     }
   };
 
@@ -292,9 +373,14 @@ const TeacherPerformance = () => {
       <Card overflow="hidden">
         <Flex p={4} justifyContent="space-between" alignItems="center" borderBottomWidth={1} borderColor={borderColor}>
           <Text fontSize="lg" fontWeight="medium">Performance Metrics</Text>
-          <Button leftIcon={<Icon as={MdAssessment} />} colorScheme="blue" variant="outline">
-            Generate Report
-          </Button>
+          <HStack spacing={3}>
+            <Button leftIcon={<Icon as={MdAdd} />} colorScheme="blue" onClick={openNewModal}>
+              New Assessment
+            </Button>
+            <Button leftIcon={<Icon as={MdAssessment} />} colorScheme="blue" variant="outline">
+              Generate Report
+            </Button>
+          </HStack>
         </Flex>
         
         <Box overflowX="auto">
@@ -486,6 +572,90 @@ const TeacherPerformance = () => {
           </ModalBody>
           <ModalFooter>
             <Button onClick={closeDetailModal}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* New Assessment Modal */}
+      <Modal isOpen={newDisclosure.isOpen} onClose={closeNewModal} size="xl">
+        <ModalOverlay />
+        <ModalContent as="form" onSubmit={handleNewSubmit}>
+          <ModalHeader>New Performance Assessment</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              <FormControl isRequired>
+                <FormLabel>Teacher</FormLabel>
+                <Select
+                  value={newForm.teacherId}
+                  onChange={(e) => setNewForm((p) => ({ ...(p || {}), teacherId: e.target.value }))}
+                  placeholder={loadingTeachers ? 'Loading teachers...' : 'Select teacher'}
+                >
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl isRequired>
+                <FormLabel>Period</FormLabel>
+                <Select value={newForm.periodType} onChange={(e) => setNewForm((p) => ({ ...(p || {}), periodType: e.target.value }))}>
+                  {periodOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl>
+                <FormLabel>Period Label</FormLabel>
+                <Input value={newForm.periodLabel} onChange={(e) => setNewForm((p) => ({ ...(p || {}), periodLabel: e.target.value }))} placeholder="e.g. Spring 2025" />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Start Date</FormLabel>
+                <Input type="date" value={newForm.periodStart} onChange={(e) => setNewForm((p) => ({ ...(p || {}), periodStart: e.target.value }))} />
+              </FormControl>
+              <FormControl>
+                <FormLabel>End Date</FormLabel>
+                <Input type="date" value={newForm.periodEnd} onChange={(e) => setNewForm((p) => ({ ...(p || {}), periodEnd: e.target.value }))} />
+              </FormControl>
+              {[ 
+                { label: 'Overall Score', field: 'overallScore' },
+                { label: 'Student Feedback', field: 'studentFeedbackScore' },
+                { label: 'Attendance', field: 'attendanceScore' },
+                { label: 'Class Management', field: 'classManagementScore' },
+                { label: 'Exam Results', field: 'examResultsScore' },
+                { label: 'Improvement (%)', field: 'improvement' },
+              ].map((input) => (
+                <FormControl key={input.field}>
+                  <FormLabel>{input.label}</FormLabel>
+                  <Input
+                    type="number"
+                    min={input.field === 'improvement' ? -100 : 0}
+                    max={100}
+                    value={newForm[input.field]}
+                    onChange={(e) => setNewForm((p) => ({ ...(p || {}), [input.field]: e.target.value }))}
+                  />
+                </FormControl>
+              ))}
+              <FormControl>
+                <FormLabel>Status</FormLabel>
+                <Select value={newForm.status} onChange={(e) => setNewForm((p) => ({ ...(p || {}), status: e.target.value }))}>
+                  {statusOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option.replace(/(^.|\s.)/g, (m) => m.toUpperCase())}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl gridColumn={{ base: 'auto', md: 'span 2' }}>
+                <FormLabel>Remarks</FormLabel>
+                <Textarea rows={4} value={newForm.remarks} onChange={(e) => setNewForm((p) => ({ ...(p || {}), remarks: e.target.value }))} placeholder="Add notes or action items" />
+              </FormControl>
+            </SimpleGrid>
+          </ModalBody>
+          <ModalFooter>
+            <HStack spacing={3}>
+              <Button onClick={closeNewModal} variant="ghost">Cancel</Button>
+              <Button colorScheme="blue" type="submit" isLoading={savingNew} loadingText="Creating">Create</Button>
+            </HStack>
           </ModalFooter>
         </ModalContent>
       </Modal>

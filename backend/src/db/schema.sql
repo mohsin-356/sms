@@ -147,6 +147,25 @@ BEGIN
   END IF;
 END $$;
 
+-- Syllabus tracking
+CREATE TABLE IF NOT EXISTS syllabus_items (
+  id SERIAL PRIMARY KEY,
+  class_name TEXT NOT NULL,
+  section TEXT,
+  subject TEXT NOT NULL,
+  teacher_id INTEGER REFERENCES teachers(id) ON DELETE SET NULL,
+  chapters INTEGER NOT NULL DEFAULT 0 CHECK (chapters >= 0),
+  covered INTEGER NOT NULL DEFAULT 0 CHECK (covered >= 0),
+  due_date DATE,
+  notes TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_syllabus_class ON syllabus_items (class_name, section);
+CREATE INDEX IF NOT EXISTS idx_syllabus_subject ON syllabus_items (subject);
+CREATE INDEX IF NOT EXISTS idx_syllabus_teacher ON syllabus_items (teacher_id);
+
 UPDATE teachers SET subjects = '[]'::jsonb WHERE subjects IS NULL;
 UPDATE teachers SET classes = '[]'::jsonb WHERE classes IS NULL;
 
@@ -526,6 +545,18 @@ CREATE TABLE IF NOT EXISTS exams (
   class TEXT,
   section TEXT
 );
+
+-- Extend exams table to support scheduling and status
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS start_date DATE;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS end_date DATE;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS status TEXT;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS classes TEXT;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS subject TEXT;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS invigilator_id INTEGER REFERENCES teachers(id);
+
+-- Upgrade start/end to timestamps to store time of day
+ALTER TABLE exams ALTER COLUMN start_date TYPE TIMESTAMP WITHOUT TIME ZONE USING start_date::timestamp;
+ALTER TABLE exams ALTER COLUMN end_date TYPE TIMESTAMP WITHOUT TIME ZONE USING end_date::timestamp;
 
 CREATE TABLE IF NOT EXISTS exam_results (
   id SERIAL PRIMARY KEY,

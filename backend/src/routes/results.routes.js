@@ -13,6 +13,9 @@ router.get(
     query('examId').optional().isInt(),
     query('studentId').optional().isInt(),
     query('subject').optional().isString(),
+    query('className').optional().isString(),
+    query('section').optional().isString(),
+    query('q').optional().isString(),
     query('page').optional().isInt({ min: 1 }),
     query('pageSize').optional().isInt({ min: 1, max: 200 }),
   ],
@@ -33,5 +36,14 @@ router.post(
 
 router.put('/:id', authenticate, authorize('admin', 'teacher'), [param('id').isInt()], validate, controller.update);
 router.delete('/:id', authenticate, authorize('admin'), [param('id').isInt()], validate, controller.remove);
+
+router.post(
+  '/bulk',
+  authenticate,
+  authorize('admin', 'teacher'),
+  // Minimal validation: expect an array; detailed validation can be added later
+  validate,
+  controller.bulkCreate
+);
 
 export default router;

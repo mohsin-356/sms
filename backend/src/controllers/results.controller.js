@@ -2,8 +2,8 @@ import * as service from '../services/results.service.js';
 
 export const list = async (req, res, next) => {
   try {
-    const { examId, studentId, subject, page, pageSize } = req.query;
-    const items = await service.list({ examId, studentId, subject, page, pageSize });
+    const { examId, studentId, subject, className, section, q, page, pageSize } = req.query;
+    const items = await service.list({ examId, studentId, subject, className, section, q, page, pageSize });
     res.json({ items });
   } catch (e) { next(e); }
 };
@@ -35,5 +35,13 @@ export const remove = async (req, res, next) => {
   try {
     await service.remove(req.params.id);
     res.json({ success: true });
+  } catch (e) { next(e); }
+};
+
+export const bulkCreate = async (req, res, next) => {
+  try {
+    const items = Array.isArray(req.body) ? req.body : [];
+    const created = await service.bulkCreate(items);
+    res.status(201).json({ items: created });
   } catch (e) { next(e); }
 };

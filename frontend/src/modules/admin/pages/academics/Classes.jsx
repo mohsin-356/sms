@@ -111,6 +111,7 @@ const initialCreateForm = {
   shift: '',
   status: 'active',
   notes: '',
+  assignments: [],
 };
 
 const initialEditForm = {
@@ -143,6 +144,8 @@ export default function Classes() {
   const [generatingReport, setGeneratingReport] = useState(false);
   const [teachers, setTeachers] = useState([]);
   const [teacherLoading, setTeacherLoading] = useState(false);
+  const [subjects, setSubjects] = useState([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const deleteDisclosure = useDisclosure();
   const deleteCancelRef = useRef();
@@ -195,6 +198,18 @@ export default function Classes() {
   useEffect(() => {
     fetchClasses();
     fetchTeachers();
+    (async () => {
+      setSubjectsLoading(true);
+      try {
+        const res = await teacherApi.listSubjects();
+        setSubjects(Array.isArray(res) ? res : []);
+      } catch (e) {
+        console.error(e);
+        setSubjects([]);
+      } finally {
+        setSubjectsLoading(false);
+      }
+    })();
   }, [fetchClasses, fetchTeachers]);
 
   const teacherOptions = useMemo(() => {
@@ -295,6 +310,29 @@ export default function Classes() {
     setCreateForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleAddAssignmentRow = () => {
+    setCreateForm((prev) => ({
+      ...prev,
+      assignments: [...(prev.assignments || []), { subjectId: '', teacherId: '', isPrimary: false }],
+    }));
+  };
+
+  const handleAssignmentChange = (index, field, value) => {
+    setCreateForm((prev) => {
+      const next = [...(prev.assignments || [])];
+      next[index] = { ...(next[index] || {}), [field]: value };
+      return { ...prev, assignments: next };
+    });
+  };
+
+  const handleRemoveAssignmentRow = (index) => {
+    setCreateForm((prev) => {
+      const next = [...(prev.assignments || [])];
+      next.splice(index, 1);
+      return { ...prev, assignments: next };
+    });
+  };
+
   const handleEditChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
@@ -336,8 +374,54 @@ export default function Classes() {
       const sanitized = Object.fromEntries(
         Object.entries(payload).filter(([, value]) => value !== undefined)
       );
-      await classesApi.create(sanitized);
-      toast({ title: 'Class created', status: 'success', duration: 3000 });
+      const created = await classesApi.create(sanitized);
+      toast({ title: 'Class created', status: 'success', duration: 2000 });
+
+      // Assign selected subjects and teachers to this class
+      const assignments = Array.isArray(createForm.assignments) ? createForm.assignments : [];
+      const validAssignments = assignments.filter((a) => a && a.subjectId && a.teacherId);
+      if (validAssignments.length) {
+        const classTag = {
+          className: created?.className || payload.className,
+          section: created?.section || payload.section,
+          academicYear: (created?.academicYear ?? payload.academicYear ?? '') || '',
+        };
+        await Promise.all(
+          validAssignments.map(async (a) => {
+            try {
+              const teacherId = Number(a.teacherId);
+              const subjectId = Number(a.subjectId);
+              let classes = [classTag];
+              try {
+                const list = await teacherApi.listSubjectAssignments({ teacherId, subjectId });
+                const existing = Array.isArray(list)
+                  ? list.find((it) => (it.academicYear ?? '') === (classTag.academicYear ?? ''))
+                  : null;
+                if (existing && Array.isArray(existing.classes)) {
+                  const existsAlready = existing.classes.some((c) =>
+                    typeof c === 'string'
+                      ? c === `${classTag.className} ${classTag.section}`
+                      : c?.className === classTag.className && c?.section === classTag.section
+                  );
+                  classes = existsAlready ? existing.classes : [...existing.classes, classTag];
+                }
+              } catch (err) {
+                console.error(err);
+              }
+              await teacherApi.assignSubject({
+                teacherId,
+                subjectId,
+                isPrimary: Boolean(a.isPrimary),
+                classes,
+                academicYear: classTag.academicYear,
+              });
+            } catch (err) {
+              console.error('Assignment failed', err);
+            }
+          })
+        );
+        toast({ title: 'Subject/Teacher assignments saved', status: 'success', duration: 2500 });
+      }
       closeAddModal();
       fetchClasses();
     } catch (error) {
@@ -794,6 +878,44 @@ export default function Classes() {
                 </Select>
               </FormControl>
             </SimpleGrid>
+            {/* Subject & Teacher Assignments */}
+            <Box mt={6}>
+              <Heading as="h4" size="sm" mb={3}>Subjects and Teachers</Heading>
+              {(createForm.assignments || []).map((row, idx) => (
+                <HStack key={idx} spacing={3} mb={3} align="flex-end">
+                  <FormControl isRequired>
+                    <FormLabel>Subject</FormLabel>
+                    <Select
+                      placeholder={subjectsLoading ? 'Loading...' : 'Select subject'}
+                      value={row.subjectId || ''}
+                      onChange={(e) => handleAssignmentChange(idx, 'subjectId', e.target.value)}
+                      isDisabled={subjectsLoading}
+                    >
+                      {subjects.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel>Teacher</FormLabel>
+                    <Select
+                      placeholder={teacherLoading ? 'Loading...' : 'Select teacher'}
+                      value={row.teacherId || ''}
+                      onChange={(e) => handleAssignmentChange(idx, 'teacherId', e.target.value)}
+                      isDisabled={teacherLoading}
+                    >
+                      {teacherOptions.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Button colorScheme="red" variant="ghost" onClick={() => handleRemoveAssignmentRow(idx)} leftIcon={<MdDelete />}>
+                    Remove
+                  </Button>
+                </HStack>
+              ))}
+              <Button size="sm" variant="outline" onClick={handleAddAssignmentRow} leftIcon={<AddIcon />}>Add Assignment</Button>
+            </Box>
             <FormControl mt={4}>
               <FormLabel>Notes</FormLabel>
               <Textarea value={createForm.notes} onChange={(e) => handleCreateChange('notes', e.target.value)} rows={3} placeholder="Additional information" />

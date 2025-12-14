@@ -19,6 +19,7 @@ export const getPerformanceReviews = (params) => http.get('/teachers/performance
 export const createPerformanceReview = (data) => http.post('/teachers/performance', data);
 export const updatePerformanceReview = (id, data) => http.patch(`/teachers/performance/${id}`, data);
 export const listSubjects = (params) => http.get('/teachers/subjects', { params });
+export const listSubjectsByClass = (params) => http.get('/teachers/subjects/by-class', { params });
 export const createSubject = (data) => http.post('/teachers/subjects', data);
 export const listSubjectAssignments = (params) => http.get('/teachers/subjects/assignments', { params });
 export const assignSubject = (data) => http.post('/teachers/subjects/assignments', data);
