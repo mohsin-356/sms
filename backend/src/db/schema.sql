@@ -147,6 +147,25 @@ BEGIN
   END IF;
 END $$;
 
+-- Syllabus tracking
+CREATE TABLE IF NOT EXISTS syllabus_items (
+  id SERIAL PRIMARY KEY,
+  class_name TEXT NOT NULL,
+  section TEXT,
+  subject TEXT NOT NULL,
+  teacher_id INTEGER REFERENCES teachers(id) ON DELETE SET NULL,
+  chapters INTEGER NOT NULL DEFAULT 0 CHECK (chapters >= 0),
+  covered INTEGER NOT NULL DEFAULT 0 CHECK (covered >= 0),
+  due_date DATE,
+  notes TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_syllabus_class ON syllabus_items (class_name, section);
+CREATE INDEX IF NOT EXISTS idx_syllabus_subject ON syllabus_items (subject);
+CREATE INDEX IF NOT EXISTS idx_syllabus_teacher ON syllabus_items (teacher_id);
+
 UPDATE teachers SET subjects = '[]'::jsonb WHERE subjects IS NULL;
 UPDATE teachers SET classes = '[]'::jsonb WHERE classes IS NULL;
 
@@ -527,6 +546,18 @@ CREATE TABLE IF NOT EXISTS exams (
   section TEXT
 );
 
+-- Extend exams table to support scheduling and status
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS start_date DATE;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS end_date DATE;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS status TEXT;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS classes TEXT;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS subject TEXT;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS invigilator_id INTEGER REFERENCES teachers(id);
+
+-- Upgrade start/end to timestamps to store time of day
+ALTER TABLE exams ALTER COLUMN start_date TYPE TIMESTAMP WITHOUT TIME ZONE USING start_date::timestamp;
+ALTER TABLE exams ALTER COLUMN end_date TYPE TIMESTAMP WITHOUT TIME ZONE USING end_date::timestamp;
+
 CREATE TABLE IF NOT EXISTS exam_results (
   id SERIAL PRIMARY KEY,
   exam_id INTEGER NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
@@ -650,3 +681,239 @@ SELECT
   s.fee->>'firstPaymentDue' AS fee_first_payment_due,
   s.fee->'paymentMethods' AS fee_payment_methods
 FROM students s;
+
+-- Map class sections to subjects with per-subject full marks/grade scheme
+CREATE TABLE IF NOT EXISTS class_subjects (
+  id SERIAL PRIMARY KEY,
+  class_section_id INTEGER NOT NULL REFERENCES class_sections(id) ON DELETE CASCADE,
+  subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  full_marks INTEGER,
+  grade_scheme TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE (class_section_id, subject_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_class_subjects_class ON class_subjects(class_section_id);
+CREATE INDEX IF NOT EXISTS idx_class_subjects_subject ON class_subjects(subject_id);
+
+-- Grading schemes for grade band thresholds
+CREATE TABLE IF NOT EXISTS grading_schemes (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL DEFAULT 'Default',
+  academic_year TEXT DEFAULT '',
+  bands JSONB NOT NULL DEFAULT '{}'::jsonb, -- e.g., {"A":80,"B":70,"C":60,"D":50}
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by INTEGER,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_grading_schemes_default ON grading_schemes(is_default);
+
+-- ============================================
+-- UNIFIED ROLE-BASED FINANCE SYSTEM
+-- Supports: Students, Teachers, Drivers
+-- ============================================
+
+-- Drivers table (replacing driver_name TEXT in buses)
+CREATE TABLE IF NOT EXISTS drivers (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE,
+  phone TEXT,
+  license_number TEXT UNIQUE,
+  license_expiry DATE,
+  national_id TEXT,
+  address TEXT,
+  bus_id INTEGER REFERENCES buses(id) ON DELETE SET NULL,
+  base_salary NUMERIC(12,2) DEFAULT 0,
+  allowances NUMERIC(12,2) DEFAULT 0,
+  deductions NUMERIC(12,2) DEFAULT 0,
+  payment_method TEXT DEFAULT 'bank' CHECK (payment_method IN ('bank','cash','cheque','other')),
+  bank_name TEXT,
+  account_number TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','on_leave')),
+  avatar TEXT,
+  joining_date DATE DEFAULT CURRENT_DATE,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Backfill columns for existing deployments
+ALTER TABLE drivers
+  ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS email TEXT,
+  ADD COLUMN IF NOT EXISTS phone TEXT,
+  ADD COLUMN IF NOT EXISTS license_number TEXT,
+  ADD COLUMN IF NOT EXISTS license_expiry DATE,
+  ADD COLUMN IF NOT EXISTS national_id TEXT,
+  ADD COLUMN IF NOT EXISTS address TEXT,
+  ADD COLUMN IF NOT EXISTS bus_id INTEGER,
+  ADD COLUMN IF NOT EXISTS base_salary NUMERIC(12,2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS allowances NUMERIC(12,2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS deductions NUMERIC(12,2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'bank',
+  ADD COLUMN IF NOT EXISTS bank_name TEXT,
+  ADD COLUMN IF NOT EXISTS account_number TEXT,
+  ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active',
+  ADD COLUMN IF NOT EXISTS avatar TEXT,
+  ADD COLUMN IF NOT EXISTS joining_date DATE DEFAULT CURRENT_DATE,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+
+CREATE INDEX IF NOT EXISTS idx_drivers_status ON drivers(status);
+CREATE INDEX IF NOT EXISTS idx_drivers_bus ON drivers(bus_id);
+
+-- Driver Payrolls (similar to teacher_payrolls)
+CREATE TABLE IF NOT EXISTS driver_payrolls (
+  id SERIAL PRIMARY KEY,
+  driver_id INTEGER NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
+  period_month DATE NOT NULL,
+  base_salary NUMERIC(12,2) NOT NULL DEFAULT 0,
+  allowances NUMERIC(12,2) NOT NULL DEFAULT 0,
+  deductions NUMERIC(12,2) NOT NULL DEFAULT 0,
+  bonuses NUMERIC(12,2) NOT NULL DEFAULT 0,
+  total_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','processing','paid','failed','cancelled')),
+  payment_method TEXT,
+  transaction_reference TEXT,
+  paid_on TIMESTAMP,
+  notes TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE (driver_id, period_month)
+);
+
+CREATE INDEX IF NOT EXISTS idx_driver_payrolls_period ON driver_payrolls(period_month);
+CREATE INDEX IF NOT EXISTS idx_driver_payrolls_status ON driver_payrolls(status);
+
+-- Unified Finance Invoices (supports Students, Teachers, Drivers)
+CREATE TABLE IF NOT EXISTS finance_invoices (
+  id SERIAL PRIMARY KEY,
+  invoice_number TEXT UNIQUE,
+  user_type TEXT NOT NULL CHECK (user_type IN ('student','teacher','driver')),
+  user_id INTEGER NOT NULL,
+  invoice_type TEXT NOT NULL CHECK (invoice_type IN ('fee','salary','allowance','deduction','other')),
+  description TEXT,
+  amount NUMERIC(12,2) NOT NULL,
+  tax NUMERIC(12,2) DEFAULT 0,
+  discount NUMERIC(12,2) DEFAULT 0,
+  total NUMERIC(12,2) NOT NULL,
+  balance NUMERIC(12,2) NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','partial','paid','overdue','cancelled')),
+  due_date DATE,
+  period_month DATE,
+  issued_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_finance_invoices_user ON finance_invoices(user_type, user_id);
+CREATE INDEX IF NOT EXISTS idx_finance_invoices_status ON finance_invoices(status);
+CREATE INDEX IF NOT EXISTS idx_finance_invoices_type ON finance_invoices(invoice_type);
+CREATE INDEX IF NOT EXISTS idx_finance_invoices_due ON finance_invoices(due_date);
+
+-- Unified Finance Payments
+CREATE TABLE IF NOT EXISTS finance_payments (
+  id SERIAL PRIMARY KEY,
+  invoice_id INTEGER NOT NULL REFERENCES finance_invoices(id) ON DELETE CASCADE,
+  user_type TEXT NOT NULL CHECK (user_type IN ('student','teacher','driver')),
+  user_id INTEGER NOT NULL,
+  amount NUMERIC(12,2) NOT NULL,
+  method TEXT CHECK (method IN ('cash','bank','online','cheque','other')),
+  reference_number TEXT,
+  notes TEXT,
+  paid_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  received_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_finance_payments_invoice ON finance_payments(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_finance_payments_user ON finance_payments(user_type, user_id);
+
+-- Finance Receipts
+CREATE TABLE IF NOT EXISTS finance_receipts (
+  id SERIAL PRIMARY KEY,
+  receipt_number TEXT UNIQUE,
+  payment_id INTEGER NOT NULL REFERENCES finance_payments(id) ON DELETE CASCADE,
+  user_type TEXT NOT NULL CHECK (user_type IN ('student','teacher','driver')),
+  user_id INTEGER NOT NULL,
+  amount NUMERIC(12,2) NOT NULL,
+  issued_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  printed_at TIMESTAMP,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_finance_receipts_payment ON finance_receipts(payment_id);
+CREATE INDEX IF NOT EXISTS idx_finance_receipts_user ON finance_receipts(user_type, user_id);
+
+-- Migrate existing fee_invoices to finance_invoices (preserving data)
+INSERT INTO finance_invoices (user_type, user_id, invoice_type, amount, total, balance, status, due_date, issued_at, created_at, updated_at)
+SELECT 
+  'student' AS user_type,
+  student_id AS user_id,
+  'fee' AS invoice_type,
+  amount,
+  amount AS total,
+  CASE WHEN status = 'paid' THEN 0 ELSE amount END AS balance,
+  CASE 
+    WHEN status = 'paid' THEN 'paid'
+    WHEN status = 'overdue' THEN 'overdue'
+    WHEN status = 'in_progress' THEN 'partial'
+    ELSE 'pending'
+  END AS status,
+  due_date,
+  issued_at,
+  issued_at AS created_at,
+  NOW() AS updated_at
+FROM fee_invoices
+WHERE NOT EXISTS (
+  SELECT 1 FROM finance_invoices fi 
+  WHERE fi.user_type = 'student' 
+  AND fi.user_id = fee_invoices.student_id 
+  AND fi.invoice_type = 'fee'
+  AND fi.issued_at = fee_invoices.issued_at
+);
+
+-- Migrate existing fee_payments to finance_payments
+INSERT INTO finance_payments (invoice_id, user_type, user_id, amount, method, paid_at, created_at)
+SELECT 
+  fi.id AS invoice_id,
+  'student' AS user_type,
+  fo.student_id AS user_id,
+  fp.amount,
+  fp.method,
+  fp.paid_at,
+  fp.paid_at AS created_at
+FROM fee_payments fp
+JOIN fee_invoices fo ON fp.invoice_id = fo.id
+JOIN finance_invoices fi ON fi.user_type = 'student' AND fi.user_id = fo.student_id AND fi.invoice_type = 'fee'
+WHERE NOT EXISTS (
+  SELECT 1 FROM finance_payments efp 
+  WHERE efp.user_type = 'student' 
+  AND efp.user_id = fo.student_id 
+  AND efp.amount = fp.amount
+  AND efp.paid_at = fp.paid_at
+);
+
+-- Generate invoice numbers for migrated records
+UPDATE finance_invoices 
+SET invoice_number = 'INV-' || LPAD(id::text, 6, '0')
+WHERE invoice_number IS NULL;
+
+-- Generate receipt numbers for existing payments
+INSERT INTO finance_receipts (receipt_number, payment_id, user_type, user_id, amount, issued_at)
+SELECT 
+  'RCT-' || LPAD(fp.id::text, 6, '0'),
+  fp.id,
+  fp.user_type,
+  fp.user_id,
+  fp.amount,
+  fp.paid_at
+FROM finance_payments fp
+WHERE NOT EXISTS (
+  SELECT 1 FROM finance_receipts fr WHERE fr.payment_id = fp.id
+);

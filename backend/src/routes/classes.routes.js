@@ -86,4 +86,22 @@ router.delete(
   classController.remove
 );
 
+// Class subjects management
+router.get('/:id/subjects', authenticate, [param('id').isInt()], validate, classController.getSubjects);
+router.post(
+  '/:id/subjects',
+  authenticate,
+  authorize('admin'),
+  [param('id').isInt()],
+  validate,
+  classController.upsertSubjects
+);
+router.get(
+  '/subjects/by-class',
+  authenticate,
+  [query('className').optional().isString(), query('section').optional().isString()],
+  validate,
+  classController.listSubjectsByClassSection
+);
+
 export default router;

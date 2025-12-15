@@ -111,6 +111,7 @@ const initialCreateForm = {
   shift: '',
   status: 'active',
   notes: '',
+  assignments: [],
 };
 
 const initialEditForm = {
@@ -143,6 +144,13 @@ export default function Classes() {
   const [generatingReport, setGeneratingReport] = useState(false);
   const [teachers, setTeachers] = useState([]);
   const [teacherLoading, setTeacherLoading] = useState(false);
+  const [subjects, setSubjects] = useState([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
+  const [createClassSubjects, setCreateClassSubjects] = useState([]);
+  const [editClassSubjects, setEditClassSubjects] = useState([]);
+  const [isSubjectsModalOpen, setSubjectsModalOpen] = useState(false);
+  const [subjectsModalItems, setSubjectsModalItems] = useState([]);
+  const [subjectsModalLoading, setSubjectsModalLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const deleteDisclosure = useDisclosure();
   const deleteCancelRef = useRef();
@@ -195,6 +203,18 @@ export default function Classes() {
   useEffect(() => {
     fetchClasses();
     fetchTeachers();
+    (async () => {
+      setSubjectsLoading(true);
+      try {
+        const res = await teacherApi.listSubjects();
+        setSubjects(Array.isArray(res) ? res : []);
+      } catch (e) {
+        console.error(e);
+        setSubjects([]);
+      } finally {
+        setSubjectsLoading(false);
+      }
+    })();
   }, [fetchClasses, fetchTeachers]);
 
   const teacherOptions = useMemo(() => {
@@ -251,6 +271,13 @@ export default function Classes() {
       notes: record.notes || '',
     });
     onEditOpen();
+    (async () => {
+      try {
+        const resp = await classesApi.getSubjects(record.id);
+        const items = Array.isArray(resp?.items) ? resp.items : Array.isArray(resp) ? resp : [];
+        setEditClassSubjects(items.map(it => ({ subjectId: String(it.subjectId), fullMarks: it.fullMarks ?? '', gradeScheme: it.gradeScheme || '' })));
+      } catch (e) { setEditClassSubjects([]); }
+    })();
   };
 
   const handleOpenAdd = () => {
@@ -295,6 +322,37 @@ export default function Classes() {
     setCreateForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleAddAssignmentRow = () => {
+    setCreateForm((prev) => ({
+      ...prev,
+      assignments: [...(prev.assignments || []), { subjectId: '', teacherId: '', isPrimary: false }],
+    }));
+  };
+
+  const handleAssignmentChange = (index, field, value) => {
+    setCreateForm((prev) => {
+      const next = [...(prev.assignments || [])];
+      next[index] = { ...(next[index] || {}), [field]: value };
+      return { ...prev, assignments: next };
+    });
+  };
+
+  // Class subjects (full marks) editor helpers
+  const addCreateClassSubjectRow = () => setCreateClassSubjects(prev => [...prev, { subjectId: '', fullMarks: '', gradeScheme: '' }]);
+  const updateCreateClassSubjectRow = (idx, field, value) => setCreateClassSubjects(prev => prev.map((r,i)=> i===idx ? { ...r, [field]: value } : r));
+  const removeCreateClassSubjectRow = (idx) => setCreateClassSubjects(prev => prev.filter((_,i)=> i!==idx));
+  const addEditClassSubjectRow = () => setEditClassSubjects(prev => [...prev, { subjectId: '', fullMarks: '', gradeScheme: '' }]);
+  const updateEditClassSubjectRow = (idx, field, value) => setEditClassSubjects(prev => prev.map((r,i)=> i===idx ? { ...r, [field]: value } : r));
+  const removeEditClassSubjectRow = (idx) => setEditClassSubjects(prev => prev.filter((_,i)=> i!==idx));
+
+  const handleRemoveAssignmentRow = (index) => {
+    setCreateForm((prev) => {
+      const next = [...(prev.assignments || [])];
+      next.splice(index, 1);
+      return { ...prev, assignments: next };
+    });
+  };
+
   const handleEditChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
@@ -336,8 +394,62 @@ export default function Classes() {
       const sanitized = Object.fromEntries(
         Object.entries(payload).filter(([, value]) => value !== undefined)
       );
-      await classesApi.create(sanitized);
-      toast({ title: 'Class created', status: 'success', duration: 3000 });
+      const created = await classesApi.create(sanitized);
+      toast({ title: 'Class created', status: 'success', duration: 2000 });
+
+      // Save class subjects with full marks
+      const classSubjectsPayload = (createClassSubjects || [])
+        .filter(r => r && r.subjectId)
+        .map(r => ({ subjectId: Number(r.subjectId), fullMarks: r.fullMarks===''? null : Number(r.fullMarks), gradeScheme: r.gradeScheme || null }));
+      if (classSubjectsPayload.length) {
+        try { await classesApi.upsertSubjects(created.id, classSubjectsPayload); } catch (_) {}
+      }
+
+      // Assign selected subjects and teachers to this class
+      const assignments = Array.isArray(createForm.assignments) ? createForm.assignments : [];
+      const validAssignments = assignments.filter((a) => a && a.subjectId && a.teacherId);
+      if (validAssignments.length) {
+        const classTag = {
+          className: created?.className || payload.className,
+          section: created?.section || payload.section,
+          academicYear: (created?.academicYear ?? payload.academicYear ?? '') || '',
+        };
+        await Promise.all(
+          validAssignments.map(async (a) => {
+            try {
+              const teacherId = Number(a.teacherId);
+              const subjectId = Number(a.subjectId);
+              let classes = [classTag];
+              try {
+                const list = await teacherApi.listSubjectAssignments({ teacherId, subjectId });
+                const existing = Array.isArray(list)
+                  ? list.find((it) => (it.academicYear ?? '') === (classTag.academicYear ?? ''))
+                  : null;
+                if (existing && Array.isArray(existing.classes)) {
+                  const existsAlready = existing.classes.some((c) =>
+                    typeof c === 'string'
+                      ? c === `${classTag.className} ${classTag.section}`
+                      : c?.className === classTag.className && c?.section === classTag.section
+                  );
+                  classes = existsAlready ? existing.classes : [...existing.classes, classTag];
+                }
+              } catch (err) {
+                console.error(err);
+              }
+              await teacherApi.assignSubject({
+                teacherId,
+                subjectId,
+                isPrimary: Boolean(a.isPrimary),
+                classes,
+                academicYear: classTag.academicYear,
+              });
+            } catch (err) {
+              console.error('Assignment failed', err);
+            }
+          })
+        );
+        toast({ title: 'Subject/Teacher assignments saved', status: 'success', duration: 2500 });
+      }
       closeAddModal();
       fetchClasses();
     } catch (error) {
@@ -406,7 +518,14 @@ export default function Classes() {
       payload.notes = value || null;
     }
 
-    if (Object.keys(payload).length === 0) {
+    const hasSubjectEdits = Array.isArray(editClassSubjects) && editClassSubjects.some(r => {
+      if (!r) return false;
+      const sid = String(r.subjectId || '').trim();
+      const fm = String(r.fullMarks ?? '').trim();
+      const gs = String(r.gradeScheme ?? '').trim();
+      return !!sid || !!fm || !!gs;
+    });
+    if (Object.keys(payload).length === 0 && !hasSubjectEdits) {
       toast({ title: 'No changes to save', status: 'info', duration: 2500 });
       return;
     }
@@ -415,10 +534,22 @@ export default function Classes() {
       const sanitized = Object.fromEntries(
         Object.entries(payload).filter(([, value]) => value !== undefined)
       );
-      await classesApi.update(selected.id, sanitized);
+      if (Object.keys(sanitized).length) {
+        await classesApi.update(selected.id, sanitized);
+      }
+      // Save class subjects updates
+      const payloadSubjects = Array.isArray(editClassSubjects) ? editClassSubjects
+        .filter(r => r && r.subjectId)
+        .map(r => ({ subjectId: Number(r.subjectId), fullMarks: r.fullMarks===''? null : Number(r.fullMarks), gradeScheme: r.gradeScheme || null })) : [];
+      if (payloadSubjects.length) {
+        try { await classesApi.upsertSubjects(selected.id, payloadSubjects); } catch (_) {}
+      } else if (hasSubjectEdits && !Object.keys(sanitized).length) {
+        // User edited subject rows but didn't pick any subjectId
+        toast({ title: 'Please select at least one subject to save', status: 'warning', duration: 2500 });
+        return;
+      }
       toast({ title: 'Class updated', status: 'success', duration: 3000 });
-      closeEditModal();
-      fetchClasses();
+      setTimeout(() => { closeEditModal(); fetchClasses(); }, 50);
     } catch (error) {
       console.error(error);
       toast({
@@ -656,6 +787,7 @@ export default function Classes() {
                 <Th>Class</Th>
                 <Th>Section</Th>
                 <Th>Strength</Th>
+                <Th>Subjects</Th>
                 <Th>Class Teacher</Th>
                 <Th>Status</Th>
                 <Th>Actions</Th>
@@ -664,7 +796,7 @@ export default function Classes() {
             <Tbody>
               {isLoading && (
                 <Tr>
-                  <Td colSpan={6}>
+                  <Td colSpan={7}>
                     <Flex align="center" justify="center" py={6}>
                       <Spinner size="sm" mr={3} />
                       <Text>Loading classes...</Text>
@@ -674,7 +806,7 @@ export default function Classes() {
               )}
               {!isLoading && filteredClasses.length === 0 && (
                 <Tr>
-                  <Td colSpan={6}>
+                  <Td colSpan={7}>
                     <Text textAlign="center" py={6} color={textColorSecondary}>No classes found. Create one to get started.</Text>
                   </Td>
                 </Tr>
@@ -687,6 +819,49 @@ export default function Classes() {
                     <Td>{c.className}</Td>
                     <Td>{c.section}</Td>
                     <Td>{c.strength}</Td>
+                    <Td>
+                      <Button size='xs' variant='outline' onClick={async ()=>{
+                        setSubjectsModalLoading(true);
+                        setSubjectsModalOpen(true);
+                        let items = [];
+                        const cls = String(c.className || '').trim();
+                        const sec = String(c.section || '').trim();
+                        try {
+                          // Prefer fetching by class/section to avoid id issues
+                          const byClass = await classesApi.listSubjectsByClass({ className: cls, section: sec });
+                          items = Array.isArray(byClass?.items) ? byClass.items : Array.isArray(byClass) ? byClass : [];
+                          // Try alternate section case if empty
+                          if (!items.length && sec) {
+                            const altSec1 = sec.toUpperCase();
+                            const alt1 = await classesApi.listSubjectsByClass({ className: cls, section: altSec1 });
+                            items = Array.isArray(alt1?.items) ? alt1.items : Array.isArray(alt1) ? alt1 : [];
+                          }
+                          if (!items.length && sec) {
+                            const altSec2 = sec.toLowerCase();
+                            const alt2 = await classesApi.listSubjectsByClass({ className: cls, section: altSec2 });
+                            items = Array.isArray(alt2?.items) ? alt2.items : Array.isArray(alt2) ? alt2 : [];
+                          }
+                          // If still empty and numeric id exists, try direct by id
+                          if (!items.length && Number.isFinite(Number(c.id))) {
+                            const resp = await classesApi.getSubjects(Number(c.id));
+                            items = Array.isArray(resp?.items) ? resp.items : Array.isArray(resp) ? resp : [];
+                          }
+                          // Fallback to teacher subject assignments
+                          if (!items.length) {
+                            try {
+                              const tResp = await teacherApi.listSubjectsByClass({ className: cls, section: sec });
+                              const tItems = Array.isArray(tResp?.items) ? tResp.items : Array.isArray(tResp) ? tResp : [];
+                              items = tItems.map(s => ({ subjectName: s.name || s.subjectName || s.subject || '', fullMarks: null, gradeScheme: null }));
+                            } catch {}
+                          }
+                        } catch {
+                          items = [];
+                        } finally {
+                          setSubjectsModalItems(items);
+                          setSubjectsModalLoading(false);
+                        }
+                      }}>Subjects</Button>
+                    </Td>
                     <Td>{teacherLabel}</Td>
                     <Td>
                       <Badge colorScheme={isFull ? 'orange' : 'green'}>
@@ -794,6 +969,74 @@ export default function Classes() {
                 </Select>
               </FormControl>
             </SimpleGrid>
+            {/* Subject & Teacher Assignments */}
+            <Box mt={6}>
+              <Heading as="h4" size="sm" mb={3}>Subjects and Teachers</Heading>
+              {(createForm.assignments || []).map((row, idx) => (
+                <HStack key={idx} spacing={3} mb={3} align="flex-end">
+                  <FormControl isRequired>
+                    <FormLabel>Subject</FormLabel>
+                    <Select
+                      placeholder={subjectsLoading ? 'Loading...' : 'Select subject'}
+                      value={row.subjectId || ''}
+                      onChange={(e) => handleAssignmentChange(idx, 'subjectId', e.target.value)}
+                      isDisabled={subjectsLoading}
+                    >
+                      {subjects.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel>Teacher</FormLabel>
+                    <Select
+                      placeholder={teacherLoading ? 'Loading...' : 'Select teacher'}
+                      value={row.teacherId || ''}
+                      onChange={(e) => handleAssignmentChange(idx, 'teacherId', e.target.value)}
+                      isDisabled={teacherLoading}
+                    >
+                      {teacherOptions.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Button colorScheme="red" variant="ghost" onClick={() => handleRemoveAssignmentRow(idx)} leftIcon={<MdDelete />}>
+                    Remove
+                  </Button>
+                </HStack>
+              ))}
+              <Button size="sm" variant="outline" onClick={handleAddAssignmentRow} leftIcon={<AddIcon />}>Add Assignment</Button>
+            </Box>
+            <Box mt={6}>
+              <Heading as="h4" size="sm" mb={3}>Class Subjects & Full Marks</Heading>
+              {(createClassSubjects || []).map((row, idx) => (
+                <HStack key={idx} spacing={3} mb={3} align="flex-end">
+                  <FormControl isRequired>
+                    <FormLabel>Subject</FormLabel>
+                    <Select
+                      placeholder={subjectsLoading ? 'Loading...' : 'Select subject'}
+                      value={row.subjectId || ''}
+                      onChange={(e) => updateCreateClassSubjectRow(idx, 'subjectId', e.target.value)}
+                      isDisabled={subjectsLoading}
+                    >
+                      {subjects.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Full Marks</FormLabel>
+                    <Input type='number' min={0} value={row.fullMarks} onChange={(e)=> updateCreateClassSubjectRow(idx, 'fullMarks', e.target.value)} />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Grade Scheme</FormLabel>
+                    <Input value={row.gradeScheme} onChange={(e)=> updateCreateClassSubjectRow(idx, 'gradeScheme', e.target.value)} placeholder='e.g. A-F' />
+                  </FormControl>
+                  <IconButton aria-label="Remove subject" colorScheme="red" variant="ghost" icon={<MdDelete />} onClick={() => removeCreateClassSubjectRow(idx)} />
+                </HStack>
+              ))}
+              <Button size="sm" variant="outline" onClick={addCreateClassSubjectRow} leftIcon={<AddIcon />}>Add Subject</Button>
+            </Box>
             <FormControl mt={4}>
               <FormLabel>Notes</FormLabel>
               <Textarea value={createForm.notes} onChange={(e) => handleCreateChange('notes', e.target.value)} rows={3} placeholder="Additional information" />
@@ -806,6 +1049,51 @@ export default function Classes() {
             <Button colorScheme='blue' onClick={handleCreateClass} isLoading={isCreating} loadingText="Saving">
               Save Class
             </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Subjects quick view modal */}
+      <Modal isOpen={isSubjectsModalOpen} onClose={()=> setSubjectsModalOpen(false)} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Class Subjects</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {subjectsModalLoading ? (
+              <Flex align="center" justify="center" py={6}>
+                <Spinner size="sm" mr={3} />
+                <Text>Loading subjects…</Text>
+              </Flex>
+            ) : (
+              <>
+                {(!subjectsModalItems || subjectsModalItems.length === 0) ? (
+                  <Text color={textColorSecondary}>No subjects assigned for this class yet.</Text>
+                ) : (
+                  <Table size='sm' variant='simple'>
+                    <Thead bg={useColorModeValue('gray.50', 'gray.800')}>
+                      <Tr>
+                        <Th>Subject</Th>
+                        <Th isNumeric>Full Marks</Th>
+                        <Th>Grade Scheme</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {(subjectsModalItems || []).map((it, idx) => (
+                        <Tr key={`${it.subjectId ?? it.subjectName ?? idx}`}>
+                          <Td>{it.subjectName || it.subject}</Td>
+                          <Td isNumeric>{it.fullMarks ?? ''}</Td>
+                          <Td>{it.gradeScheme || ''}</Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                )}
+              </>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={()=> setSubjectsModalOpen(false)}>Close</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -942,6 +1230,36 @@ export default function Classes() {
                   <FormLabel>Notes</FormLabel>
                   <Textarea value={form.notes} onChange={(e) => handleEditChange('notes', e.target.value)} rows={3} placeholder="Additional information" />
                 </FormControl>
+                <Box mt={6}>
+                  <Heading as="h4" size="sm" mb={3}>Class Subjects & Full Marks</Heading>
+                  {(editClassSubjects || []).map((row, idx) => (
+                    <HStack key={idx} spacing={3} mb={3} align="flex-end">
+                      <FormControl isRequired>
+                        <FormLabel>Subject</FormLabel>
+                        <Select
+                          placeholder={subjectsLoading ? 'Loading...' : 'Select subject'}
+                          value={row.subjectId || ''}
+                          onChange={(e) => updateEditClassSubjectRow(idx, 'subjectId', e.target.value)}
+                          isDisabled={subjectsLoading}
+                        >
+                          {subjects.map((s) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <FormControl>
+                        <FormLabel>Full Marks</FormLabel>
+                        <Input type='number' min={0} value={row.fullMarks} onChange={(e)=> updateEditClassSubjectRow(idx, 'fullMarks', e.target.value)} />
+                      </FormControl>
+                      <FormControl>
+                        <FormLabel>Grade Scheme</FormLabel>
+                        <Input value={row.gradeScheme} onChange={(e)=> updateEditClassSubjectRow(idx, 'gradeScheme', e.target.value)} placeholder='e.g. A-F' />
+                      </FormControl>
+                      <IconButton aria-label="Remove subject" colorScheme="red" variant="ghost" icon={<MdDelete />} onClick={() => removeEditClassSubjectRow(idx)} />
+                    </HStack>
+                  ))}
+                  <Button size="sm" variant="outline" onClick={addEditClassSubjectRow} leftIcon={<AddIcon />}>Add Subject</Button>
+                </Box>
               </Box>
             ) : (
               <Text>No class selected.</Text>

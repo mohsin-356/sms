@@ -21,8 +21,8 @@ import {
 } from '@chakra-ui/react';
 // Custom components
 import DefaultAuth from '../../layouts/auth/Default';
-// Assets
-import illustration from '../../assets/img/auth/auth.png';
+// Assets - use custom public illustration instead of Horizon UI screen
+const illustration = '/imgbin_04038f2dad4024b37accec200ae57e31.png';
 import { MdOutlineRemoveRedEye } from 'react-icons/md';
 import { RiEyeCloseLine } from 'react-icons/ri';
 // Auth Context

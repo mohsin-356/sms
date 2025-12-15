@@ -389,6 +389,18 @@ export const listSubjects = async (req, res, next) => {
   }
 };
 
+export const listSubjectsByClass = async (req, res, next) => {
+  try {
+    const items = await teachers.listSubjectsByClass({
+      className: req.query.className || undefined,
+      section: req.query.section || undefined,
+    });
+    return res.json(items);
+  } catch (e) {
+    next(e);
+  }
+};
+
 export const createSubject = async (req, res, next) => {
   try {
     const subject = await teachers.createSubject(req.body);

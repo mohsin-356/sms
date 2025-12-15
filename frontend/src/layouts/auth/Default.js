@@ -1,83 +1,77 @@
 // Chakra imports
-import { Box, Flex, Icon, Text } from "@chakra-ui/react";
+import { Box, Flex, Text } from "@chakra-ui/react";
 import PropTypes from "prop-types";
 import React from "react";
-import Footer from "components/footer/FooterAuth";
 import FixedPlugin from "components/fixedPlugin/FixedPlugin";
-// Custom components
-import { NavLink } from "react-router-dom";
-// Assets
-import { FaChevronLeft } from "react-icons/fa";
 
 function AuthIllustration(props) {
   const { children, illustrationBackground } = props;
-  // Chakra color mode
+
   return (
-    <Flex position='relative' h='max-content'>
-      <Flex
-        h={{
-          sm: "initial",
-          md: "unset",
-          lg: "100vh",
-          xl: "97vh",
-        }}
+    <Flex
+      position='relative'
+      minH='100vh'
+      w='100%'
+      bg='gray.50'
+      align='center'
+      justify='center'
+      py={{ base: "10", md: "16" }}>
+      <Box
         w='100%'
-        maxW={{ md: "66%", lg: "1313px" }}
-        mx='auto'
-        pt={{ sm: "50px", md: "0px" }}
-        px={{ lg: "30px", xl: "0px" }}
-        ps={{ xl: "70px" }}
-        justifyContent='start'
-        direction='column'>
-        <NavLink
-          to='/admin'
-          style={() => ({
-            width: "fit-content",
-            marginTop: "40px",
-          })}>
-          <Flex
-            align='center'
-            ps={{ base: "25px", lg: "0px" }}
-            pt={{ lg: "0px", xl: "0px" }}
-            w='fit-content'>
-            <Icon
-              as={FaChevronLeft}
-              me='12px'
-              h='13px'
-              w='8px'
-              color='secondaryGray.600'
-            />
-            <Text ms='0px' fontSize='sm' color='secondaryGray.600'>
-              Back to Simmmple
-            </Text>
-          </Flex>
-        </NavLink>
-        {children}
-        <Box
-          display={{ base: "none", md: "block" }}
-          h='100%'
-          minH='100vh'
-          w={{ lg: "50vw", "2xl": "44vw" }}
-          position='absolute'
-          right='0px'>
-          <Flex
-            bg={`url(${illustrationBackground})`}
-            justify='center'
-            align='end'
-            w='100%'
-            h='100%'
-            bgSize='cover'
-            bgPosition='50%'
-            position='absolute'
-            borderBottomLeftRadius={{ lg: "120px", xl: "200px" }}></Flex>
-        </Box>
-        <Footer />
-      </Flex>
+        maxW='1100px'
+        mx='4'
+        bg='white'
+        borderRadius='2xl'
+        boxShadow='xl'
+        overflow='hidden'>
+        <Flex direction={{ base: "column", md: "row" }} w='100%' h='100%'>
+          <Box
+            w={{ base: "100%", md: "50%" }}
+            display={{ base: "none", md: "flex" }}
+            alignItems='center'
+            justifyContent='center'
+            bgGradient='linear(to-b, #eef2ff, #e0f2fe)'
+            borderRightWidth={{ base: "0", md: "1px" }}
+            borderColor='gray.100'>
+            <Box
+              maxW='360px'
+              textAlign='left'
+              color='navy.700'
+              px='10'>
+              <Text fontSize='lg' fontWeight='700' mb='2'>
+                MindSpire SMS
+              </Text>
+              <Text fontSize='sm' color='gray.500' mb='6'>
+                A central hub where schools manage classes, staff, students, and
+                daily operations in one place.
+              </Text>
+              <Box
+                bgImage={illustrationBackground}
+                bgSize='contain'
+                bgRepeat='no-repeat'
+                bgPosition='center'
+                w='100%'
+                h='260px'
+              />
+            </Box>
+          </Box>
+          <Box
+            w={{ base: "100%", md: "50%" }}
+            px={{ base: "6", md: "10" }}
+            py={{ base: "8", md: "10" }}
+            display='flex'
+            alignItems='center'
+            justifyContent='center'>
+            <Box w='100%' maxW='420px'>
+              {children}
+            </Box>
+          </Box>
+        </Flex>
+      </Box>
       <FixedPlugin />
     </Flex>
   );
 }
-// PROPS
 
 AuthIllustration.propTypes = {
   illustrationBackground: PropTypes.string,

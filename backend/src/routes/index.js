@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRoutes from './auth.routes.js';
 import studentRoutes from './students.routes.js';
 import teacherRoutes from './teachers.routes.js';
+import driversRoutes from './drivers.routes.js';
 import assignmentRoutes from './assignments.routes.js';
 import attendanceRoutes from './attendance.routes.js';
 import transportRoutes from './transport.routes.js';
@@ -15,12 +16,15 @@ import examsRoutes from './exams.routes.js';
 import resultsRoutes from './results.routes.js';
 import dashboardRoutes from './dashboard.routes.js';
 import classRoutes from './classes.routes.js';
+import syllabusRoutes from './syllabus.routes.js';
+import gradingRoutes from './grading.routes.js';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/students', studentRoutes);
 router.use('/teachers', teacherRoutes);
+router.use('/drivers', driversRoutes);
 router.use('/assignments', assignmentRoutes);
 router.use('/attendance', attendanceRoutes);
 router.use('/transport', transportRoutes);
@@ -34,5 +38,7 @@ router.use('/exams', examsRoutes);
 router.use('/results', resultsRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/classes', classRoutes);
+router.use('/syllabus', syllabusRoutes);
+router.use('/grading', gradingRoutes);
 
 export default router;

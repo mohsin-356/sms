@@ -1,18 +1,33 @@
 import { query } from '../config/db.js';
 
-export const list = async ({ examId, studentId, subject, page = 1, pageSize = 50 }) => {
+export const list = async ({ examId, studentId, subject, className, section, q, page = 1, pageSize = 50 }) => {
   const params = [];
   const where = [];
-  if (examId) { params.push(examId); where.push(`exam_id = $${params.length}`); }
-  if (studentId) { params.push(studentId); where.push(`student_id = $${params.length}`); }
-  if (subject) { params.push(subject); where.push(`subject = $${params.length}`); }
+  if (examId) { params.push(examId); where.push(`er.exam_id = $${params.length}`); }
+  if (studentId) { params.push(studentId); where.push(`er.student_id = $${params.length}`); }
+  if (subject) { params.push(subject); where.push(`er.subject = $${params.length}`); }
+  if (className) { params.push(className); where.push(`s.class = $${params.length}`); }
+  if (section) { params.push(section); where.push(`s.section = $${params.length}`); }
+  if (q) { params.push(`%${q.toLowerCase()}%`); where.push(`(LOWER(s.name) LIKE $${params.length} OR LOWER(COALESCE(s.roll_number,'')) LIKE $${params.length})`); }
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const offset = (Number(page) - 1) * Number(pageSize);
   params.push(pageSize, offset);
   const { rows } = await query(
-    `SELECT id, exam_id AS "examId", student_id AS "studentId", subject, marks, grade
-     FROM exam_results ${whereSql}
-     ORDER BY id DESC
+    `SELECT er.id,
+            er.exam_id AS "examId",
+            e.title AS "examTitle",
+            er.student_id AS "studentId",
+            s.name AS "studentName",
+            s.class,
+            s.section,
+            er.subject,
+            er.marks,
+            er.grade
+     FROM exam_results er
+     LEFT JOIN students s ON s.id = er.student_id
+     LEFT JOIN exams e ON e.id = er.exam_id
+     ${whereSql}
+     ORDER BY er.id DESC
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
     params
   );
@@ -21,7 +36,20 @@ export const list = async ({ examId, studentId, subject, page = 1, pageSize = 50
 
 export const getById = async (id) => {
   const { rows } = await query(
-    'SELECT id, exam_id AS "examId", student_id AS "studentId", subject, marks, grade FROM exam_results WHERE id = $1',
+    `SELECT er.id,
+            er.exam_id AS "examId",
+            e.title AS "examTitle",
+            er.student_id AS "studentId",
+            s.name AS "studentName",
+            s.class,
+            s.section,
+            er.subject,
+            er.marks,
+            er.grade
+     FROM exam_results er
+     LEFT JOIN students s ON s.id = er.student_id
+     LEFT JOIN exams e ON e.id = er.exam_id
+     WHERE er.id = $1`,
     [id]
   );
   return rows[0] || null;
@@ -46,4 +74,21 @@ export const update = async (id, { subject, marks, grade }) => {
 export const remove = async (id) => {
   await query('DELETE FROM exam_results WHERE id = $1', [id]);
   return true;
+};
+
+export const bulkCreate = async (items = []) => {
+  const rows = Array.isArray(items) ? items : [];
+  if (!rows.length) return [];
+  // Build multi-values insert
+  const params = [];
+  const values = rows.map((r, i) => {
+    const baseIndex = i * 5;
+    params.push(r.examId, r.studentId, r.subject, r.marks ?? null, r.grade ?? null);
+    return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5})`;
+  }).join(',');
+  const sql = `INSERT INTO exam_results (exam_id, student_id, subject, marks, grade)
+               VALUES ${values}
+               RETURNING id, exam_id AS "examId", student_id AS "studentId", subject, marks, grade`;
+  const res = await query(sql, params);
+  return res.rows || [];
 };

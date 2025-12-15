@@ -19,14 +19,24 @@ import {
   MenuList,
   MenuItem,
   Input,
+  Select,
   FormControl,
   FormLabel,
   InputGroup,
   InputLeftElement,
   HStack,
   useColorModeValue,
+  useDisclosure,
   useToast,
   Spinner,
+  Textarea,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
+  ModalFooter,
 } from '@chakra-ui/react';
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
@@ -59,6 +69,10 @@ const TeacherSalary = () => {
   const [processingMap, setProcessingMap] = useState({});
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editRow, setEditRow] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const editDisclosure = useDisclosure();
   const toast = useToast();
   
   // Colors
@@ -163,6 +177,8 @@ const TeacherSalary = () => {
         status: payroll?.status ?? 'pending',
         paidOn: payroll?.paidOn ?? null,
         paymentMethod: payroll?.paymentMethod ?? teacher.paymentMethod,
+        transactionReference: payroll?.transactionReference ?? null,
+        notes: payroll?.notes ?? null,
       };
     });
 
@@ -184,6 +200,8 @@ const TeacherSalary = () => {
           status: payroll.status || 'pending',
           paidOn: payroll.paidOn || null,
           paymentMethod: payroll.paymentMethod,
+          transactionReference: payroll.transactionReference || null,
+          notes: payroll.notes || null,
         });
       }
     });
@@ -239,7 +257,9 @@ const TeacherSalary = () => {
       bonuses: row.bonuses,
       status: payload.status,
       paidOn: payload.paidOn,
-      paymentMethod: row.paymentMethod,
+      paymentMethod: payload.paymentMethod ?? row.paymentMethod,
+      transactionReference: payload.transactionReference,
+      notes: payload.notes,
     });
   };
 
@@ -275,6 +295,70 @@ const TeacherSalary = () => {
         delete next[row.teacherId];
         return next;
       });
+    }
+  };
+
+  const openEdit = (row) => {
+    setEditRow(row);
+    setEditForm({
+      baseSalary: Number(row.baseSalary ?? 0),
+      allowances: Number(row.allowances ?? 0),
+      deductions: Number(row.deductions ?? 0),
+      bonuses: Number(row.bonuses ?? 0),
+      status: row.status || 'pending',
+      paidOn: row.paidOn || '',
+      paymentMethod: row.paymentMethod || '',
+      transactionReference: row.transactionReference || '',
+      notes: row.notes || '',
+    });
+    editDisclosure.onOpen();
+  };
+
+  const closeEdit = () => {
+    editDisclosure.onClose();
+    setEditRow(null);
+    setEditForm(null);
+  };
+
+  const updateEditField = (field, value) => {
+    setEditForm((prev) => ({ ...(prev || {}), [field]: value }));
+  };
+
+  const editableTotalAmount = useMemo(() => {
+    if (!editForm) return 0;
+    return computeTotalAmount({
+      baseSalary: editForm.baseSalary,
+      allowances: editForm.allowances,
+      deductions: editForm.deductions,
+      bonuses: editForm.bonuses,
+    });
+  }, [editForm, computeTotalAmount]);
+
+  const handleEditSubmit = async (e) => {
+    e?.preventDefault();
+    if (!editRow || !editForm) return;
+    setSavingEdit(true);
+    try {
+      const payload = {
+        baseSalary: Number(editForm.baseSalary ?? 0),
+        allowances: Number(editForm.allowances ?? 0),
+        deductions: Number(editForm.deductions ?? 0),
+        bonuses: Number(editForm.bonuses ?? 0),
+        status: editForm.status,
+        paidOn: editForm.paidOn || null,
+        paymentMethod: editForm.paymentMethod || null,
+        transactionReference: editForm.transactionReference || null,
+        notes: editForm.notes || null,
+      };
+      const updated = await createOrUpdatePayroll(editRow, payload);
+      replacePayrollInState(updated);
+      toast({ title: 'Payroll updated', status: 'success', duration: 3000, isClosable: true });
+      closeEdit();
+    } catch (error) {
+      console.error(error);
+      toast({ title: 'Failed to update payroll', description: error?.message || 'Please try again.', status: 'error', duration: 4000, isClosable: true });
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -507,6 +591,7 @@ const TeacherSalary = () => {
                           Actions
                         </MenuButton>
                         <MenuList>
+                          <MenuItem onClick={() => openEdit(row)}>Edit Details</MenuItem>
                           <MenuItem
                             onClick={() => handleProcessPayment(row)}
                             isDisabled={row.status === 'paid' || processingMap[row.teacherId]}
@@ -525,6 +610,72 @@ const TeacherSalary = () => {
           </Table>
         </Box>
       </Card>
+
+      {/* Edit Payroll Modal */}
+      <Modal isOpen={editDisclosure.isOpen} onClose={closeEdit} size="xl">
+        <ModalOverlay />
+        <ModalContent as="form" onSubmit={handleEditSubmit}>
+          <ModalHeader>Edit Payroll Details</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {editForm && (
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                <FormControl>
+                  <FormLabel>Base Salary</FormLabel>
+                  <Input type="number" min={0} value={editForm.baseSalary} onChange={(e) => updateEditField('baseSalary', Number(e.target.value))} />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Allowances</FormLabel>
+                  <Input type="number" min={0} value={editForm.allowances} onChange={(e) => updateEditField('allowances', Number(e.target.value))} />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Deductions</FormLabel>
+                  <Input type="number" min={0} value={editForm.deductions} onChange={(e) => updateEditField('deductions', Number(e.target.value))} />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Bonuses</FormLabel>
+                  <Input type="number" min={0} value={editForm.bonuses} onChange={(e) => updateEditField('bonuses', Number(e.target.value))} />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Status</FormLabel>
+                  <Select value={editForm.status} onChange={(e) => updateEditField('status', e.target.value)}>
+                    {['pending','processing','paid','failed','cancelled'].map((s) => (
+                      <option key={s} value={s}>{formatStatus(s)}</option>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Paid On</FormLabel>
+                  <Input type="date" value={editForm.paidOn || ''} onChange={(e) => updateEditField('paidOn', e.target.value)} />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Payment Method</FormLabel>
+                  <Input value={editForm.paymentMethod || ''} onChange={(e) => updateEditField('paymentMethod', e.target.value)} placeholder="e.g. Bank Transfer, Cash" />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Transaction Reference</FormLabel>
+                  <Input value={editForm.transactionReference || ''} onChange={(e) => updateEditField('transactionReference', e.target.value)} placeholder="Ref / Cheque / Txn ID" />
+                </FormControl>
+                <FormControl gridColumn={{ base: 'auto', md: 'span 2' }}>
+                  <FormLabel>Notes</FormLabel>
+                  <Textarea rows={3} value={editForm.notes || ''} onChange={(e) => updateEditField('notes', e.target.value)} />
+                </FormControl>
+                <FormControl gridColumn={{ base: 'auto', md: 'span 2' }}>
+                  <FormLabel>Total Amount</FormLabel>
+                  <Input isReadOnly value={formatAmount(editableTotalAmount)} />
+                </FormControl>
+              </SimpleGrid>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <HStack spacing={3}>
+              <Button onClick={closeEdit} variant="ghost">Cancel</Button>
+              <Button colorScheme="blue" type="submit" isLoading={savingEdit} loadingText="Saving">Save</Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 };

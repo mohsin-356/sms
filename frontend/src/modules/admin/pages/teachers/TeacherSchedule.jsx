@@ -173,9 +173,12 @@ const TeacherSchedule = () => {
   const [currentSchedule, setCurrentSchedule] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [roomTarget, setRoomTarget] = useState(null);
+  const [roomValue, setRoomValue] = useState('');
 
   const modalDisclosure = useDisclosure();
   const deleteDisclosure = useDisclosure();
+  const roomDisclosure = useDisclosure();
   const deleteCancelRef = useRef();
   const toast = useToast();
 
@@ -244,6 +247,15 @@ const TeacherSchedule = () => {
     });
     return map;
   }, [teachers]);
+
+  const roomOptions = useMemo(() => {
+    const set = new Set();
+    schedules.forEach((s) => {
+      const r = (s.room || '').trim();
+      if (r && r !== '—') set.add(r);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [schedules]);
 
   const filteredSchedules = useMemo(() => {
     return schedules.filter((schedule) => {
@@ -319,6 +331,22 @@ const TeacherSchedule = () => {
     };
   }, [schedules, teachers]);
 
+  const handleSaveRoom = async () => {
+    if (!roomTarget) return;
+    try {
+      const updated = await teacherApi.updateScheduleSlot(roomTarget.id, { room: roomValue || null });
+      const normalized = normalizeScheduleRow(updated);
+      setSchedules((prev) => prev.map((it) => (it.id === normalized.id ? normalized : it)));
+      toast({ title: 'Room updated', status: 'success', duration: 2500, isClosable: true });
+      roomDisclosure.onClose();
+      setRoomTarget(null);
+      setRoomValue('');
+    } catch (error) {
+      console.error(error);
+      toast({ title: 'Failed to update room', description: error?.message || 'Please try again.', status: 'error', duration: 4000, isClosable: true });
+    }
+  };
+
   const handleResetFilters = () => {
     setSelectedTeacher('all');
     setSelectedDay('all');
@@ -341,6 +369,12 @@ const TeacherSchedule = () => {
     setCurrentSchedule(null);
     setFormState(initialFormState);
     modalDisclosure.onOpen();
+  };
+
+  const openRoomModal = (schedule) => {
+    setRoomTarget(schedule);
+    setRoomValue(schedule?.room && schedule.room !== '—' ? schedule.room : '');
+    roomDisclosure.onOpen();
   };
 
   const openEditModal = (schedule) => {
@@ -859,20 +893,19 @@ const TeacherSchedule = () => {
                         <Text fontSize="xs" color={textColorSecondary}>Section {schedule.section}</Text>
                       )}
                     </Td>
-                    <Td>{schedule.room}</Td>
+                    <Td onClick={() => openRoomModal(schedule)} cursor="pointer" title="Click to edit room">{schedule.room}</Td>
                     <Td textAlign="right">
                       <HStack spacing={2} justify="flex-end">
-                        <Tooltip label={editingMode ? 'Edit schedule' : 'Enable edit mode to modify'}>
+                        <Tooltip label={'Edit schedule'}>
                           <IconButton
                             size="sm"
                             icon={<Icon as={MdEdit} />}
                             aria-label="Edit schedule"
                             variant="ghost"
-                            onClick={() => editingMode && openEditModal(schedule)}
-                            isDisabled={!editingMode}
+                            onClick={() => openEditModal(schedule)}
                           />
                         </Tooltip>
-                        <Tooltip label={editingMode ? 'Delete schedule' : 'Enable edit mode to delete'}>
+                        <Tooltip label={'Delete schedule'}>
                           <IconButton
                             size="sm"
                             icon={<Icon as={MdDelete} />}
@@ -880,11 +913,9 @@ const TeacherSchedule = () => {
                             variant="ghost"
                             colorScheme="red"
                             onClick={() => {
-                              if (!editingMode) return;
                               setDeleteTarget(schedule);
                               deleteDisclosure.onOpen();
                             }}
-                            isDisabled={!editingMode}
                           />
                         </Tooltip>
                       </HStack>
@@ -915,6 +946,35 @@ const TeacherSchedule = () => {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* Quick Edit Room Modal */}
+      <Modal isOpen={roomDisclosure.isOpen} onClose={roomDisclosure.onClose} isCentered size="sm">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit Room</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <FormControl>
+              <FormLabel>Room</FormLabel>
+              <Input
+                placeholder="e.g. R101"
+                value={roomValue}
+                onChange={(e) => setRoomValue(e.target.value)}
+                list="roomOptionsList"
+              />
+              <datalist id="roomOptionsList">
+                {roomOptions.map((r) => (
+                  <option key={r} value={r} />
+                ))}
+              </datalist>
+            </FormControl>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={roomDisclosure.onClose}>Cancel</Button>
+            <Button colorScheme="blue" onClick={handleSaveRoom}>Save</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 };

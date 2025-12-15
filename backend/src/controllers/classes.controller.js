@@ -119,3 +119,28 @@ export const remove = async (req, res, next) => {
     next(e);
   }
 };
+
+export const getSubjects = async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const items = await classService.getSubjectsByClassId(id);
+    return res.json({ items });
+  } catch (e) { next(e); }
+};
+
+export const upsertSubjects = async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const items = Array.isArray(req.body) ? req.body : [];
+    const saved = await classService.upsertClassSubjects(id, items);
+    return res.status(201).json({ items: saved });
+  } catch (e) { next(e); }
+};
+
+export const listSubjectsByClassSection = async (req, res, next) => {
+  try {
+    const { className, section } = req.query;
+    const items = await classService.listSubjectsByClassSection({ className, section });
+    return res.json({ items });
+  } catch (e) { next(e); }
+};

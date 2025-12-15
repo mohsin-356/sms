@@ -918,6 +918,31 @@ export const listSubjects = async () => {
   return rows;
 };
 
+export const listSubjectsByClass = async ({ className, section }) => {
+  const params = [];
+  const where = [];
+  // Match by class name in classes JSONB
+  if (className) {
+    params.push(JSON.stringify([className]));
+    where.push(`tsa.classes @> $${params.length}::jsonb`);
+  }
+  // Try class-section combined as well, if provided
+  if (className && section) {
+    params.push(JSON.stringify([`${className}-${section}`]));
+    where.push(`tsa.classes @> $${params.length}::jsonb`);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(' OR ')}` : '';
+  const { rows } = await query(
+    `SELECT DISTINCT s.id, s.name, s.code, s.department, s.description
+       FROM teacher_subject_assignments tsa
+       JOIN subjects s ON s.id = tsa.subject_id
+       ${whereSql}
+       ORDER BY s.name ASC`,
+    params
+  );
+  return rows.map(r => ({ id: r.id, name: r.name, code: r.code, department: r.department, description: r.description }));
+};
+
 export const createSubject = async (payload = {}) => {
   const { rows } = await query(
     `INSERT INTO subjects (name, code, department, description)

@@ -266,6 +266,20 @@ export const getSMSRoutes = () => {
           component: lazy(() => import('./modules/admin/pages/academics/Results')),
         },
         {
+          name: 'Class Results View',
+          layout: '/admin',
+          path: '/academics/results/class-view',
+          component: lazy(() => import('./modules/admin/pages/academics/ResultsClassView')),
+          hidden: true,
+        },
+        {
+          name: 'Generate Results',
+          layout: '/admin',
+          path: '/academics/results/generate',
+          component: lazy(() => import('./modules/admin/pages/academics/ResultsGenerate')),
+          hidden: true,
+        },
+        {
           name: 'Grade Calculation',
           layout: '/admin',
           path: '/academics/grading',
@@ -430,7 +444,8 @@ export const getSMSRoutes = () => {
       ],
     },
     
-    // Communication Section
+    /*
+    // Communication Section (paused)
     {
       name: 'Communication',
       layout: '/admin',
@@ -469,8 +484,10 @@ export const getSMSRoutes = () => {
         },
       ],
     },
+    */
     
-    // Reports & Analytics Section
+    /*
+    // Reports & Analytics Section (paused)
     {
       name: 'Reports & Analytics',
       layout: '/admin',
@@ -515,6 +532,7 @@ export const getSMSRoutes = () => {
         },
       ],
     },
+    */
     
     // Settings Section
     {
@@ -562,7 +580,7 @@ export const getSMSRoutes = () => {
       ],
     },
     
-    // Notifications
+    /* Notifications (temporarily hidden)
     {
       name: 'Notifications',
       layout: '/admin',
@@ -570,6 +588,7 @@ export const getSMSRoutes = () => {
       icon: <Icon as={FaBell} width="20px" height="20px" color="inherit" />,
       component: lazy(() => import('./modules/admin/pages/Notifications/Notifications')),
     },
+    */
   ];
 
   return adminMenu;

@@ -290,7 +290,8 @@ const teacherRoutes = [
     ],
   },
 
-  // 8) Communication
+  // 8) Communication (temporarily hidden)
+  /*
   {
     name: 'Communication',
     layout: '/teacher',
@@ -313,6 +314,7 @@ const teacherRoutes = [
       },
     ],
   },
+  */
 
   // 9) Leaves
   {
@@ -390,6 +392,7 @@ const teacherRoutes = [
         icon: <Icon as={MdLock} width="16px" height="16px" color="inherit" />,
         component: <Password />,
       },
+      /* Notifications (temporarily hidden)
       {
         name: 'Notifications',
         layout: '/teacher',
@@ -397,6 +400,7 @@ const teacherRoutes = [
         icon: <Icon as={MdNotifications} width="16px" height="16px" color="inherit" />,
         component: <Notifications />,
       },
+      */
     ],
   },
   {

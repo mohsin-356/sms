@@ -1,0 +1,204 @@
+import { query } from '../config/db.js';
+
+// Check if driver has financial records
+export const hasFinancialRecords = async (id) => {
+  const { rows } = await query(`
+    SELECT EXISTS(
+      SELECT 1 FROM finance_invoices WHERE user_type = 'driver' AND user_id = $1
+      UNION ALL
+      SELECT 1 FROM driver_payrolls WHERE driver_id = $1
+    ) as has_records
+  `, [id]);
+  return rows[0]?.has_records || false;
+};
+
+// List all drivers with optional filters
+export const listDrivers = async ({ status, busId, page = 1, pageSize = 50 }) => {
+  const params = [];
+  const where = [];
+  if (status) { params.push(status); where.push(`d.status = $${params.length}`); }
+  if (busId) { params.push(busId); where.push(`d.bus_id = $${params.length}`); }
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const offset = (Number(page) - 1) * Number(pageSize);
+  params.push(pageSize, offset);
+  
+  const { rows } = await query(`
+    SELECT d.id, d.name, d.email, d.phone, d.license_number AS "licenseNumber",
+           d.license_expiry AS "licenseExpiry", d.national_id AS "nationalId",
+           d.address, d.bus_id AS "busId", b.number AS "busNumber",
+           d.base_salary AS "baseSalary", d.allowances, d.deductions,
+           d.payment_method AS "paymentMethod", d.bank_name AS "bankName",
+           d.account_number AS "accountNumber", d.status, d.avatar,
+           d.joining_date AS "joiningDate", d.created_at AS "createdAt"
+    FROM drivers d
+    LEFT JOIN buses b ON d.bus_id = b.id
+    ${whereSql}
+    ORDER BY d.name
+    LIMIT $${params.length - 1} OFFSET $${params.length}
+  `, params);
+  
+  // Get total count
+  const countParams = params.slice(0, params.length - 2);
+  const { rows: countRows } = await query(`
+    SELECT COUNT(*) as total FROM drivers d ${whereSql}
+  `, countParams);
+  
+  return { items: rows, total: Number(countRows[0]?.total || 0) };
+};
+
+// Get driver by ID
+export const getDriverById = async (id) => {
+  const { rows } = await query(`
+    SELECT d.id, d.name, d.email, d.phone, d.license_number AS "licenseNumber",
+           d.license_expiry AS "licenseExpiry", d.national_id AS "nationalId",
+           d.address, d.bus_id AS "busId", b.number AS "busNumber",
+           d.base_salary AS "baseSalary", d.allowances, d.deductions,
+           d.payment_method AS "paymentMethod", d.bank_name AS "bankName",
+           d.account_number AS "accountNumber", d.status, d.avatar,
+           d.joining_date AS "joiningDate", d.created_at AS "createdAt", d.updated_at AS "updatedAt"
+    FROM drivers d
+    LEFT JOIN buses b ON d.bus_id = b.id
+    WHERE d.id = $1
+  `, [id]);
+  return rows[0] || null;
+};
+
+// Create driver
+export const createDriver = async (data) => {
+  const {
+    name, email, phone, licenseNumber, licenseExpiry, nationalId, address,
+    busId, baseSalary, allowances, deductions, paymentMethod, bankName,
+    accountNumber, status, avatar, joiningDate
+  } = data;
+  
+  const { rows } = await query(`
+    INSERT INTO drivers (
+      name, email, phone, license_number, license_expiry, national_id, address,
+      bus_id, base_salary, allowances, deductions, payment_method, bank_name,
+      account_number, status, avatar, joining_date
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+    RETURNING id, name, email, phone, license_number AS "licenseNumber",
+              license_expiry AS "licenseExpiry", national_id AS "nationalId",
+              address, bus_id AS "busId", base_salary AS "baseSalary",
+              allowances, deductions, payment_method AS "paymentMethod",
+              bank_name AS "bankName", account_number AS "accountNumber",
+              status, avatar, joining_date AS "joiningDate", created_at AS "createdAt"
+  `, [
+    name, email || null, phone || null, licenseNumber || null, licenseExpiry || null,
+    nationalId || null, address || null, busId || null, baseSalary || 0,
+    allowances || 0, deductions || 0, paymentMethod || 'bank', bankName || null,
+    accountNumber || null, status || 'active', avatar || null, joiningDate || null
+  ]);
+  return rows[0];
+};
+
+// Update driver
+export const updateDriver = async (id, data) => {
+  const {
+    name, email, phone, licenseNumber, licenseExpiry, nationalId, address,
+    busId, baseSalary, allowances, deductions, paymentMethod, bankName,
+    accountNumber, status, avatar, joiningDate
+  } = data;
+  
+  const { rows } = await query(`
+    UPDATE drivers SET
+      name = COALESCE($2, name),
+      email = COALESCE($3, email),
+      phone = COALESCE($4, phone),
+      license_number = COALESCE($5, license_number),
+      license_expiry = COALESCE($6, license_expiry),
+      national_id = COALESCE($7, national_id),
+      address = COALESCE($8, address),
+      bus_id = COALESCE($9, bus_id),
+      base_salary = COALESCE($10, base_salary),
+      allowances = COALESCE($11, allowances),
+      deductions = COALESCE($12, deductions),
+      payment_method = COALESCE($13, payment_method),
+      bank_name = COALESCE($14, bank_name),
+      account_number = COALESCE($15, account_number),
+      status = COALESCE($16, status),
+      avatar = COALESCE($17, avatar),
+      joining_date = COALESCE($18, joining_date),
+      updated_at = NOW()
+    WHERE id = $1
+    RETURNING id, name, email, phone, license_number AS "licenseNumber",
+              license_expiry AS "licenseExpiry", national_id AS "nationalId",
+              address, bus_id AS "busId", base_salary AS "baseSalary",
+              allowances, deductions, payment_method AS "paymentMethod",
+              bank_name AS "bankName", account_number AS "accountNumber",
+              status, avatar, joining_date AS "joiningDate", updated_at AS "updatedAt"
+  `, [
+    id, name || null, email || null, phone || null, licenseNumber || null,
+    licenseExpiry || null, nationalId || null, address || null, busId || null,
+    baseSalary ?? null, allowances ?? null, deductions ?? null, paymentMethod || null,
+    bankName || null, accountNumber || null, status || null, avatar || null, joiningDate || null
+  ]);
+  return rows[0] || null;
+};
+
+// Delete driver
+export const deleteDriver = async (id) => {
+  await query('DELETE FROM drivers WHERE id = $1', [id]);
+  return true;
+};
+
+// Get driver payroll
+export const getDriverPayroll = async (driverId, { page = 1, pageSize = 12 } = {}) => {
+  const offset = (Number(page) - 1) * Number(pageSize);
+  const { rows } = await query(`
+    SELECT id, driver_id AS "driverId", period_month AS "periodMonth",
+           base_salary AS "baseSalary", allowances, deductions, bonuses,
+           total_amount AS "totalAmount", status, payment_method AS "paymentMethod",
+           transaction_reference AS "transactionReference", paid_on AS "paidOn",
+           notes, created_at AS "createdAt"
+    FROM driver_payrolls
+    WHERE driver_id = $1
+    ORDER BY period_month DESC
+    LIMIT $2 OFFSET $3
+  `, [driverId, pageSize, offset]);
+  return rows;
+};
+
+// Create driver payroll
+export const createDriverPayroll = async (data) => {
+  const { driverId, periodMonth, baseSalary, allowances, deductions, bonuses, notes, createdBy } = data;
+  const totalAmount = (Number(baseSalary) || 0) + (Number(allowances) || 0) + (Number(bonuses) || 0) - (Number(deductions) || 0);
+  
+  const { rows } = await query(`
+    INSERT INTO driver_payrolls (driver_id, period_month, base_salary, allowances, deductions, bonuses, total_amount, notes, created_by)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    ON CONFLICT (driver_id, period_month) DO UPDATE SET
+      base_salary = EXCLUDED.base_salary,
+      allowances = EXCLUDED.allowances,
+      deductions = EXCLUDED.deductions,
+      bonuses = EXCLUDED.bonuses,
+      total_amount = EXCLUDED.total_amount,
+      notes = EXCLUDED.notes,
+      updated_at = NOW()
+    RETURNING id, driver_id AS "driverId", period_month AS "periodMonth",
+              base_salary AS "baseSalary", allowances, deductions, bonuses,
+              total_amount AS "totalAmount", status, created_at AS "createdAt"
+  `, [driverId, periodMonth, baseSalary || 0, allowances || 0, deductions || 0, bonuses || 0, totalAmount, notes || null, createdBy || null]);
+  return rows[0];
+};
+
+// Update payroll status
+export const updateDriverPayrollStatus = async (id, status, transactionReference = null) => {
+  const paidOn = status === 'paid' ? 'NOW()' : 'NULL';
+  const { rows } = await query(`
+    UPDATE driver_payrolls SET
+      status = $2,
+      transaction_reference = COALESCE($3, transaction_reference),
+      paid_on = ${status === 'paid' ? 'NOW()' : 'paid_on'},
+      updated_at = NOW()
+    WHERE id = $1
+    RETURNING id, status, paid_on AS "paidOn", updated_at AS "updatedAt"
+  `, [id, status, transactionReference]);
+  return rows[0] || null;
+};
+
+// Count all drivers
+export const countDrivers = async () => {
+  const { rows } = await query('SELECT COUNT(*) as count FROM drivers WHERE status = $1', ['active']);
+  return Number(rows[0]?.count || 0);
+};

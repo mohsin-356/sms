@@ -253,6 +253,14 @@ router.get(
   teacherController.listSubjects
 );
 
+router.get(
+  '/subjects/by-class',
+  authenticate,
+  [query('className').optional().isString(), query('section').optional().isString()],
+  validate,
+  teacherController.listSubjectsByClass
+);
+
 router.post(
   '/subjects',
   authenticate,

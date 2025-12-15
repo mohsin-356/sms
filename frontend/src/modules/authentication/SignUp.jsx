@@ -19,7 +19,8 @@ import {
   VStack,
 } from '@chakra-ui/react';
 import DefaultAuth from '../../layouts/auth/Default';
-import illustration from '../../assets/img/auth/auth.png';
+// Use custom illustration from public instead of Horizon UI asset
+const illustration = '/imgbin_04038f2dad4024b37accec200ae57e31.png';
 import { MdOutlineRemoveRedEye } from 'react-icons/md';
 import { RiEyeCloseLine } from 'react-icons/ri';
 import { register as registerApi } from '../../services/api/auth';
