@@ -9,8 +9,8 @@ export const overview = async (req, res, next) => {
 
 export const attendanceSummary = async (req, res, next) => {
   try {
-    const { fromDate, toDate } = req.query;
-    const data = await service.getAttendanceSummary({ fromDate, toDate });
+    const { fromDate, toDate, class: klass, section, roll } = req.query;
+    const data = await service.getAttendanceSummary({ fromDate, toDate, klass, section, roll });
     res.json(data);
   } catch (e) { next(e); }
 };
@@ -33,8 +33,8 @@ export const examPerformance = async (req, res, next) => {
 
 export const attendanceByClass = async (req, res, next) => {
   try {
-    const { fromDate, toDate } = req.query;
-    const rows = await service.getAttendanceByClass({ fromDate, toDate });
+    const { fromDate, toDate, class: klass, section, roll } = req.query;
+    const rows = await service.getAttendanceByClass({ fromDate, toDate, klass, section, roll });
     res.json({ items: rows });
   } catch (e) { next(e); }
 };

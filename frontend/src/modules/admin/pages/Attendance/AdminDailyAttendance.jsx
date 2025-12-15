@@ -18,7 +18,7 @@ import {
   useToast,
   TableContainer,
 } from '@chakra-ui/react';
-import { MdSearch, MdRefresh, MdFileDownload, MdSave } from 'react-icons/md';
+import { MdSearch, MdRefresh, MdFileDownload } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
@@ -151,7 +151,6 @@ export default function AdminDailyAttendance() {
           <HStack>
             <Button leftIcon={<MdRefresh />} size='sm' variant='outline' onClick={()=>{ setQ(''); loadDaily(); }}>Refresh</Button>
             <Button leftIcon={<MdFileDownload />} size='sm' colorScheme='blue' onClick={exportCSV}>Export CSV</Button>
-            <Button leftIcon={<MdSave />} size='sm' colorScheme='green' onClick={saveAttendance} isLoading={saving} isDisabled={items.length===0}>Save</Button>
           </HStack>
         </Flex>
       </Card>

@@ -16,6 +16,11 @@ export const refresh = async () => {
   return http.post('/auth/refresh');
 };
 
+// Admin only: list all users with roles
+export const getUsers = async () => {
+  return http.get('/auth/users');
+};
+
 export const profile = async () => {
   return http.get('/auth/profile');
 };

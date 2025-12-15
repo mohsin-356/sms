@@ -18,6 +18,7 @@ import dashboardRoutes from './dashboard.routes.js';
 import classRoutes from './classes.routes.js';
 import syllabusRoutes from './syllabus.routes.js';
 import gradingRoutes from './grading.routes.js';
+import alertsRoutes from './alerts.routes.js';
 
 const router = Router();
 
@@ -34,6 +35,7 @@ router.use('/communication', communicationRoutes);
 router.use('/reports', reportsRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/notifications', notificationsRoutes);
+router.use('/alerts', alertsRoutes);
 router.use('/exams', examsRoutes);
 router.use('/results', resultsRoutes);
 router.use('/dashboard', dashboardRoutes);

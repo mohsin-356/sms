@@ -520,6 +520,16 @@ CREATE TABLE IF NOT EXISTS alerts (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- Extend alerts for operational workflow
+ALTER TABLE alerts
+  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','resolved')),
+  ADD COLUMN IF NOT EXISTS type TEXT,
+  ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Targeted alerts: allow alerts to be addressed to a specific user
+ALTER TABLE alerts
+  ADD COLUMN IF NOT EXISTS target_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
 -- Notifications
 CREATE TABLE IF NOT EXISTS notifications (
   id SERIAL PRIMARY KEY,

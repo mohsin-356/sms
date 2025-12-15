@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Text, SimpleGrid, VStack, HStack, Badge, Table, Thead, Tbody, Tr, Th, Td, Button, useColorModeValue, Icon, Flex } from '@chakra-ui/react';
 import { MdFileDownload, MdPrint, MdCheckCircle, MdTrendingUp, MdAccessTime } from 'react-icons/md';
 import Card from '../../../components/card/Card';
@@ -8,10 +8,14 @@ import MiniStatistics from '../../../components/card/MiniStatistics';
 import IconBox from '../../../components/icons/IconBox';
 import { mockStudents, mockAttendanceLogs } from '../../../utils/mockData';
 import { useAuth } from '../../../contexts/AuthContext';
+import * as attendanceApi from '../../../services/api/attendance';
 
 export default function DailyRecord() {
   const textSecondary = useColorModeValue('gray.600', 'gray.400');
   const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [records, setRecords] = useState([]);
   const student = useMemo(() => {
     if (user?.role === 'student') {
       const byEmail = mockStudents.find(s => s.email?.toLowerCase() === user.email?.toLowerCase());
@@ -26,16 +30,60 @@ export default function DailyRecord() {
   const todayLogs = useMemo(() => {
     const logs = mockAttendanceLogs.filter(l => l.studentName === student.name);
     if (logs.length > 0) return logs;
-    return [
-      { id: 's1', timestamp: '08:15:10 AM', studentName: student.name, studentId: student.rollNumber || 'STU999', rfidTag: 'RFID-SYN1', busNumber: 'BUS-001', status: 'Boarding', location: 'Main Gate' },
-      { id: 's2', timestamp: '01:50:22 PM', studentName: student.name, studentId: student.rollNumber || 'STU999', rfidTag: 'RFID-SYN1', busNumber: 'BUS-001', status: 'Leaving', location: 'Main Gate' },
-    ];
+    return [];
   }, [student]);
 
+  // Fetch last 7 days attendance for the logged-in student
+  useEffect(() => {
+    const sidRaw = user?.studentId ?? user?.id;
+    const sid = typeof sidRaw === 'string' ? parseInt(sidRaw, 10) : sidRaw;
+    if (!sid || Number.isNaN(sid)) return; // cannot fetch without a numeric student id
+
+    const toISO = (d) => d.toISOString().slice(0, 10);
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - 6);
+
+    const startDate = toISO(start);
+    const endDate = toISO(end);
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await attendanceApi.list({ studentId: sid, startDate, endDate });
+        setRecords(Array.isArray(res?.items) ? res.items : []);
+      } catch (e) {
+        setError(e?.message || 'Failed to load attendance');
+        setRecords([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [user]);
+
   const last7 = useMemo(() => {
-    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    return days.map((d, i) => ({ day: d, status: i % 6 !== 5 ? 'Present' : 'Absent', in: '08:15 AM', out: '01:45 PM' }));
-  }, []);
+    const byDate = new Map();
+    for (const r of records) {
+      // normalize to YYYY-MM-DD if backend returns full ISO
+      const d = (r.date || '').slice(0, 10);
+      byDate.set(d, r);
+    }
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const dt = new Date();
+      dt.setDate(dt.getDate() - i);
+      const key = dt.toISOString().slice(0, 10);
+      const weekday = dt.toLocaleDateString(undefined, { weekday: 'short' });
+      const rec = byDate.get(key);
+      let status = 'N/A';
+      if (rec?.status === 'present' || rec?.status === 'late') status = 'Present';
+      else if (rec?.status === 'absent') status = 'Absent';
+      days.push({ day: weekday, status, in: '-', out: '-' });
+    }
+    return days;
+  }, [records]);
 
   const presentCount = last7.filter(d => d.status === 'Present').length;
 

@@ -301,12 +301,14 @@ export const getSMSRoutes = () => {
           path: '/attendance/daily',
           component: <AdminDailyAttendance />,
         },
+        /* Temporarily hidden: RFID Logs
         {
           name: 'RFID Logs',
           layout: '/admin',
           path: '/attendance/rfid-logs',
           component: lazy(() => import('./modules/admin/pages/Attendance/RFIDLogs')),
         },
+        */
         {
           name: 'Manual Override',
           layout: '/admin',
@@ -319,12 +321,14 @@ export const getSMSRoutes = () => {
           path: '/attendance/reports',
           component: lazy(() => import('./modules/admin/pages/Attendance/AttendanceReports')),
         },
+        /* Temporarily hidden: Heatmaps
         {
           name: 'Heatmaps',
           layout: '/admin',
           path: '/attendance/heatmaps',
           component: lazy(() => import('./modules/admin/pages/Attendance/AttendanceHeatmaps')),
         },
+        */
         {
           name: 'Alerts',
           layout: '/admin',

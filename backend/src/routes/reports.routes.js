@@ -12,7 +12,13 @@ router.get(
   '/attendance-summary',
   authenticate,
   authorize('admin'),
-  [query('fromDate').optional().isISO8601(), query('toDate').optional().isISO8601()],
+  [
+    query('fromDate').optional().isISO8601(),
+    query('toDate').optional().isISO8601(),
+    query('class').optional().isString(),
+    query('section').optional().isString(),
+    query('roll').optional().isString(),
+  ],
   validate,
   controller.attendanceSummary
 );
@@ -39,7 +45,13 @@ router.get(
   '/attendance-by-class',
   authenticate,
   authorize('admin'),
-  [query('fromDate').optional().isISO8601(), query('toDate').optional().isISO8601()],
+  [
+    query('fromDate').optional().isISO8601(),
+    query('toDate').optional().isISO8601(),
+    query('class').optional().isString(),
+    query('section').optional().isString(),
+    query('roll').optional().isString(),
+  ],
   validate,
   controller.attendanceByClass
 );

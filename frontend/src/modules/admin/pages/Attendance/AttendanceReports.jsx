@@ -41,6 +41,7 @@ import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
 import * as reportsApi from '../../../../services/api/reports';
+import * as studentsApi from '../../../../services/api/students';
 import { useAuth } from '../../../../contexts/AuthContext';
 
 export default function AttendanceReports() {
@@ -57,6 +58,11 @@ export default function AttendanceReports() {
   const [loading, setLoading] = useState(false);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [cls, setCls] = useState('');
+  const [section, setSection] = useState('');
+  const [roll, setRoll] = useState('');
+  const [classOptions, setClassOptions] = useState([]);
+  const [sectionOptions, setSectionOptions] = useState([]);
 
   const totals = useMemo(() => {
     const totalRecords = rows.reduce((acc, r) => acc + (r.present + r.absent + r.late), 0);
@@ -96,6 +102,9 @@ export default function AttendanceReports() {
       const params = {
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
+        class: cls || undefined,
+        section: section || undefined,
+        roll: roll ? String(roll).trim() : undefined,
       };
       const [summary, byClass] = await Promise.all([
         reportsApi.attendanceSummary(params),
@@ -131,6 +140,19 @@ export default function AttendanceReports() {
     if (!authLoading && isAuthenticated) loadReports();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isAuthenticated, fromDate, toDate]);
+
+  // Load class/section options once
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        const payload = await studentsApi.list({ pageSize: 200 });
+        const rows = Array.isArray(payload?.rows) ? payload.rows : (Array.isArray(payload) ? payload : []);
+        setClassOptions(Array.from(new Set((rows || []).map((s) => s.class).filter(Boolean))));
+        setSectionOptions(Array.from(new Set((rows || []).map((s) => s.section).filter(Boolean))));
+      } catch (_) {}
+    };
+    if (!authLoading && isAuthenticated) loadOptions();
+  }, [authLoading, isAuthenticated]);
 
   const exportCSV = () => {
     const header = ['Class','Present','Absent','Late','Overall %'];
@@ -203,8 +225,29 @@ export default function AttendanceReports() {
             <option value='last-month'>Last Month</option>
             <option value='last-90'>Last 90 Days</option>
           </Select>
-          <Input type='date' maxW='200px' />
-          <Input type='date' maxW='200px' />
+          <Input type='date' maxW='200px' value={fromDate} onChange={(e)=>setFromDate(e.target.value)} />
+          <Input type='date' maxW='200px' value={toDate} onChange={(e)=>setToDate(e.target.value)} />
+          <Select placeholder='Class' maxW='180px' value={cls} onChange={(e)=>setCls(e.target.value)}>
+            {classOptions.map((c)=>(<option key={c} value={c}>{c}</option>))}
+          </Select>
+          <Select placeholder='Section' maxW='160px' value={section} onChange={(e)=>setSection(e.target.value)}>
+            {sectionOptions.map((s)=>(<option key={s} value={s}>{s}</option>))}
+          </Select>
+          <Input placeholder='Roll number' maxW='200px' value={roll} onChange={(e)=>setRoll(e.target.value)} />
+          <Button onClick={loadReports} isLoading={loading}>Apply</Button>
+        </Flex>
+      </Card>
+
+      {/* Overall progress bar under KPIs */}
+      <Card p={4} mb={5}>
+        <Flex align='center' gap={4}>
+          <Text fontWeight='600'>Overall Progress</Text>
+          <Flex align='center' gap={3} flex='1'>
+            <Text w='56px' textAlign='right'>{totals.overall}%</Text>
+            <Box w='100%'>
+              <Progress value={totals.overall} size='sm' colorScheme={totals.overall >= 90 ? 'green' : totals.overall >= 75 ? 'yellow' : 'red'} borderRadius='md' />
+            </Box>
+          </Flex>
         </Flex>
       </Card>
 

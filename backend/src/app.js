@@ -14,13 +14,17 @@ const allowed = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
-app.use(
-  cors({
-    origin: (origin, cb) =>
-      cb(null, !origin || allowed.length === 0 || allowed.includes(origin)),
-    credentials: true,
-  })
-);
+const corsOptions = {
+  origin: (origin, cb) =>
+    cb(
+      null,
+      !origin || process.env.NODE_ENV !== 'production' || allowed.length === 0 || allowed.includes(origin)
+    ),
+  credentials: true,
+  optionsSuccessStatus: 204,
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

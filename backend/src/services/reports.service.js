@@ -58,11 +58,14 @@ const getAttendanceHeatmap = async ({ fromDate, toDate, klass, section, location
   return { denom, items };
 };
 
-const getAttendanceByClass = async ({ fromDate, toDate }) => {
+const getAttendanceByClass = async ({ fromDate, toDate, klass, section, roll }) => {
   const params = [];
   const where = ['ar.student_id IS NOT NULL'];
   if (fromDate) { params.push(fromDate); where.push(`ar.date >= $${params.length}`); }
   if (toDate) { params.push(toDate); where.push(`ar.date <= $${params.length}`); }
+  if (klass) { params.push(klass); where.push(`s.class = $${params.length}`); }
+  if (section) { params.push(section); where.push(`s.section = $${params.length}`); }
+  if (roll) { params.push(roll); where.push(`LOWER(s.roll_number) = LOWER($${params.length})`); }
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const { rows } = await query(
     `SELECT s.class, s.section,
@@ -80,14 +83,21 @@ const getAttendanceByClass = async ({ fromDate, toDate }) => {
   return rows;
 };
 
-const getAttendanceSummary = async ({ fromDate, toDate }) => {
+const getAttendanceSummary = async ({ fromDate, toDate, klass, section, roll }) => {
   const params = [];
-  const where = [];
-  if (fromDate) { params.push(fromDate); where.push(`date >= $${params.length}`); }
-  if (toDate) { params.push(toDate); where.push(`date <= $${params.length}`); }
+  const where = ['ar.student_id IS NOT NULL'];
+  if (fromDate) { params.push(fromDate); where.push(`ar.date >= $${params.length}`); }
+  if (toDate) { params.push(toDate); where.push(`ar.date <= $${params.length}`); }
+  if (klass) { params.push(klass); where.push(`s.class = $${params.length}`); }
+  if (section) { params.push(section); where.push(`s.section = $${params.length}`); }
+  if (roll) { params.push(roll); where.push(`LOWER(s.roll_number) = LOWER($${params.length})`); }
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const { rows } = await query(
-    `SELECT status, COUNT(*)::int AS count FROM attendance_records ${whereSql} GROUP BY status`,
+    `SELECT ar.status, COUNT(*)::int AS count
+     FROM attendance_records ar
+     LEFT JOIN students s ON s.id = ar.student_id
+     ${whereSql}
+     GROUP BY ar.status`,
     params
   );
   const counts = { present: 0, absent: 0, late: 0 };

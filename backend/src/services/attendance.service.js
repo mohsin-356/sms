@@ -1,4 +1,4 @@
-import { query } from '../config/db.js';
+﻿import { query } from '../config/db.js';
 
 export const list = async ({ studentId, startDate, endDate, page = 1, pageSize = 50 }) => {
   const params = [];
@@ -123,14 +123,14 @@ export const upsertDaily = async ({ date, records, createdBy }) => {
       const status = ['present', 'absent', 'late'].includes(r.status) ? r.status : 'present';
       await query(
         `INSERT INTO attendance_records (student_id, date, status, remarks, created_by, check_in_time)
-         VALUES ($1,$2,$3,$4,$5, CASE WHEN $3 IN ('present','late') THEN NOW() ELSE NULL END)
+         VALUES ($1,$2,$3,$4,$5, CASE WHEN $3 IN ('present','late') THEN NOW()::time ELSE NULL END)
          ON CONFLICT (student_id, date)
          DO UPDATE SET
            status = EXCLUDED.status,
            remarks = EXCLUDED.remarks,
            created_by = EXCLUDED.created_by,
            check_in_time = COALESCE(attendance_records.check_in_time,
-                                    CASE WHEN EXCLUDED.status IN ('present','late') THEN NOW() ELSE attendance_records.check_in_time END)`,
+                                    CASE WHEN EXCLUDED.status IN ('present','late') THEN NOW()::time ELSE attendance_records.check_in_time END)`,
         [Number(r.studentId), date, status, r.remarks || null, createdBy || null]
       );
     }
@@ -141,3 +141,4 @@ export const upsertDaily = async ({ date, records, createdBy }) => {
     throw e;
   }
 };
+
