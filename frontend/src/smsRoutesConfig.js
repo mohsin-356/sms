@@ -580,7 +580,7 @@ export const getSMSRoutes = () => {
       ],
     },
     
-    // Notifications
+    /* Notifications (temporarily hidden)
     {
       name: 'Notifications',
       layout: '/admin',
@@ -588,6 +588,7 @@ export const getSMSRoutes = () => {
       icon: <Icon as={FaBell} width="20px" height="20px" color="inherit" />,
       component: lazy(() => import('./modules/admin/pages/Notifications/Notifications')),
     },
+    */
   ];
 
   return adminMenu;

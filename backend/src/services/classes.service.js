@@ -153,6 +153,67 @@ export const getById = async (id) => {
   return rows[0] ? mapRow(rows[0]) : null;
 };
 
+export const getSubjectsByClassId = async (classSectionId) => {
+  const { rows } = await query(
+    `SELECT csu.id,
+            csu.class_section_id AS "classSectionId",
+            csu.subject_id AS "subjectId",
+            s.name AS "subjectName",
+            csu.full_marks AS "fullMarks",
+            csu.grade_scheme AS "gradeScheme",
+            csu.created_at AS "createdAt",
+            csu.updated_at AS "updatedAt"
+       FROM class_subjects csu
+       JOIN subjects s ON s.id = csu.subject_id
+      WHERE csu.class_section_id = $1
+      ORDER BY s.name ASC`,
+    [classSectionId]
+  );
+  return rows;
+};
+
+export const upsertClassSubjects = async (classSectionId, items = []) => {
+  const rows = Array.isArray(items) ? items.filter(Boolean) : [];
+  if (!rows.length) return [];
+  const params = [];
+  const values = rows.map((r, i) => {
+    const base = i * 4;
+    params.push(classSectionId, Number(r.subjectId), r.fullMarks != null ? Number(r.fullMarks) : null, r.gradeScheme ?? null);
+    return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`;
+  }).join(',');
+  const sql = `INSERT INTO class_subjects (class_section_id, subject_id, full_marks, grade_scheme)
+               VALUES ${values}
+               ON CONFLICT (class_section_id, subject_id)
+               DO UPDATE SET full_marks = EXCLUDED.full_marks,
+                             grade_scheme = EXCLUDED.grade_scheme,
+                             updated_at = NOW()
+               RETURNING id, class_section_id AS "classSectionId", subject_id AS "subjectId", full_marks AS "fullMarks", grade_scheme AS "gradeScheme"`;
+  const res = await query(sql, params);
+  return res.rows || [];
+};
+
+export const listSubjectsByClassSection = async ({ className, section }) => {
+  const params = [];
+  const where = [];
+  if (className) { params.push(className); where.push(`cs.class_name = $${params.length}`); }
+  if (section) { params.push(section); where.push(`cs.section = $${params.length}`); }
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const { rows } = await query(
+    `SELECT csu.class_section_id AS "classSectionId",
+            csu.subject_id AS "subjectId",
+            s.name AS "subjectName",
+            csu.full_marks AS "fullMarks",
+            csu.grade_scheme AS "gradeScheme"
+       FROM class_sections cs
+       JOIN class_subjects csu ON csu.class_section_id = cs.id
+       JOIN subjects s ON s.id = csu.subject_id
+       ${whereSql}
+       ORDER BY s.name ASC`,
+    params
+  );
+  return rows;
+};
+
 export const create = async (payload = {}) => {
   const data = mapPayloadToDb(payload);
   if (data.enrolled_students === undefined) data.enrolled_students = 0;

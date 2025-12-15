@@ -292,7 +292,8 @@ const studentRoutes = [
     component: <Announcements />,
   },
 
-  // 8) Communication
+  // 8) Communication (temporarily hidden)
+  /*
   {
     name: 'Communication',
     layout: '/student',
@@ -300,6 +301,7 @@ const studentRoutes = [
     path: '/communication',
     component: <Communication />,
   },
+  */
 
   // 9) Events & Activities
   {
@@ -384,6 +386,7 @@ const studentRoutes = [
         icon: <Icon as={MdLock} width="16px" height="16px" color="inherit" />,
         component: <PasswordPage />,
       },
+      /* Notifications (temporarily hidden)
       {
         name: 'Notifications',
         layout: '/student',
@@ -391,6 +394,7 @@ const studentRoutes = [
         icon: <Icon as={MdNotifications} width="16px" height="16px" color="inherit" />,
         component: <NotificationsPage />,
       },
+      */
     ],
   },
   {

@@ -681,3 +681,32 @@ SELECT
   s.fee->>'firstPaymentDue' AS fee_first_payment_due,
   s.fee->'paymentMethods' AS fee_payment_methods
 FROM students s;
+
+-- Map class sections to subjects with per-subject full marks/grade scheme
+CREATE TABLE IF NOT EXISTS class_subjects (
+  id SERIAL PRIMARY KEY,
+  class_section_id INTEGER NOT NULL REFERENCES class_sections(id) ON DELETE CASCADE,
+  subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  full_marks INTEGER,
+  grade_scheme TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE (class_section_id, subject_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_class_subjects_class ON class_subjects(class_section_id);
+CREATE INDEX IF NOT EXISTS idx_class_subjects_subject ON class_subjects(subject_id);
+
+-- Grading schemes for grade band thresholds
+CREATE TABLE IF NOT EXISTS grading_schemes (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL DEFAULT 'Default',
+  academic_year TEXT DEFAULT '',
+  bands JSONB NOT NULL DEFAULT '{}'::jsonb, -- e.g., {"A":80,"B":70,"C":60,"D":50}
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by INTEGER,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_grading_schemes_default ON grading_schemes(is_default);
