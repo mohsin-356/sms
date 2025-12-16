@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Flex,
@@ -35,28 +35,77 @@ import {
   ModalFooter,
   FormControl,
   FormLabel,
+  useToast,
 } from '@chakra-ui/react';
 import { MdDirectionsBus, MdBuild, MdCheckCircle, MdPlaylistAdd, MdSearch, MdFileDownload, MdPictureAsPdf, MdRemoveRedEye, MdMoreVert, MdEdit } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import * as transportApi from '../../../../services/api/transport';
 
-const mockBuses = [
-  { id: 'BUS-101', plate: 'LEB-1234', capacity: 45, driver: 'Imran Khan', route: 'R1', status: 'Active', lastService: '2025-10-10', maintDue: false },
-  { id: 'BUS-102', plate: 'LEB-5678', capacity: 40, driver: 'Ali Raza', route: 'R2', status: 'Maintenance', lastService: '2025-07-01', maintDue: true },
-  { id: 'BUS-103', plate: 'LEB-9012', capacity: 42, driver: 'Zeeshan', route: 'R3', status: 'Active', lastService: '2025-09-12', maintDue: false },
+const fallbackBuses = [
+  { backendId: null, id: 'BUS-101', plate: 'LEB-1234', capacity: 45, driver: 'Imran Khan', route: 'R1', status: 'Active', lastService: '2025-10-10', maintDue: false },
+  { backendId: null, id: 'BUS-102', plate: 'LEB-5678', capacity: 40, driver: 'Ali Raza', route: 'R2', status: 'Maintenance', lastService: '2025-07-01', maintDue: true },
+  { backendId: null, id: 'BUS-103', plate: 'LEB-9012', capacity: 42, driver: 'Zeeshan', route: 'R3', status: 'Active', lastService: '2025-09-12', maintDue: false },
 ];
 
 export default function BusManagement() {
+  const toast = useToast();
+
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [route, setRoute] = useState('all');
-  const [rows, setRows] = useState(mockBuses);
+  const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
   const viewDisc = useDisclosure();
   const editDisc = useDisclosure();
-  const [form, setForm] = useState({ id: '', plate: '', capacity: 0, driver: '', route: '', status: 'Active', lastService: '' });
+  const [form, setForm] = useState({ backendId: null, id: '', plate: '', capacity: 0, driver: '', route: '', status: 'Active', lastService: '' });
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+
+  const normalizeBus = (bus) => {
+    if (!bus) return null;
+    const statusRaw = String(bus.status || 'active').toLowerCase();
+    const statusLabel = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
+
+    return {
+      backendId: bus.id,
+      id: bus.number || bus.id || '',
+      plate: bus.plate || bus.plateNumber || bus.registrationNumber || '-',
+      capacity: typeof bus.capacity === 'number' ? bus.capacity : 0,
+      driver: bus.driverName || bus.driver || '-',
+      route: bus.route || bus.routeName || 'Unassigned',
+      status: statusLabel,
+      lastService: bus.lastService || bus.lastServiceDate || '',
+      maintDue: statusRaw === 'maintenance' || bus.maintDue === true,
+    };
+  };
+
+  const loadBuses = async () => {
+    try {
+      const data = await transportApi.listBuses();
+      const source = Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data)
+        ? data
+        : [];
+      const list = source.map(normalizeBus).filter(Boolean);
+      setRows(list.length ? list : fallbackBuses);
+    } catch (e) {
+      console.error('Failed to load buses', e);
+      toast({
+        title: 'Failed to load buses',
+        description: e.message || 'Unable to load bus list from server.',
+        status: 'error',
+        duration: 6000,
+        isClosable: true,
+      });
+      setRows(fallbackBuses);
+    }
+  };
+
+  useEffect(() => {
+    loadBuses();
+  }, []);
 
   const filtered = useMemo(() => {
     return rows.filter((b) => {
@@ -68,12 +117,72 @@ export default function BusManagement() {
   }, [rows, search, status, route]);
 
   const stats = useMemo(() => {
-    const total = mockBuses.length;
-    const active = mockBuses.filter((b) => b.status === 'Active').length;
-    const maint = mockBuses.filter((b) => b.maintDue).length;
-    const capacity = mockBuses.reduce((s, b) => s + b.capacity, 0);
+    const total = rows.length;
+    const active = rows.filter((b) => b.status.toLowerCase() === 'active').length;
+    const maint = rows.filter((b) => b.maintDue).length;
+    const capacity = rows.reduce((s, b) => s + (b.capacity || 0), 0);
     return { total, active, maint, capacity };
-  }, []);
+  }, [rows]);
+
+  const exportCsv = () => {
+    if (!rows.length) return;
+    const header = ['Bus ID', 'Plate', 'Capacity', 'Driver', 'Route', 'Status', 'Last Service'];
+    const data = rows.map((b) => [
+      b.id,
+      b.plate,
+      b.capacity,
+      b.driver,
+      b.route,
+      b.status,
+      b.lastService || '',
+    ]);
+    const csv = [header, ...data].map((r) => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bus-management.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPdf = () => {
+    if (!rows.length) return;
+    const header = ['Bus ID', 'Plate', 'Capacity', 'Driver', 'Route', 'Status', 'Last Service'];
+    const bodyRows = rows
+      .map(
+        (b) =>
+          `<tr>${[
+            b.id,
+            b.plate,
+            b.capacity,
+            b.driver,
+            b.route,
+            b.status,
+            b.lastService || '',
+          ]
+            .map((c) => `<td>${c ?? ''}</td>`)
+            .join('')}</tr>`
+      )
+      .join('');
+    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Bus Management</title>
+      <style>
+        body{font-family:Arial,Helvetica,sans-serif;padding:24px;color:#111}
+        h1{margin:0 0 12px;font-size:20px}
+        table{border-collapse:collapse;width:100%}
+        th,td{border:1px solid #ccc;padding:8px;font-size:12px;text-align:left}
+        th{background:#f5f5f5}
+      </style>
+      </head><body><h1>Bus Management</h1>
+      <table><thead><tr>${header.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${bodyRows}</tbody></table>
+      <script>window.onload=()=>{window.print();}</script></body></html>`;
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  };
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -83,9 +192,18 @@ export default function BusManagement() {
           <Text color={textColorSecondary}>Manage fleet, capacity, and maintenance schedules</Text>
         </Box>
         <ButtonGroup>
-          <Button leftIcon={<MdPlaylistAdd />} colorScheme="blue">Add Bus</Button>
-          <Button leftIcon={<MdFileDownload />} variant="outline" colorScheme="blue">Export CSV</Button>
-          <Button leftIcon={<MdPictureAsPdf />} colorScheme="blue">Export PDF</Button>
+          <Button
+            leftIcon={<MdPlaylistAdd />}
+            colorScheme="blue"
+            onClick={() => {
+              setForm({ backendId: null, id: '', plate: '', capacity: 0, driver: '', route: '', status: 'Active', lastService: '' });
+              editDisc.onOpen();
+            }}
+          >
+            Add Bus
+          </Button>
+          <Button leftIcon={<MdFileDownload />} variant="outline" colorScheme="blue" onClick={exportCsv}>Export CSV</Button>
+          <Button leftIcon={<MdPictureAsPdf />} colorScheme="blue" onClick={exportPdf}>Export PDF</Button>
         </ButtonGroup>
       </Flex>
 
@@ -176,7 +294,7 @@ export default function BusManagement() {
                 <Flex justify='space-between' mb={2}><Text fontWeight='600'>Driver</Text><Text>{selected.driver}</Text></Flex>
                 <Flex justify='space-between' mb={2}><Text fontWeight='600'>Route</Text><Text>{selected.route}</Text></Flex>
                 <Flex justify='space-between' mb={2}><Text fontWeight='600'>Status</Text><Badge colorScheme={selected.status==='Active'?'green':'yellow'}>{selected.status}</Badge></Flex>
-                <Flex justify='space-between'><Text fontWeight='600'>Last Service</Text><Text>{selected.lastService}</Text></Flex>
+                <Flex justify='space-between'><Text fontWeight='600'>Last Service</Text><Text>{selected.lastService || '-'}</Text></Flex>
               </Box>
             )}
           </ModalBody>
@@ -222,10 +340,35 @@ export default function BusManagement() {
           </ModalBody>
           <ModalFooter>
             <Button variant='ghost' mr={3} onClick={editDisc.onClose}>Cancel</Button>
-            <Button colorScheme='blue' onClick={()=>{
-              setRows(prev => prev.map(r => r.id===form.id ? { ...form } : r));
-              editDisc.onClose();
-            }}>Save</Button>
+            <Button
+              colorScheme='blue'
+              onClick={async () => {
+                try {
+                  const payload = {
+                    number: form.id,
+                    driverName: form.driver,
+                    status: (form.status || 'Active').toLowerCase(),
+                  };
+
+                  if (form.backendId) {
+                    await transportApi.updateBus(form.backendId, payload);
+                  } else {
+                    const created = await transportApi.createBus(payload);
+                    const normalized = normalizeBus(created);
+                    setRows(prev => normalized ? [...prev, normalized] : prev);
+                  }
+
+                  await loadBuses();
+                  toast({ title: 'Bus saved', status: 'success', duration: 3000, isClosable: true });
+                  editDisc.onClose();
+                } catch (e) {
+                  console.error('Failed to save bus', e);
+                  toast({ title: 'Failed to save bus', description: e.message || 'Unable to save bus details.', status: 'error', duration: 6000, isClosable: true });
+                }
+              }}
+            >
+              Save
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

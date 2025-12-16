@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Box, Flex, Heading, Text, SimpleGrid, Icon, Badge, Button, ButtonGroup, IconButton, useColorModeValue, Table, Thead, Tbody, Tr, Th, Td, Select, Input, Progress, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, FormControl, FormLabel, NumberInput, NumberInputField, Tabs, TabList, TabPanels, Tab, TabPanel } from '@chakra-ui/react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Box, Flex, Heading, Text, SimpleGrid, Icon, Badge, Button, ButtonGroup, IconButton, useColorModeValue, Table, Thead, Tbody, Tr, Th, Td, Select, Input, Progress, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, FormControl, FormLabel, NumberInput, NumberInputField, Tabs, TabList, TabPanels, Tab, TabPanel, useToast } from '@chakra-ui/react';
 import { MdAssessment, MdArrowDownward, MdArrowUpward, MdFileDownload, MdPictureAsPdf, MdRemoveRedEye, MdEdit } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
@@ -7,8 +7,9 @@ import IconBox from '../../../../components/icons/IconBox';
 import LineChart from '../../../../components/charts/LineChart';
 import BarChart from '../../../../components/charts/BarChart';
 import PieChart from '../../../../components/charts/PieChart';
+import * as reportsApi from '../../../../services/api/reports';
 
-const mockSummary = { revenue: 1250000, refunds: 15000, dues: 320000, rate: 80 };
+const mockSummary = { revenue: 0, refunds: 0, dues: 0, rate: 0 };
 const mockClass = [
   { class: '10-A', billed: 360000, collected: 290000 },
   { class: '10-B', billed: 340000, collected: 270000 },
@@ -41,8 +42,60 @@ export default function Reports() {
   const [reportTab, setReportTab] = useState(0); // 0: Overview, 1: Fee Head, 2: Payment Mode, 3: Transport/Hostel, 4: Overdue Fines
   const [method, setMethod] = useState('all');
   const [klass, setKlass] = useState('all');
+  const [summary, setSummary] = useState(mockSummary);
+  const toast = useToast();
 
-  const summary = useMemo(() => mockSummary, []);
+  useEffect(() => {
+    const getDateRange = (value) => {
+      const today = new Date();
+      let from = null;
+      let to = today;
+      if (value === 'this-month') {
+        from = new Date(today.getFullYear(), today.getMonth(), 1);
+      } else if (value === 'last-month') {
+        from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        to = new Date(today.getFullYear(), today.getMonth(), 0);
+      } else if (value === 'last-90') {
+        from = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+      }
+      const toIso = to.toISOString().slice(0, 10);
+      const fromIso = from ? from.toISOString().slice(0, 10) : null;
+      return { fromDate: fromIso, toDate: toIso };
+    };
+
+    const loadSummary = async () => {
+      try {
+        const { fromDate, toDate } = getDateRange(range);
+        const params = {};
+        if (fromDate) params.fromDate = fromDate;
+        if (toDate) params.toDate = toDate;
+        const data = await reportsApi.financeSummary(params);
+        const paidAmount = Number(data?.paidAmount || 0);
+        const pendingAmount = Number(data?.pendingAmount || 0);
+        const overdueAmount = Number(data?.overdueAmount || 0);
+        const totalAmount = Number(data?.totalAmount || 0);
+        const paidTotal = Number(data?.paidTotal || paidAmount || 0);
+        const revenue = paidTotal;
+        const dues = pendingAmount + overdueAmount;
+        const refunds = Math.max(0, totalAmount - (paidAmount + pendingAmount + overdueAmount));
+        const rate = totalAmount > 0 ? Math.round((paidAmount * 100) / totalAmount) : 0;
+        setSummary({ revenue, refunds, dues, rate });
+      } catch (e) {
+        console.error('Failed to load finance summary', e);
+        toast({
+          title: 'Failed to load finance reports',
+          description: e.message || 'Unable to load finance summary.',
+          status: 'error',
+          duration: 6000,
+          isClosable: true,
+        });
+        setSummary(mockSummary);
+      }
+    };
+
+    loadSummary();
+  }, [range, toast]);
+
   const revVsColl = useMemo(() => ({
     cats: ['W1','W2','W3','W4'],
     revenue: [300000, 320000, 310000, 320000],

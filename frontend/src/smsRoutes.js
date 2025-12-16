@@ -62,7 +62,7 @@ export const adminRoutes = [
   },
   {
     path: 'transport',
-    component: lazy(() => import('./modules/admin/pages/Transport/LiveTracking')),
+    component: lazy(() => import('./modules/admin/pages/Transport/BusManagement')),
   },
   {
     path: 'transport/buses',

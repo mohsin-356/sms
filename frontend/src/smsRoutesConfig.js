@@ -345,12 +345,16 @@ export const getSMSRoutes = () => {
       icon: <Icon as={FaBus} width="20px" height="20px" color="inherit" />,
       collapse: true,
       items: [
+        // NOTE: The following Transport pages are temporarily disabled.
+        // To re-enable, remove the surrounding comments for the desired block.
+        /*
         {
           name: 'Live Tracking',
           layout: '/admin',
           path: '/transport/live-tracking',
           component: lazy(() => import('./modules/admin/pages/Transport/LiveTracking')),
         },
+        */
         {
           name: 'Bus Management',
           layout: '/admin',
@@ -369,6 +373,7 @@ export const getSMSRoutes = () => {
           path: '/transport/routes',
           component: lazy(() => import('./modules/admin/pages/Transport/RoutesStops')),
         },
+        /*
         {
           name: 'RFID Attendance',
           layout: '/admin',
@@ -387,6 +392,7 @@ export const getSMSRoutes = () => {
           path: '/transport/alerts',
           component: lazy(() => import('./modules/admin/pages/Transport/TransportAlerts')),
         },
+        */
       ],
     },
     

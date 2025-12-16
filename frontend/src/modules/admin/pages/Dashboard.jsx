@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -13,7 +13,9 @@ import {
   Badge,
   HStack,
   Icon,
+  useToast,
 } from '@chakra-ui/react';
+import { useNavigate } from 'react-router-dom';
 // Custom components
 import Card from '../../../components/card/Card';
 import MiniStatistics from '../../../components/card/MiniStatistics';
@@ -27,23 +29,78 @@ import {
   MdAdd,
   MdBarChart,
   MdTimer,
-  MdLocationOn,
   MdCircle,
 } from 'react-icons/md';
-// Mock data
+// Mock data (for charts only)
 import {
-  mockStats,
-  mockBuses,
-  mockAlerts,
   mockAttendanceStats,
   mockFeeData,
 } from '../../../utils/mockData';
 // Helpers
-import { formatNumber, formatCurrency, getStatusColor } from '../../../utils/helpers';
+import { formatNumber, formatCurrency, getStatusColor, formatDate, formatTime } from '../../../utils/helpers';
+// API
+import * as dashboardApi from '../../../services/api/dashboard';
+import * as transportApi from '../../../services/api/transport';
 
 export default function AdminDashboard() {
   // Brand color
   const brandColor = 'blue.500';
+
+  const toast = useToast();
+  const navigate = useNavigate();
+
+  const [overview, setOverview] = useState({
+    totalStudents: 0,
+    totalTeachers: 0,
+    activeBuses: 0,
+    todayAttendance: 0,
+    recentAlerts: [],
+  });
+  const [buses, setBuses] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        const [overviewRes, busesRes] = await Promise.all([
+          dashboardApi.getOverview(),
+          transportApi.listBuses(),
+        ]);
+
+        const data = overviewRes?.data || {};
+        setOverview({
+          totalStudents: Number(data.totalStudents) || 0,
+          totalTeachers: Number(data.totalTeachers) || 0,
+          activeBuses: Number(data.activeBuses) || 0,
+          todayAttendance: Number(data.todayAttendance) || 0,
+          recentAlerts: Array.isArray(data.recentAlerts) ? data.recentAlerts : [],
+        });
+
+        const busItems = Array.isArray(busesRes?.items)
+          ? busesRes.items
+          : Array.isArray(busesRes)
+          ? busesRes
+          : [];
+        setBuses(busItems);
+      } catch (e) {
+        console.error('Failed to load admin dashboard', e);
+        toast({
+          title: 'Failed to load dashboard',
+          description: e.message || 'Unable to load latest data',
+          status: 'error',
+          duration: 6000,
+          isClosable: true,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [toast]);
+
+  const recentAlerts = overview.recentAlerts || [];
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -68,9 +125,9 @@ export default function AdminDashboard() {
               />
             }
             name='Total Students'
-            value={formatNumber(mockStats.totalStudents)}
+            value={formatNumber(overview.totalStudents)}
             growth='+5%'
-            trendData={[900, 1000, 1100, 1150, 1200, 1225, mockStats.totalStudents]}
+            trendData={[900, 1000, 1100, 1150, 1200, 1225, overview.totalStudents]}
             trendColor='#4481EB'
             compact
             endContent={
@@ -95,9 +152,9 @@ export default function AdminDashboard() {
               />
             }
             name='Total Teachers'
-            value={formatNumber(mockStats.totalTeachers)}
+            value={formatNumber(overview.totalTeachers)}
             growth='+2%'
-            trendData={[60, 65, 70, 72, 78, 82, mockStats.totalTeachers]}
+            trendData={[60, 65, 70, 72, 78, 82, overview.totalTeachers]}
             trendColor='#868CFF'
             compact
             endContent={
@@ -122,8 +179,8 @@ export default function AdminDashboard() {
               />
             }
             name='Active Buses'
-            value={formatNumber(mockStats.activeBuses)}
-            trendData={[8, 9, 10, 11, 12, 11, mockStats.activeBuses]}
+            value={formatNumber(overview.activeBuses)}
+            trendData={[8, 9, 10, 11, 12, 11, overview.activeBuses]}
             trendColor='#00C6FB'
             compact
             endContent={
@@ -143,9 +200,9 @@ export default function AdminDashboard() {
               />
             }
             name="Today's Attendance"
-            value={`${mockStats.todayAttendance}%`}
+            value={`${overview.todayAttendance}%`}
             growth='+3%'
-            trendData={[80, 85, 88, 90, 91, 92, mockStats.todayAttendance]}
+            trendData={[80, 85, 88, 90, 91, 92, overview.todayAttendance]}
             trendColor='#00F260'
             compact
             endContent={
@@ -164,31 +221,20 @@ export default function AdminDashboard() {
 
       {/* Main Content Row */}
       <SimpleGrid columns={{ base: 1, xl: 2 }} gap='20px' mb='20px'>
-        {/* Left: Bus Tracking */}
+        {/* Left: Bus Overview (no live tracking) */}
         <Card p='20px'>
           <Flex justify='space-between' align='center' mb='20px'>
             <Text fontSize='lg' fontWeight='bold'>
-              Live Bus Tracking
+              Bus Overview
             </Text>
-            <Badge colorScheme='green' fontSize='sm'>
-              <Icon as={MdCircle} mr='5px' color='green.500' />
-              Live
-            </Badge>
           </Flex>
-          
-          {/* Map Placeholder */}
-          <Box h='300px' bg='gray.100' borderRadius='15px' mb='20px'>
-            <Flex justify='center' align='center' h='100%'>
-              <VStack>
-                <Icon as={MdLocationOn} w='50px' h='50px' color='gray.400' />
-                <Text color='gray.500'>Interactive Map will be displayed here</Text>
-              </VStack>
-            </Flex>
-          </Box>
-          
+          <Text fontSize='sm' color='gray.500' mb='12px'>
+            Snapshot of your registered school buses and their current status.
+          </Text>
+
           {/* Bus List */}
           <VStack align='stretch' spacing='12px'>
-            {mockBuses.slice(0, 3).map(bus => (
+            {buses.slice(0, 3).map((bus) => (
               <Flex
                 key={bus.id}
                 p='12px'
@@ -198,25 +244,37 @@ export default function AdminDashboard() {
                 align='center'
               >
                 <HStack>
-                  <Icon as={MdDirectionsBus} color={bus.status === 'active' ? 'green.500' : 'gray.500'} />
+                  <Icon
+                    as={MdDirectionsBus}
+                    color={`${getStatusColor(bus.status)}.500`}
+                  />
                   <Box>
-                    <Text fontWeight='bold' fontSize='sm'>{bus.busNumber}</Text>
-                    <Text fontSize='xs' color='gray.500'>{bus.route}</Text>
+                    <Text fontWeight='bold' fontSize='sm'>
+                      {bus.number || bus.busNumber}
+                    </Text>
+                    {bus.driverName && (
+                      <Text fontSize='xs' color='gray.500'>
+                        Driver: {bus.driverName}
+                      </Text>
+                    )}
                   </Box>
                 </HStack>
                 <Box textAlign='right'>
                   <Badge colorScheme={getStatusColor(bus.status)}>
                     {bus.status}
                   </Badge>
-                  <Text fontSize='xs' color='gray.500'>
-                    {bus.studentCount}/{bus.maxCapacity} students
-                  </Text>
                 </Box>
               </Flex>
             ))}
           </VStack>
           
-          <Button mt='12px' w='100%' variant='outline' colorScheme='blue'>
+          <Button
+            mt='12px'
+            w='100%'
+            variant='outline'
+            colorScheme='blue'
+            onClick={() => navigate('/admin/transport/buses')}
+          >
             View All Buses
           </Button>
         </Card>
@@ -229,23 +287,44 @@ export default function AdminDashboard() {
               Recent Alerts
             </Text>
             <VStack align='stretch' spacing='12px'>
-              {mockAlerts.map(alert => (
-                <Alert
-                  key={alert.id}
-                  status={alert.type}
-                  borderRadius='8px'
-                  fontSize='sm'
-                >
-                  <AlertIcon />
-                  <Box flex='1'>
-                    <AlertTitle fontSize='sm'>{alert.title}</AlertTitle>
-                    <AlertDescription fontSize='xs'>{alert.message}</AlertDescription>
-                  </Box>
-                  <Text fontSize='xs' color='gray.500'>
-                    {alert.time}
-                  </Text>
-                </Alert>
-              ))}
+              {recentAlerts.length === 0 && (
+                <Text fontSize='sm' color='gray.500'>
+                  No recent alerts.
+                </Text>
+              )}
+              {recentAlerts.map((alert) => {
+                const severity = String(alert.severity || 'info').toLowerCase();
+                const status =
+                  severity === 'error' || severity === 'critical'
+                    ? 'error'
+                    : severity === 'warning' || severity === 'medium'
+                    ? 'warning'
+                    : severity === 'success'
+                    ? 'success'
+                    : 'info';
+
+                return (
+                  <Alert
+                    key={alert.id}
+                    status={status}
+                    borderRadius='8px'
+                    fontSize='sm'
+                  >
+                    <AlertIcon />
+                    <Box flex='1'>
+                      <AlertTitle fontSize='sm'>
+                        {alert.title || 'System Alert'}
+                      </AlertTitle>
+                      <AlertDescription fontSize='xs'>
+                        {alert.message}
+                      </AlertDescription>
+                    </Box>
+                    <Text fontSize='xs' color='gray.500'>
+                      {formatDate(alert.created_at)} {formatTime(alert.created_at)}
+                    </Text>
+                  </Alert>
+                );
+              })}
             </VStack>
           </Card>
 
@@ -260,6 +339,7 @@ export default function AdminDashboard() {
                 w='100%'
                 colorScheme='blue'
                 variant='solid'
+                onClick={() => navigate('/admin/students/add')}
               >
                 Add New Student
               </Button>
@@ -268,6 +348,7 @@ export default function AdminDashboard() {
                 w='100%'
                 colorScheme='green'
                 variant='outline'
+                onClick={() => navigate('/admin/attendance/daily')}
               >
                 Take Attendance
               </Button>
@@ -276,6 +357,7 @@ export default function AdminDashboard() {
                 w='100%'
                 colorScheme='purple'
                 variant='outline'
+                onClick={() => navigate('/admin/finance/reports')}
               >
                 Generate Report
               </Button>
@@ -284,6 +366,7 @@ export default function AdminDashboard() {
                 w='100%'
                 colorScheme='orange'
                 variant='outline'
+                onClick={() => navigate('/admin/exams')}
               >
                 Schedule Exam
               </Button>
@@ -348,7 +431,13 @@ export default function AdminDashboard() {
               );
             })}
           </VStack>
-          <Button mt='12px' w='100%' variant='outline' colorScheme='blue'>
+          <Button
+            mt='12px'
+            w='100%'
+            variant='outline'
+            colorScheme='blue'
+            onClick={() => navigate('/admin/finance/reports')}
+          >
             View Detailed Report
           </Button>
         </Card>
