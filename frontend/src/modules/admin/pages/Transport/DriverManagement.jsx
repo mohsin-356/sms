@@ -26,6 +26,7 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+  Portal,
   useDisclosure,
   Modal,
   ModalOverlay,
@@ -45,6 +46,7 @@ import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
 import * as driversApi from '../../../../services/api/drivers';
+import * as transportApi from '../../../../services/api/transport';
 
 const normalize = (d) => ({
   id: d.id,
@@ -53,6 +55,8 @@ const normalize = (d) => ({
   license: d.licenseNumber || '-',
   status: String(d.status||'active').toLowerCase()==='active' ? 'On Duty' : 'Off Duty',
   bus: d.busNumber || '-',
+  busId: d.busId || '',
+  busNumber: d.busNumber || null,
   rating: 0,
 });
 
@@ -66,10 +70,11 @@ export default function DriverManagement() {
   const editDisc = useDisclosure();
   const [form, setForm] = useState({ id: '', name: '', phone: '', license: '', status: 'On Duty', bus: '', rating: 0 });
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const [buses, setBuses] = useState([]);
 
   const loadDrivers = async () => {
     try {
-      const res = await driversApi.list({ pageSize: 200 });
+      const res = await driversApi.list({ pageSize: 100 });
       const items = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
       setRows(items.map(normalize));
     } catch (e) {
@@ -77,11 +82,22 @@ export default function DriverManagement() {
     }
   };
 
-  useEffect(() => { loadDrivers(); }, []);
+  const loadBuses = async () => {
+    try {
+      const res = await transportApi.listBuses();
+      const items = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
+      setBuses(items);
+    } catch (e) {
+      toast({ title: 'Failed to load buses', status: 'error' });
+    }
+  };
+
+  useEffect(() => { loadDrivers(); loadBuses(); }, []);
 
   const filtered = useMemo(() => {
     return rows.filter((d) => {
-      const matchesSearch = !search || d.name.toLowerCase().includes(search.toLowerCase()) || d.id.toLowerCase().includes(search.toLowerCase());
+      const term = (search || '').toLowerCase();
+      const matchesSearch = !term || d.name.toLowerCase().includes(term) || String(d.id).toLowerCase().includes(term);
       const matchesStatus = status === 'all' || d.status.toLowerCase() === status;
       return matchesSearch && matchesStatus;
     });
@@ -103,7 +119,7 @@ export default function DriverManagement() {
           <Text color={textColorSecondary}>Manage drivers, duty status, and licenses</Text>
         </Box>
         <ButtonGroup>
-          <Button leftIcon={<MdAdd />} colorScheme="blue" onClick={()=>{ setForm({ id: '', name: '', phone: '', license: '', status: 'On Duty', bus: '', rating: 0 }); editDisc.onOpen(); }}>Add Driver</Button>
+          <Button leftIcon={<MdAdd />} colorScheme="blue" onClick={()=>{ setForm({ id: '', name: '', phone: '', license: '', status: 'On Duty', bus: '', busId: '', rating: 0 }); editDisc.onOpen(); }}>Add Driver</Button>
           <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
           <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue'>Export PDF</Button>
         </ButtonGroup>
@@ -160,11 +176,12 @@ export default function DriverManagement() {
                   <Td>
                     <Flex align='center' gap={1}>
                       <IconButton aria-label='View' icon={<MdRemoveRedEye />} size='sm' variant='ghost' onClick={()=>{ setSelected(d); viewDisc.onOpen(); }} />
-                      <Menu>
+                      <Menu isLazy placement='bottom-end'>
                         <MenuButton as={IconButton} aria-label='More' icon={<MdMoreVert />} size='sm' variant='ghost' />
-                        <MenuList>
+                        <Portal>
+                        <MenuList zIndex={1500}>
                           <MenuItem onClick={()=>{ setSelected(d); viewDisc.onOpen(); }}>View Details</MenuItem>
-                          <MenuItem onClick={()=>{ setSelected(d); setForm({ ...d }); editDisc.onOpen(); }}>Edit</MenuItem>
+                          <MenuItem onClick={()=>{ setSelected(d); setForm({ ...d, busId: d.busId || '' }); editDisc.onOpen(); }}>Edit</MenuItem>
                           <MenuItem color='red.500' onClick={async ()=>{
                             if (!window.confirm('Delete this driver?')) return;
                             try {
@@ -182,6 +199,7 @@ export default function DriverManagement() {
                             }
                           }}>Delete</MenuItem>
                         </MenuList>
+                        </Portal>
                       </Menu>
                     </Flex>
                   </Td>
@@ -243,7 +261,12 @@ export default function DriverManagement() {
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Assigned Bus</FormLabel>
-              <Input value={form.bus} onChange={(e)=> setForm(f=>({ ...f, bus: e.target.value }))} />
+              <Select value={String(form.busId || '')} onChange={(e)=> setForm(f=>({ ...f, busId: e.target.value ? Number(e.target.value) : '' }))}>
+                <option value=''>Unassigned</option>
+                {buses.map((b)=> (
+                  <option key={b.id} value={b.id}>{b.number}</option>
+                ))}
+              </Select>
             </FormControl>
             <FormControl>
               <FormLabel>Rating</FormLabel>
@@ -262,6 +285,7 @@ export default function DriverManagement() {
                     phone: form.phone,
                     licenseNumber: form.license,
                     status: form.status==='On Duty'?'active':'inactive',
+                    busId: form.busId || null,
                   });
                 } else {
                   await driversApi.create({
@@ -269,6 +293,7 @@ export default function DriverManagement() {
                     phone: form.phone,
                     licenseNumber: form.license,
                     status: form.status==='On Duty'?'active':'inactive',
+                    busId: form.busId || null,
                   });
                 }
                 await loadDrivers();

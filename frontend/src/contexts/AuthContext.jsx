@@ -2,7 +2,7 @@ import React, { createContext, useState, useContext, useEffect, useCallback } fr
 import { useNavigate } from 'react-router-dom';
 import { STORAGE_KEYS } from '../utils/constants';
 import { getDashboardPath } from '../utils/sidebarConfig';
-import { authApi, setAuthToken, setUnauthorizedHandler } from '../services/api';
+import { authApi, rbacApi, setAuthToken, setUnauthorizedHandler } from '../services/api';
 import { config } from '../config/env';
 import { getPrimaryStorage, getSecondaryStorage } from '../utils/storage';
 
@@ -15,6 +15,8 @@ const AuthContext = createContext({
   login: () => {},
   logout: () => {},
   updateUser: () => {},
+  moduleAccess: null,
+  refreshModuleAccess: () => {},
 });
 
 // Auth Provider Component
@@ -23,6 +25,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState(null);
+  const [moduleAccess, setModuleAccess] = useState(null);
   const navigate = useNavigate();
 
   // Logout function
@@ -43,6 +46,20 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
     navigate('/auth/sign-in');
   }, [navigate]);
+
+  const refreshModuleAccess = useCallback(async (role) => {
+    try {
+      if (!role || role === 'admin') {
+        setModuleAccess({ allowModules: 'ALL', allowSubroutes: 'ALL' });
+        return;
+      }
+      // Non-admins fetch their own module access only
+      const a = await rbacApi.getMyModules();
+      setModuleAccess(a || { allowModules: [], allowSubroutes: [] });
+    } catch (_) {
+      setModuleAccess({ allowModules: [], allowSubroutes: [] });
+    }
+  }, []);
 
   // Initialize auth on mount: load token from storage, validate profile, set 401 handler
   useEffect(() => {
@@ -65,10 +82,13 @@ export const AuthProvider = ({ children }) => {
               const userData = fresh?.user || JSON.parse(storedUser);
               setUser(userData);
               setIsAuthenticated(true);
+              await refreshModuleAccess(userData.role);
             } else {
               // Demo mode: trust stored user
-              setUser(JSON.parse(storedUser));
+              const u = JSON.parse(storedUser);
+              setUser(u);
               setIsAuthenticated(true);
+              await refreshModuleAccess(u.role);
             }
           } catch (e) {
             // Invalid token -> clear and reset
@@ -102,6 +122,15 @@ export const AuthProvider = ({ children }) => {
     return () => setUnauthorizedHandler(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logout]);
+
+  // Lightweight polling to apply RBAC changes quickly for non-admins
+  useEffect(() => {
+    if (!user || user.role === 'admin') return;
+    let timer = setInterval(() => {
+      refreshModuleAccess(user.role);
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [user, refreshModuleAccess]);
 
   // Login function
   const login = useCallback(async (email, password, remember = false) => {
@@ -145,6 +174,7 @@ export const AuthProvider = ({ children }) => {
 
       const dashboardPath = getDashboardPath(userData.role);
       navigate(dashboardPath);
+      await refreshModuleAccess(userData.role);
       return { success: true, user: userData };
     } catch (e) {
       setError(e.message || 'Login failed');
@@ -168,7 +198,7 @@ export const AuthProvider = ({ children }) => {
 
   const clearError = () => setError(null);
 
-  const value = { user, loading, isAuthenticated, error, login, logout, updateUser, clearError };
+  const value = { user, loading, isAuthenticated, error, login, logout, updateUser, clearError, moduleAccess, refreshModuleAccess };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

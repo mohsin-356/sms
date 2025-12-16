@@ -86,14 +86,14 @@ export const globalStyles = {
           "linear-gradient(135deg, #DCE9FF 0%, #e9f0ffff 40%, #E9F3FF 100%)",
           "linear-gradient(135deg, #050816 0%, #0b1437 40%, #1B254B 100%)"
         )(props),
-        fontFamily: "DM Sans",
+        fontFamily: "Poppins, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'",
         letterSpacing: "-0.5px",
       },
       input: {
         color: "gray.700",
       },
       html: {
-        fontFamily: "DM Sans",
+        fontFamily: "Poppins, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'",
       },
     }),
   },

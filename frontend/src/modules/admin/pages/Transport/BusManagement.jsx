@@ -25,6 +25,7 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+  Portal,
   useDisclosure,
   Modal,
   ModalOverlay,
@@ -54,12 +55,13 @@ export default function BusManagement() {
 
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
-  const [route, setRoute] = useState('all');
+  const [routeFilter, setRouteFilter] = useState('all');
   const [rows, setRows] = useState([]);
+  const [routesOptions, setRoutesOptions] = useState([]);
   const [selected, setSelected] = useState(null);
   const viewDisc = useDisclosure();
   const editDisc = useDisclosure();
-  const [form, setForm] = useState({ backendId: null, id: '', plate: '', capacity: 0, driver: '', route: '', status: 'Active', lastService: '' });
+  const [form, setForm] = useState({ backendId: null, id: '', plate: '', capacity: 0, driver: '', routeId: '', status: 'Active', lastService: '' });
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
 
   const normalizeBus = (bus) => {
@@ -73,7 +75,8 @@ export default function BusManagement() {
       plate: bus.plate || bus.plateNumber || bus.registrationNumber || '-',
       capacity: typeof bus.capacity === 'number' ? bus.capacity : 0,
       driver: bus.driverName || bus.driver || '-',
-      route: bus.route || bus.routeName || 'Unassigned',
+      routeId: bus.routeId || '',
+      route: bus.routeName || bus.route || 'Unassigned',
       status: statusLabel,
       lastService: bus.lastService || bus.lastServiceDate || '',
       maintDue: statusRaw === 'maintenance' || bus.maintDue === true,
@@ -107,14 +110,25 @@ export default function BusManagement() {
     loadBuses();
   }, []);
 
+  useEffect(() => {
+    const loadRoutes = async () => {
+      try {
+        const data = await transportApi.listRoutes();
+        const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+        setRoutesOptions(items);
+      } catch (e) {}
+    };
+    loadRoutes();
+  }, []);
+
   const filtered = useMemo(() => {
     return rows.filter((b) => {
       const matchesSearch = !search || b.id.toLowerCase().includes(search.toLowerCase()) || b.driver.toLowerCase().includes(search.toLowerCase()) || b.plate.toLowerCase().includes(search.toLowerCase());
       const matchesStatus = status === 'all' || b.status.toLowerCase() === status;
-      const matchesRoute = route === 'all' || b.route.toLowerCase() === route;
+      const matchesRoute = routeFilter === 'all' || String(b.routeId || '') === String(routeFilter);
       return matchesSearch && matchesStatus && matchesRoute;
     });
-  }, [rows, search, status, route]);
+  }, [rows, search, status, routeFilter]);
 
   const stats = useMemo(() => {
     const total = rows.length;
@@ -196,7 +210,7 @@ export default function BusManagement() {
             leftIcon={<MdPlaylistAdd />}
             colorScheme="blue"
             onClick={() => {
-              setForm({ backendId: null, id: '', plate: '', capacity: 0, driver: '', route: '', status: 'Active', lastService: '' });
+              setForm({ backendId: null, id: '', plate: '', capacity: 0, driver: '', routeId: '', status: 'Active', lastService: '' });
               editDisc.onOpen();
             }}
           >
@@ -227,11 +241,11 @@ export default function BusManagement() {
             <option value='active'>Active</option>
             <option value='maintenance'>Maintenance</option>
           </Select>
-          <Select maxW="200px" value={route} onChange={(e) => setRoute(e.target.value)}>
+          <Select maxW="200px" value={routeFilter} onChange={(e) => setRouteFilter(e.target.value)}>
             <option value='all'>All Routes</option>
-            <option value='r1'>R1</option>
-            <option value='r2'>R2</option>
-            <option value='r3'>R3</option>
+            {routesOptions.map((r) => (
+              <option key={r.id} value={r.id}>{r.name}</option>
+            ))}
           </Select>
         </Flex>
       </Card>
@@ -264,9 +278,10 @@ export default function BusManagement() {
                   <Td>
                     <Flex align='center' gap={1}>
                       <IconButton aria-label='View' icon={<MdRemoveRedEye />} size='sm' variant='ghost' onClick={()=>{ setSelected(b); viewDisc.onOpen(); }} />
-                      <Menu>
+                      <Menu isLazy placement='bottom-end'>
                         <MenuButton as={IconButton} aria-label='More' icon={<MdMoreVert />} size='sm' variant='ghost' />
-                        <MenuList>
+                        <Portal>
+                        <MenuList zIndex={1500}>
                           <MenuItem onClick={()=>{ setSelected(b); viewDisc.onOpen(); }}>View Details</MenuItem>
                           <MenuItem onClick={()=>{ setSelected(b); setForm({ ...b }); editDisc.onOpen(); }}>Edit</MenuItem>
                           <MenuItem color='red.500' onClick={async ()=>{
@@ -281,6 +296,7 @@ export default function BusManagement() {
                             }
                           }}>Delete</MenuItem>
                         </MenuList>
+                        </Portal>
                       </Menu>
                     </Flex>
                   </Td>
@@ -322,6 +338,10 @@ export default function BusManagement() {
           <ModalCloseButton />
           <ModalBody>
             <FormControl mb={3}>
+              <FormLabel>Bus ID</FormLabel>
+              <Input value={form.id} onChange={(e)=> setForm(f=>({ ...f, id: e.target.value }))} placeholder='e.g. BUS-200' />
+            </FormControl>
+            <FormControl mb={3}>
               <FormLabel>Plate</FormLabel>
               <Input value={form.plate} onChange={(e)=> setForm(f=>({ ...f, plate: e.target.value }))} />
             </FormControl>
@@ -335,7 +355,11 @@ export default function BusManagement() {
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Route</FormLabel>
-              <Input value={form.route} onChange={(e)=> setForm(f=>({ ...f, route: e.target.value }))} />
+              <Select placeholder='Unassigned' value={form.routeId} onChange={(e)=> setForm(f=>({ ...f, routeId: e.target.value }))}>
+                {routesOptions.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </Select>
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Status</FormLabel>
@@ -355,10 +379,25 @@ export default function BusManagement() {
               colorScheme='blue'
               onClick={async () => {
                 try {
+                  if (!form.backendId && (!form.id || !String(form.id).trim())) {
+                    toast({ title: 'Bus ID is required', status: 'error', duration: 4000, isClosable: true });
+                    return;
+                  }
+                  if (!form.backendId) {
+                    const exists = rows.some(b => String(b.id).toLowerCase() === String(form.id).trim().toLowerCase());
+                    if (exists) {
+                      toast({ title: 'Duplicate Bus ID', description: 'A bus with this ID already exists. Please choose another.', status: 'warning', duration: 5000, isClosable: true });
+                      return;
+                    }
+                  }
                   const payload = {
                     number: form.id,
                     driverName: form.driver,
                     status: (form.status || 'Active').toLowerCase(),
+                    plate: form.plate || null,
+                    capacity: typeof form.capacity === 'number' ? form.capacity : null,
+                    lastService: form.lastService || null,
+                    routeId: form.routeId || undefined,
                   };
 
                   if (form.backendId) {
@@ -374,7 +413,8 @@ export default function BusManagement() {
                   editDisc.onClose();
                 } catch (e) {
                   console.error('Failed to save bus', e);
-                  toast({ title: 'Failed to save bus', description: e.message || 'Unable to save bus details.', status: 'error', duration: 6000, isClosable: true });
+                  const msg = e?.response?.data?.message || e?.data?.message || e?.message || 'Unable to save bus details.';
+                  toast({ title: 'Failed to save bus', description: msg, status: 'error', duration: 6000, isClosable: true });
                 }
               }}
             >

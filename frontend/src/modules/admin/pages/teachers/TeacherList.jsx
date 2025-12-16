@@ -42,7 +42,7 @@ import {
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
-import { SearchIcon, AddIcon, DownloadIcon, ViewIcon, EditIcon, DeleteIcon } from '@chakra-ui/icons';
+import { SearchIcon, DownloadIcon, ViewIcon, EditIcon, DeleteIcon } from '@chakra-ui/icons';
 import { 
   MdMoreVert,
   MdPeople,
@@ -451,14 +451,7 @@ function TeacherList() {
             Manage teaching staff and their information ({filteredTeachers.length} shown of {totalTeachers})
           </Text>
         </Box>
-        <Button 
-          leftIcon={<AddIcon />} 
-          colorScheme="blue" 
-          size="md"
-          _hover={{ transform: 'translateY(-2px)', boxShadow: 'lg' }}
-        >
-          Add New Teacher
-        </Button>
+        
       </Flex>
 
       {/* Statistics Cards - redesigned */}

@@ -5,6 +5,7 @@ import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
 import { rbacApi } from '../../../../services/api';
+import { getSMSRoutes } from '../../../../smsRoutesConfig';
 
 const allPerms = ['students.view','students.edit','teachers.view','teachers.edit','finance.view','finance.edit','transport.view','transport.edit','attendance.view','attendance.edit','attendance.export','reports.view','reports.export','communication.send','settings.manage'];
 
@@ -14,6 +15,11 @@ export default function RoleManagement() {
   const [selected, setSelected] = useState(null);
   const [roles, setRoles] = useState([]);
   const [permAssignments, setPermAssignments] = useState({});
+  const [moduleAssignments, setModuleAssignments] = useState({});
+  const [moduleDefs, setModuleDefs] = useState([]);
+  const [selectedRole, setSelectedRole] = useState('teacher');
+  const [allowModules, setAllowModules] = useState(new Set());
+  const [allowSubroutes, setAllowSubroutes] = useState(new Set());
   const createDisc = useDisclosure();
   const editDisc = useDisclosure();
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
@@ -28,9 +34,70 @@ export default function RoleManagement() {
         const perms = await rbacApi.getPermissions();
         setPermAssignments(perms?.assignments || {});
       } catch (_) {}
+      try {
+        const mods = await rbacApi.getModules();
+        setModuleAssignments(mods?.assignments || {});
+      } catch (_) {}
+      try {
+        const smsRoutes = getSMSRoutes();
+        const defs = smsRoutes
+          .filter(r => r.layout === '/admin')
+          .map((r) => {
+            if (r.collapse && Array.isArray(r.items)) {
+              return { name: r.name, subroutes: r.items.map(it => it.path) };
+            }
+            return { name: r.name, subroutes: r.path ? [r.path] : [] };
+          });
+        setModuleDefs(defs);
+      } catch (_) {}
     };
     load();
   }, []);
+
+  // Sync current role's assignments to local state
+  useEffect(() => {
+    const a = moduleAssignments?.[selectedRole] || { allowModules: [], allowSubroutes: [] };
+    setAllowModules(new Set(a.allowModules || []));
+    setAllowSubroutes(new Set(a.allowSubroutes || []));
+  }, [selectedRole, moduleAssignments]);
+
+  const toggleModule = (name, checked) => {
+    setAllowModules((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(name); else next.delete(name);
+      return next;
+    });
+    if (!checked) {
+      const def = moduleDefs.find(d => d.name === name);
+      if (def && def.subroutes?.length) {
+        setAllowSubroutes((prev) => {
+          const next = new Set(prev);
+          def.subroutes.forEach((p) => next.delete(p));
+          return next;
+        });
+      }
+    }
+  };
+
+  const toggleSubroute = (path, checked) => {
+    setAllowSubroutes((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(path); else next.delete(path);
+      return next;
+    });
+  };
+
+  const saveModules = async () => {
+    const payload = {
+      allowModules: Array.from(allowModules),
+      allowSubroutes: Array.from(allowSubroutes),
+    };
+    try {
+      await rbacApi.setModules(selectedRole, payload);
+      const mods = await rbacApi.getModules();
+      setModuleAssignments(mods?.assignments || {});
+    } catch (_) {}
+  };
 
   const stats = useMemo(() => ({ roles: roles.length, users: roles.reduce((s, r) => s + (r.users || 0), 0), perms: Object.values(permAssignments || {}).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0) }), [roles, permAssignments]);
 
@@ -106,6 +173,40 @@ export default function RoleManagement() {
             </Tbody>
           </Table>
         </Box>
+      </Card>
+
+      {/* Module Access Control */}
+      <Card p={5} mt={5}>
+        <Flex justify="space-between" align="center" mb={4} direction={{ base: 'column', md: 'row' }} gap={3}>
+          <Heading size='md'>Module Access</Heading>
+          <Flex gap={3} align='center'>
+            <Select maxW='220px' value={selectedRole} onChange={(e)=> setSelectedRole(e.target.value)}>
+              {roles.filter(r=> r.id !== 'admin').map(r => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </Select>
+            <Button variant='outline' onClick={()=> { setAllowModules(new Set()); setAllowSubroutes(new Set()); }}>Reset</Button>
+            <Button colorScheme='blue' onClick={saveModules}>Save</Button>
+          </Flex>
+        </Flex>
+        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+          {moduleDefs.map((m) => (
+            <Box key={m.name} borderWidth='1px' borderRadius='md' p={4}>
+              <Checkbox isChecked={allowModules.has(m.name)} onChange={(e)=> toggleModule(m.name, e.target.checked)}>
+                <Text fontWeight='600'>{m.name}</Text>
+              </Checkbox>
+              {allowModules.has(m.name) && m.subroutes?.length > 0 && (
+                <Stack mt={3} pl={6} spacing={2}>
+                  {m.subroutes.map((p) => (
+                    <Checkbox key={p} isChecked={allowSubroutes.has(p)} onChange={(e)=> toggleSubroute(p, e.target.checked)}>
+                      {p}
+                    </Checkbox>
+                  ))}
+                </Stack>
+              )}
+            </Box>
+          ))}
+        </SimpleGrid>
       </Card>
 
       {/* Create Role Modal (fixed roles only) */}

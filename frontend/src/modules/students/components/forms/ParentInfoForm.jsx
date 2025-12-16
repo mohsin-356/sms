@@ -474,6 +474,17 @@ function ParentInfoForm() {
       </Text>
 
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={6}>
+        <FormControl id="familyNumber">
+          <FormLabel>Family Number (optional)</FormLabel>
+          <Input
+            value={parentInfo.familyNumber || ''}
+            onChange={(e) => handleParentInfoChange('familyNumber', e.target.value)}
+            placeholder="Enter to link siblings; leave empty to auto-generate"
+          />
+          <FormHelperText>
+            This value groups siblings. If left empty, the system will generate a unique number.
+          </FormHelperText>
+        </FormControl>
         <FormControl id="siblings">
           <FormLabel>Number of Siblings</FormLabel>
           <Input

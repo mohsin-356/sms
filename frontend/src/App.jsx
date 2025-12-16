@@ -45,7 +45,7 @@ export default function Main() {
               path="admin/*"
               element={
                 <AuthProvider>
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['admin','teacher','student','driver']}>
                     <AdminLayout theme={currentTheme} setTheme={setCurrentTheme} />
                   </ProtectedRoute>
                 </AuthProvider>
@@ -56,7 +56,7 @@ export default function Main() {
               element={
                 <AuthProvider>
                   <ProtectedRoute allowedRoles={['teacher']}>
-                    <TeacherLayout theme={currentTheme} setTheme={setCurrentTheme} />
+                    <Navigate to="/admin/dashboard" replace />
                   </ProtectedRoute>
                 </AuthProvider>
               }
@@ -66,7 +66,7 @@ export default function Main() {
               element={
                 <AuthProvider>
                   <ProtectedRoute allowedRoles={['student']}>
-                    <StudentLayout theme={currentTheme} setTheme={setCurrentTheme} />
+                    <Navigate to="/admin/dashboard" replace />
                   </ProtectedRoute>
                 </AuthProvider>
               }
@@ -84,7 +84,7 @@ export default function Main() {
               element={
                 <AuthProvider>
                   <ProtectedRoute allowedRoles={['driver']}>
-                    <DriverLayout theme={currentTheme} setTheme={setCurrentTheme} />
+                    <Navigate to="/admin/dashboard" replace />
                   </ProtectedRoute>
                 </AuthProvider>
               }

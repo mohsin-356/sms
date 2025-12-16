@@ -31,3 +31,31 @@ export const setPermissionsForRole = async (req, res, next) => {
     res.json(item);
   } catch (e) { next(e); }
 };
+
+// Module-level access APIs
+export const listModules = async (req, res, next) => {
+  try {
+    const data = await rbac.listModuleAssignments();
+    res.json(data);
+  } catch (e) { next(e); }
+};
+
+export const setModulesForRole = async (req, res, next) => {
+  try {
+    const role = String(req.params.role || '').toLowerCase();
+    const allowModules = Array.isArray(req.body.allowModules) ? req.body.allowModules : [];
+    const allowSubroutes = Array.isArray(req.body.allowSubroutes) ? req.body.allowSubroutes : [];
+    const item = await rbac.setModulesForRole(role, { allowModules, allowSubroutes });
+    res.json(item);
+  } catch (e) { next(e); }
+};
+
+export const getMyModules = async (req, res, next) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (!role) return res.status(400).json({ message: 'No role' });
+    const data = await rbac.listModuleAssignments();
+    const item = data?.assignments?.[role] || { allowModules: [], allowSubroutes: [] };
+    res.json(item);
+  } catch (e) { next(e); }
+};

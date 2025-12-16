@@ -5,3 +5,8 @@ export const setRoleActive = (role, active) => http.put(`/rbac/roles/${encodeURI
 
 export const getPermissions = () => http.get('/rbac/permissions');
 export const setPermissions = (role, perms) => http.put(`/rbac/permissions/${encodeURIComponent(role)}`, { perms });
+
+// Module-level access
+export const getModules = () => http.get('/rbac/modules');
+export const setModules = (role, data) => http.put(`/rbac/modules/${encodeURIComponent(role)}`, data);
+export const getMyModules = () => http.get('/rbac/my-modules');

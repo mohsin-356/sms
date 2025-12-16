@@ -192,11 +192,11 @@ export const getDashboardPath = (role) => {
     case 'admin':
       return '/admin/dashboard';
     case 'teacher':
-      return '/teacher/dashboard';
+      return '/admin/dashboard';
     case 'student':
-      return '/student/dashboard';
+      return '/admin/dashboard';
     case 'driver':
-      return '/driver/dashboard';
+      return '/admin/dashboard';
     default:
       return '/auth/sign-in';
   }

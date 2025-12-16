@@ -12,7 +12,15 @@ router.post(
   '/buses',
   authenticate,
   authorize('admin'),
-  [body('number').isString().notEmpty(), body('driverName').optional().isString(), body('status').optional().isIn(['active','maintenance','inactive'])],
+  [
+    body('number').isString().notEmpty(),
+    body('driverName').optional().isString(),
+    body('status').optional().isIn(['active','maintenance','inactive']),
+    body('plate').optional().isString(),
+    body('capacity').optional().isInt({ min: 0 }),
+    body('lastService').optional().isISO8601(),
+    body('routeId').optional().isInt({ min: 1 })
+  ],
   validate,
   controller.createBus
 );
@@ -20,7 +28,16 @@ router.put(
   '/buses/:id',
   authenticate,
   authorize('admin'),
-  [param('id').isInt()],
+  [
+    param('id').isInt(),
+    body('number').optional().isString(),
+    body('driverName').optional().isString(),
+    body('status').optional().isIn(['active','maintenance','inactive']),
+    body('plate').optional().isString(),
+    body('capacity').optional().isInt({ min: 0 }),
+    body('lastService').optional().isISO8601(),
+    body('routeId').optional().isInt({ min: 1 })
+  ],
   validate,
   controller.updateBus
 );

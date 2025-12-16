@@ -26,4 +26,18 @@ router.put(
   controller.setPermissionsForRole
 );
 
+// Module-level access management
+router.get('/modules', authenticate, authorize('admin'), controller.listModules);
+router.put(
+  '/modules/:role',
+  authenticate,
+  authorize('admin'),
+  [param('role').isIn(['admin','teacher','student','driver']), body('allowModules').optional().isArray(), body('allowSubroutes').optional().isArray()],
+  validate,
+  controller.setModulesForRole
+);
+
+// Own role's module access (non-admin)
+router.get('/my-modules', authenticate, controller.getMyModules);
+
 export default router;

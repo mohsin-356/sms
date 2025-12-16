@@ -1,0 +1,106 @@
+import { query } from '../config/db.js';
+
+const genFamilyNumber = async () => {
+  const make = () => Math.random().toString(36).slice(2, 10).toUpperCase();
+  for (let i = 0; i < 5; i++) {
+    const code = make();
+    const { rows } = await query('SELECT 1 FROM parents WHERE family_number = $1', [code]);
+    if (!rows[0]) return code;
+  }
+  return `FAM${Date.now().toString(36).toUpperCase()}`;
+};
+
+export const list = async ({ q, page = 1, pageSize = 50 }) => {
+  const where = [];
+  const params = [];
+  if (q) {
+    params.push(`%${String(q).toLowerCase()}%`);
+    where.push(`(LOWER(primary_name) LIKE $${params.length} OR LOWER(father_name) LIKE $${params.length} OR LOWER(mother_name) LIKE $${params.length} OR LOWER(email) LIKE $${params.length} OR LOWER(family_number) LIKE $${params.length})`);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const offset = (Number(page) - 1) * Number(pageSize);
+  const countRes = await query(`SELECT COUNT(*)::int AS count FROM parents ${whereSql}`, params);
+  const total = countRes.rows[0]?.count || 0;
+  const dataRes = await query(
+    `SELECT p.id, p.family_number AS "familyNumber", p.primary_name AS "primaryName", p.father_name AS "fatherName", p.mother_name AS "motherName",
+            p.whatsapp_phone AS "whatsappPhone", p.email, p.address,
+            (SELECT COUNT(1)::int FROM students s WHERE s.family_number = p.family_number) AS "childrenCount"
+     FROM parents p ${whereSql}
+     ORDER BY p.id DESC
+     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    [...params, pageSize, offset]
+  );
+  return { rows: dataRes.rows, total, page: Number(page), pageSize: Number(pageSize) };
+};
+
+export const getById = async (id) => {
+  const { rows } = await query(
+    'SELECT id, family_number AS "familyNumber", primary_name AS "primaryName", father_name AS "fatherName", mother_name AS "motherName", whatsapp_phone AS "whatsappPhone", email, address FROM parents WHERE id = $1',
+    [id]
+  );
+  const parent = rows[0];
+  if (!parent) return null;
+  const kidsRes = await query(
+    'SELECT id, name, class, section, roll_number AS "rollNumber" FROM students WHERE family_number = $1 ORDER BY id DESC',
+    [parent.familyNumber]
+  );
+  parent.children = kidsRes.rows;
+  return parent;
+};
+
+export const ensureByFamilyNumber = async (data) => {
+  const fam = (data.familyNumber || '').trim();
+  if (!fam) {
+    const generated = await genFamilyNumber();
+    const { rows } = await query(
+      'INSERT INTO parents (family_number, primary_name, father_name, mother_name, whatsapp_phone, email, address) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, family_number AS "familyNumber"',
+      [generated, data.primaryName || null, data.fatherName || null, data.motherName || null, data.whatsappPhone || null, data.email || null, data.address || null]
+    );
+    return rows[0];
+  }
+  const { rows } = await query('SELECT id, family_number AS "familyNumber" FROM parents WHERE family_number = $1', [fam]);
+  if (rows[0]) return rows[0];
+  const ins = await query(
+    'INSERT INTO parents (family_number, primary_name, father_name, mother_name, whatsapp_phone, email, address) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, family_number AS "familyNumber"',
+    [fam, data.primaryName || null, data.fatherName || null, data.motherName || null, data.whatsappPhone || null, data.email || null, data.address || null]
+  );
+  return ins.rows[0];
+};
+
+export const create = async (data) => {
+  const fam = data.familyNumber || (await genFamilyNumber());
+  const { rows } = await query(
+    `INSERT INTO parents (family_number, primary_name, father_name, mother_name, whatsapp_phone, email, address)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     ON CONFLICT (family_number) DO UPDATE SET primary_name = COALESCE(EXCLUDED.primary_name, parents.primary_name),
+       father_name = COALESCE(EXCLUDED.father_name, parents.father_name),
+       mother_name = COALESCE(EXCLUDED.mother_name, parents.mother_name),
+       whatsapp_phone = COALESCE(EXCLUDED.whatsapp_phone, parents.whatsapp_phone),
+       email = COALESCE(EXCLUDED.email, parents.email),
+       address = COALESCE(EXCLUDED.address, parents.address)
+     RETURNING id, family_number AS "familyNumber"`,
+    [fam, data.primaryName || null, data.fatherName || null, data.motherName || null, data.whatsappPhone || null, data.email || null, data.address || null]
+  );
+  return rows[0];
+};
+
+export const update = async (id, data) => {
+  const fields = [];
+  const values = [];
+  const map = {
+    primaryName: 'primary_name', fatherName: 'father_name', motherName: 'mother_name', whatsappPhone: 'whatsapp_phone', email: 'email', address: 'address'
+  };
+  Object.entries(data || {}).forEach(([k,v]) => {
+    if (map[k]) { values.push(v); fields.push(`${map[k]} = $${values.length}`); }
+  });
+  if (!fields.length) return await getById(id);
+  values.push(id);
+  const { rowCount } = await query(`UPDATE parents SET ${fields.join(', ')} WHERE id = $${values.length}`, values);
+  if (!rowCount) return null;
+  return await getById(id);
+};
+
+export const findByFamilyNumber = async (familyNumber) => {
+  const { rows } = await query('SELECT id, family_number AS "familyNumber", primary_name AS "primaryName", whatsapp_phone AS "whatsappPhone" FROM parents WHERE family_number = $1', [familyNumber]);
+  return rows[0] || null;
+};

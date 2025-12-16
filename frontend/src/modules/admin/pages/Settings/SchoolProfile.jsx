@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
-import { Box, Flex, Heading, Text, SimpleGrid, Icon, Button, ButtonGroup, useColorModeValue, Grid, GridItem, FormControl, FormLabel, Input, Textarea, Select } from '@chakra-ui/react';
+import React, { useEffect, useState } from 'react';
+import { Box, Flex, Heading, Text, SimpleGrid, Icon, Button, ButtonGroup, useColorModeValue, Grid, GridItem, FormControl, FormLabel, Input, Textarea, Select, useToast } from '@chakra-ui/react';
 import { MdBusiness, MdSave, MdRefresh, MdFileDownload } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import { settingsApi } from '../../../../services/api';
 
 export default function SchoolProfile() {
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const toast = useToast();
   const [name, setName] = useState('City Public School');
   const [branch, setBranch] = useState('Main Campus');
   const [phone, setPhone] = useState('+92 300 0000000');
@@ -14,6 +16,68 @@ export default function SchoolProfile() {
   const [address, setAddress] = useState('123 Main Road, Karachi');
   const [principal, setPrincipal] = useState('Adeel Khan');
   const [session, setSession] = useState('2025-2026');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const defaults = {
+    name: 'City Public School',
+    branch: 'Main Campus',
+    phone: '+92 300 0000000',
+    email: 'info@school.com',
+    address: '123 Main Road, Karachi',
+    principal: 'Adeel Khan',
+    session: '2025-2026',
+    logoUrl: '',
+  };
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      const data = await settingsApi.getSchoolProfile();
+      const p = data && typeof data === 'object' ? { ...defaults, ...data } : defaults;
+      setName(p.name);
+      setBranch(p.branch);
+      setPhone(p.phone);
+      setEmail(p.email);
+      setAddress(p.address);
+      setPrincipal(p.principal);
+      setSession(p.session);
+      setLogoUrl(p.logoUrl || '');
+    } catch (_) {
+      // keep defaults
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const payload = { name, branch, phone, email, address, principal, session, logoUrl };
+      await settingsApi.saveSchoolProfile(payload);
+      toast({ title: 'Saved', description: 'School profile updated successfully.', status: 'success', duration: 4000, isClosable: true });
+    } catch (e) {
+      toast({ title: 'Save failed', description: e?.message || 'Unable to save profile.', status: 'error', duration: 5000, isClosable: true });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExport = () => {
+    const payload = { name, branch, phone, email, address, principal, session, logoUrl };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'school-profile.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -23,9 +87,9 @@ export default function SchoolProfile() {
           <Text color={textColorSecondary}>Identity, contact, and academic session details</Text>
         </Box>
         <ButtonGroup>
-          <Button leftIcon={<MdRefresh />} variant='outline' onClick={() => window.location.reload()}>Refresh</Button>
-          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export</Button>
-          <Button leftIcon={<MdSave />} colorScheme='blue'>Save Changes</Button>
+          <Button leftIcon={<MdRefresh />} variant='outline' onClick={loadProfile} isLoading={loading}>Refresh</Button>
+          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue' onClick={handleExport}>Export</Button>
+          <Button leftIcon={<MdSave />} colorScheme='blue' onClick={handleSave} isLoading={saving}>Save Changes</Button>
         </ButtonGroup>
       </Flex>
 
@@ -53,7 +117,7 @@ export default function SchoolProfile() {
             </FormControl>
             <FormControl>
               <FormLabel>Logo URL</FormLabel>
-              <Input placeholder='https://...' />
+              <Input placeholder='https://...' value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} />
             </FormControl>
           </Card>
         </GridItem>

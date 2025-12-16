@@ -1,6 +1,7 @@
 import * as students from '../services/students.service.js';
 import cloudinary from '../config/cloudinary.js';
-import { ensureStudentExtendedColumns, ensureFinanceConstraints } from '../db/autoMigrate.js';
+import { ensureStudentExtendedColumns, ensureFinanceConstraints, ensureParentsSchema } from '../db/autoMigrate.js';
+import * as parentsSvc from '../services/parents.service.js';
 
 export const list = async (req, res, next) => {
   try {
@@ -23,6 +24,7 @@ export const getById = async (req, res, next) => {
 export const create = async (req, res, next) => {
   try {
     await ensureStudentExtendedColumns();
+    await ensureParentsSchema();
     const payload = { ...req.body };
     // Upload base64 avatar to Cloudinary if provided
     if (payload.avatar && typeof payload.avatar === 'string' && payload.avatar.startsWith('data:')) {
@@ -34,6 +36,22 @@ export const create = async (req, res, next) => {
         payload.avatar = null;
       }
     }
+    // Ensure a parents record exists and attach family number
+    try {
+      const p = payload.parent || {};
+      const familyNumberInput = payload.familyNumber || p.familyNumber;
+      const ensured = await parentsSvc.ensureByFamilyNumber({
+        familyNumber: familyNumberInput,
+        primaryName: p?.father?.name || p?.mother?.name || payload.parentName || payload.name || null,
+        fatherName: p?.father?.name || null,
+        motherName: p?.mother?.name || null,
+        whatsappPhone: p?.father?.phone || p?.mother?.phone || null,
+        email: p?.father?.email || p?.mother?.email || payload.email || null,
+        address: p?.address || null,
+      });
+      if (ensured?.familyNumber) payload.familyNumber = ensured.familyNumber;
+    } catch (_) {}
+
     const created = await students.create(payload);
     return res.status(201).json(created);
   } catch (e) { next(e); }

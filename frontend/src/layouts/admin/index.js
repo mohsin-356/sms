@@ -10,6 +10,7 @@ import ErrorBoundary from '../../components/ErrorBoundary';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import routes from 'routes.js';
 import testRoutes from '../../testRoutes';
+import { useAuth } from 'contexts/AuthContext';
 
 // Custom Chakra theme
 export default function Dashboard(props) {
@@ -138,6 +139,43 @@ export default function Dashboard(props) {
   document.documentElement.dir = 'ltr';
   // React to route changes to update Navbar titles without a full reload
   const location = useLocation();
+  const { user, moduleAccess, loading } = useAuth();
+
+  const filterRoutesByAccess = (allRoutes) => {
+    // Admin always sees everything
+    if (!user || user.role === 'admin' || !moduleAccess || moduleAccess.allowModules === 'ALL') return allRoutes;
+
+    const allowedModules = new Set(moduleAccess.allowModules || []);
+    const allowedSubroutes = new Set(
+      moduleAccess.allowSubroutes === 'ALL' ? ['ALL'] : (moduleAccess.allowSubroutes || [])
+    );
+
+    const isModuleAllowed = (name) => allowedModules.has(name);
+    const isSubrouteAllowed = (subPath) => allowedSubroutes.has('ALL') || allowedSubroutes.has(subPath);
+
+    const filterTree = (items) => items
+      .map((r) => {
+        // Only include /admin items in Admin layout
+        if (r.layout !== '/admin') return null;
+        if (r.collapse && r.items) {
+          if (!isModuleAllowed(r.name)) return null;
+          const filteredItems = (r.items || []).filter((it) => isSubrouteAllowed(it.path));
+          if (filteredItems.length === 0) return null;
+          return { ...r, items: filteredItems };
+        }
+        // Non-collapsible like Dashboard
+        if (!r.collapse && r.name) {
+          if (!isModuleAllowed(r.name)) return null;
+          return r;
+        }
+        return r;
+      })
+      .filter(Boolean);
+
+    return filterTree(allRoutes);
+  };
+
+  const effectiveRoutes = useMemo(() => filterRoutesByAccess(routes), [routes, moduleAccess, user]);
   const brandText = useMemo(() => getActiveRoute(routes), [location.pathname]);
   const secondary = useMemo(() => getActiveNavbar(routes), [location.pathname]);
   const message = useMemo(() => getActiveNavbarText(routes), [location.pathname]);
@@ -150,7 +188,7 @@ export default function Dashboard(props) {
             setToggleSidebar,
           }}
         >
-          <Sidebar routes={routes} sidebarWidth={sidebarWidth} display="none" {...rest} />
+          <Sidebar routes={effectiveRoutes} sidebarWidth={sidebarWidth} display="none" {...rest} />
           <Box
             float="right"
             minHeight="100vh"
@@ -195,7 +233,7 @@ export default function Dashboard(props) {
                   </Center>
                 }>
                   <Routes>
-                    {getRoutes(routes)}
+                    {getRoutes(effectiveRoutes)}
                   
                   {/* Direct test routes */}
                   {testRoutes.map((route, index) => (

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -37,7 +36,6 @@ import {
 import Card from '../../../../components/card/Card';
 // Icons
 import {
-  MdAdd,
   MdSearch,
   MdFilterList,
   MdEdit,
@@ -65,7 +63,6 @@ export default function StudentsList() {
   const [error, setError] = useState('');
   const [viewId, setViewId] = useState(null);
   const [editId, setEditId] = useState(null);
-  const navigate = useNavigate();
   const toast = useToast();
   const { classOptions } = useClassOptions();
 
@@ -105,9 +102,6 @@ export default function StudentsList() {
   });
 
   // Handle actions
-  const handleAddStudent = () => {
-    navigate('/admin/students/add');
-  };
 
   const handleEditStudent = (studentId) => {
     setEditId(studentId);
@@ -149,13 +143,6 @@ export default function StudentsList() {
             Manage all students and RFID tags
           </Text>
         </Box>
-        <Button
-          leftIcon={<MdAdd />}
-          colorScheme='blue'
-          onClick={handleAddStudent}
-        >
-          Add New Student
-        </Button>
       </Flex>
 
       {/* Filters */}

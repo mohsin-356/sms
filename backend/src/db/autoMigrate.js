@@ -82,3 +82,40 @@ export async function ensureFinanceConstraints() {
     END $$;
   `);
 }
+
+// Ensure Parents schema and students.family_number support
+export async function ensureParentsSchema() {
+  await query(`
+    DO $$
+    BEGIN
+      -- Create parents table if it does not exist
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.tables WHERE table_name = 'parents'
+      ) THEN
+        EXECUTE '
+          CREATE TABLE parents (
+            id SERIAL PRIMARY KEY,
+            family_number VARCHAR(64) NOT NULL UNIQUE,
+            primary_name VARCHAR(255),
+            father_name VARCHAR(255),
+            mother_name VARCHAR(255),
+            whatsapp_phone VARCHAR(64),
+            email VARCHAR(255),
+            address TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+          )
+        ';
+      END IF;
+
+      -- Add family_number to students table if missing
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns WHERE table_name='students' AND column_name='family_number'
+      ) THEN
+        EXECUTE 'ALTER TABLE students ADD COLUMN family_number VARCHAR(64)';
+      END IF;
+    END $$;
+
+    -- Index to speed up lookups by family_number
+    CREATE INDEX IF NOT EXISTS idx_students_family_number ON students (family_number);
+  `);
+}

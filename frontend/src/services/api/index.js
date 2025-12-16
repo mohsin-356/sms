@@ -5,4 +5,6 @@ export * as assignmentsApi from './assignments';
 export * as classesApi from './classes';
 export * as subjectsApi from './subjects';
 export * as rbacApi from './rbac';
+export * as settingsApi from './settings';
+export * as parentsApi from './parents';
 export { http, setAuthToken, setUnauthorizedHandler } from '../http';

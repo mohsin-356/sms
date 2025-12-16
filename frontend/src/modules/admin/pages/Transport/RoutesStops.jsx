@@ -27,6 +27,7 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+  Portal,
   useDisclosure,
   Modal,
   ModalOverlay,
@@ -64,7 +65,7 @@ export default function RoutesStops() {
       try {
         const res = await transportApi.listRoutes();
         const items = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
-        setRoutes(items.map(r => ({ id: r.id, name: r.name, buses: 0, stops: 0, start: '', end: '' })));
+        setRoutes(items.map(r => ({ id: r.id, name: r.name, buses: Number(r.busesCount||0), stops: Number(r.stopsCount||0), start: '', end: '' })));
         if (items[0]) setSelected(String(items[0].id));
       } catch (e) {
         toast({ title: 'Failed to load routes', status: 'error' });
@@ -160,16 +161,29 @@ export default function RoutesStops() {
                     <Td>
                       <HStack spacing={1}>
                         <IconButton aria-label='View' icon={<MdRemoveRedEye />} size='sm' variant='ghost' onClick={()=>{ setActiveRoute(r); viewDisc.onOpen(); }} />
-                        <Menu>
+                        <Menu isLazy placement='bottom-end'>
                           <MenuButton as={IconButton} aria-label='More' icon={<MdMoreVert />} size='sm' variant='ghost' />
-                          <MenuList>
+                          <Portal>
+                          <MenuList zIndex={1500}>
                             <MenuItem onClick={()=>{ setActiveRoute(r); viewDisc.onOpen(); }}>View Details</MenuItem>
                             <MenuItem onClick={()=>{ setRouteForm({ id: r.id, name: r.name }); editDisc.onOpen(); }}>Edit</MenuItem>
                             <MenuItem color='red.500' onClick={async ()=>{
                               if (!window.confirm('Delete this route?')) return;
-                              try { await transportApi.deleteRoute(r.id); setRoutes(prev => prev.filter(x => x.id !== r.id)); if (String(selected)===String(r.id)) setSelected(''); toast({ title: 'Route deleted', status: 'success' }); } catch (e) { toast({ title: 'Failed to delete route', status: 'error' }); }
+                              try {
+                                await transportApi.deleteRoute(r.id);
+                                setRoutes(prev => {
+                                  const next = prev.filter(x => x.id !== r.id);
+                                  if (String(selected)===String(r.id)) {
+                                    setSelected(next[0] ? String(next[0].id) : '');
+                                    setStops([]);
+                                  }
+                                  return next;
+                                });
+                                toast({ title: 'Route deleted', status: 'success' });
+                              } catch (e) { toast({ title: 'Failed to delete route', status: 'error' }); }
                             }}>Delete</MenuItem>
                           </MenuList>
+                          </Portal>
                         </Menu>
                       </HStack>
                     </Td>
@@ -184,18 +198,25 @@ export default function RoutesStops() {
           <Heading size='md' p={4} borderBottomWidth={1} borderColor={useColorModeValue('gray.200', 'gray.700')}>Stops - {selected || 'N/A'}</Heading>
           <VStack align='stretch' spacing={2} p={4}>
             <HStack justify='space-between' mb={2}>
-              <Button leftIcon={<MdAdd />} size='sm' onClick={()=>{ setStopForm({ routeId: selected, stopId: '', name: '' }); stopDisc.onOpen(); }}>Add Stop</Button>
+              <Button leftIcon={<MdAdd />} size='sm' onClick={()=>{ setStopForm({ routeId: selected, stopId: '', name: '' }); stopDisc.onOpen(); }} isDisabled={!selected}>Add Stop</Button>
             </HStack>
             {stops.map((s) => (
               <HStack key={s.id} justify='space-between'>
                 <Text>{s.name}</Text>
                 <HStack>
                   <IconButton aria-label='View' icon={<MdRemoveRedEye />} size='sm' variant='ghost' onClick={()=>{ setActiveRoute({ id: selected, name: routes.find(r=>String(r.id)===String(selected))?.name, stop: s.name }); viewDisc.onOpen(); }} />
-                  <IconButton aria-label='Edit' icon={<MdEdit />} size='sm' variant='ghost' onClick={()=>{ setStopForm({ routeId: selected, stopId: s.id, name: s.name }); stopDisc.onOpen(); }} />
-                  <IconButton aria-label='Delete' icon={<MdMoreVert />} size='sm' variant='ghost' onClick={async()=>{
-                    if (!window.confirm('Delete this stop?')) return;
-                    try { await transportApi.removeStop(selected, s.id); setStops(prev => prev.filter(x => x.id !== s.id)); setRoutes(prev => prev.map(r => String(r.id)===String(selected) ? { ...r, stops: Math.max(0, (r.stops||1)-1) } : r)); toast({ title: 'Stop deleted', status: 'success' }); } catch (e) { toast({ title: 'Failed to delete stop', status: 'error' }); }
-                  }} />
+                  <Menu isLazy placement='bottom-end'>
+                    <MenuButton as={IconButton} aria-label='More' icon={<MdMoreVert />} size='sm' variant='ghost' />
+                    <Portal>
+                      <MenuList zIndex={1500}>
+                        <MenuItem onClick={()=>{ setStopForm({ routeId: selected, stopId: s.id, name: s.name }); stopDisc.onOpen(); }}>Edit</MenuItem>
+                        <MenuItem color='red.500' onClick={async()=>{
+                          if (!window.confirm('Delete this stop?')) return;
+                          try { await transportApi.removeStop(selected, s.id); setStops(prev => prev.filter(x => x.id !== s.id)); setRoutes(prev => prev.map(r => String(r.id)===String(selected) ? { ...r, stops: Math.max(0, (r.stops||1)-1) } : r)); toast({ title: 'Stop deleted', status: 'success' }); } catch (e) { toast({ title: 'Failed to delete stop', status: 'error' }); }
+                        }}>Delete</MenuItem>
+                      </MenuList>
+                    </Portal>
+                  </Menu>
                 </HStack>
               </HStack>
             ))}
@@ -254,6 +275,8 @@ export default function RoutesStops() {
                 } else {
                   const created = await transportApi.createRoute({ name: routeForm.name });
                   setRoutes(prev => [...prev, { id: created.id, name: created.name, buses: 0, stops: 0, start: '', end: '' }]);
+                  setSelected(String(created.id));
+                  setStops([]);
                 }
                 editDisc.onClose();
               } catch (e) { toast({ title: 'Failed to save route', status: 'error' }); }
@@ -276,6 +299,7 @@ export default function RoutesStops() {
           <ModalFooter>
             <Button variant='ghost' mr={3} onClick={stopDisc.onClose}>Cancel</Button>
             <Button colorScheme='blue' onClick={async ()=>{
+              if (!stopForm.routeId) { toast({ title: 'Select a route first', status: 'warning' }); return; }
               try {
                 if (stopForm.stopId) {
                   await transportApi.updateStop(stopForm.routeId, stopForm.stopId, { name: stopForm.name });

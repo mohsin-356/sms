@@ -26,9 +26,11 @@ import { MdNotificationsNone, MdInfoOutline } from 'react-icons/md';
 import { IoMdMoon, IoMdSunny } from 'react-icons/io';
 import { FaEthereum } from 'react-icons/fa';
 import routes from '../../routes';
+import { useAuth } from '../../contexts/AuthContext';
 export default function HeaderLinks(props) {
   const { secondary } = props;
   const { colorMode, toggleColorMode } = useColorMode();
+  const { user, logout } = useAuth();
   // Chakra Color Mode
   const navbarIcon = useColorModeValue('gray.400', 'white');
   let menuBg = useColorModeValue('white', 'navy.800');
@@ -43,6 +45,8 @@ export default function HeaderLinks(props) {
     '14px 17px 40px 4px rgba(112, 144, 176, 0.06)',
   );
   const borderButton = useColorModeValue('secondaryGray.500', 'whiteAlpha.200');
+  const displayName = (user?.name || user?.fullName || (user?.email ? user.email.split('@')[0] : '') || 'User').trim();
+  const firstName = displayName.split(' ')[0] || displayName;
   return (
     <Flex
       w={{ sm: '100%', md: 'auto' }}
@@ -183,7 +187,7 @@ export default function HeaderLinks(props) {
           <Avatar
             _hover={{ cursor: 'pointer' }}
             color="white"
-            name="Adela Parkson"
+            name={displayName}
             bg="#11047A"
             size="sm"
             w="40px"
@@ -210,7 +214,7 @@ export default function HeaderLinks(props) {
               fontWeight="700"
               color={textColor}
             >
-              👋&nbsp; Hey, Adela
+              👋&nbsp; Hey, {firstName}
             </Text>
           </Flex>
           <Flex flexDirection="column" p="10px">
@@ -236,6 +240,7 @@ export default function HeaderLinks(props) {
               color="red.400"
               borderRadius="8px"
               px="14px"
+              onClick={() => logout()}
             >
               <Text fontSize="sm">Log out</Text>
             </MenuItem>
