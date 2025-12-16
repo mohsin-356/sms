@@ -269,6 +269,17 @@ export default function BusManagement() {
                         <MenuList>
                           <MenuItem onClick={()=>{ setSelected(b); viewDisc.onOpen(); }}>View Details</MenuItem>
                           <MenuItem onClick={()=>{ setSelected(b); setForm({ ...b }); editDisc.onOpen(); }}>Edit</MenuItem>
+                          <MenuItem color='red.500' onClick={async ()=>{
+                            if (!b.backendId) { toast({ title: 'Cannot delete demo bus', status: 'warning' }); return; }
+                            if (!window.confirm('Delete this bus?')) return;
+                            try {
+                              await transportApi.deleteBus(b.backendId);
+                              await loadBuses();
+                              toast({ title: 'Bus deleted', status: 'success' });
+                            } catch (e) {
+                              toast({ title: 'Failed to delete bus', description: e.message || 'Error', status: 'error' });
+                            }
+                          }}>Delete</MenuItem>
                         </MenuList>
                       </Menu>
                     </Flex>

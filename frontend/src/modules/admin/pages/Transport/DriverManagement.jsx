@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Flex,
@@ -38,27 +38,46 @@ import {
   FormLabel,
   NumberInput,
   NumberInputField,
+  useToast,
 } from '@chakra-ui/react';
 import { MdPerson, MdSearch, MdAdd, MdThumbUp, MdFileDownload, MdPictureAsPdf, MdRemoveRedEye, MdMoreVert, MdEdit } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import * as driversApi from '../../../../services/api/drivers';
 
-const mockDrivers = [
-  { id: 'DRV-01', name: 'Imran Khan', phone: '0300-1111111', license: 'L-12345', status: 'On Duty', bus: 'BUS-101', rating: 4.7 },
-  { id: 'DRV-02', name: 'Ali Raza', phone: '0301-2222222', license: 'L-54321', status: 'Off Duty', bus: '-', rating: 4.4 },
-  { id: 'DRV-03', name: 'Zeeshan', phone: '0302-3333333', license: 'L-67890', status: 'On Duty', bus: 'BUS-103', rating: 4.8 },
-];
+const normalize = (d) => ({
+  id: d.id,
+  name: d.name,
+  phone: d.phone || '-',
+  license: d.licenseNumber || '-',
+  status: String(d.status||'active').toLowerCase()==='active' ? 'On Duty' : 'Off Duty',
+  bus: d.busNumber || '-',
+  rating: 0,
+});
 
 export default function DriverManagement() {
+  const toast = useToast();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
-  const [rows, setRows] = useState(mockDrivers);
+  const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
   const viewDisc = useDisclosure();
   const editDisc = useDisclosure();
   const [form, setForm] = useState({ id: '', name: '', phone: '', license: '', status: 'On Duty', bus: '', rating: 0 });
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+
+  const loadDrivers = async () => {
+    try {
+      const res = await driversApi.list({ pageSize: 200 });
+      const items = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
+      setRows(items.map(normalize));
+    } catch (e) {
+      toast({ title: 'Failed to load drivers', status: 'error' });
+    }
+  };
+
+  useEffect(() => { loadDrivers(); }, []);
 
   const filtered = useMemo(() => {
     return rows.filter((d) => {
@@ -84,7 +103,7 @@ export default function DriverManagement() {
           <Text color={textColorSecondary}>Manage drivers, duty status, and licenses</Text>
         </Box>
         <ButtonGroup>
-          <Button leftIcon={<MdAdd />} colorScheme="blue">Add Driver</Button>
+          <Button leftIcon={<MdAdd />} colorScheme="blue" onClick={()=>{ setForm({ id: '', name: '', phone: '', license: '', status: 'On Duty', bus: '', rating: 0 }); editDisc.onOpen(); }}>Add Driver</Button>
           <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
           <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue'>Export PDF</Button>
         </ButtonGroup>
@@ -146,6 +165,22 @@ export default function DriverManagement() {
                         <MenuList>
                           <MenuItem onClick={()=>{ setSelected(d); viewDisc.onOpen(); }}>View Details</MenuItem>
                           <MenuItem onClick={()=>{ setSelected(d); setForm({ ...d }); editDisc.onOpen(); }}>Edit</MenuItem>
+                          <MenuItem color='red.500' onClick={async ()=>{
+                            if (!window.confirm('Delete this driver?')) return;
+                            try {
+                              await driversApi.remove(d.id);
+                              await loadDrivers();
+                              toast({ title: 'Driver deleted', status: 'success' });
+                            } catch (e) {
+                              if (e?.status === 409 && e?.data?.hasFinancialRecords) {
+                                if (window.confirm('This driver has financial records. Delete anyway?')) {
+                                  try { await driversApi.remove(d.id, { force: 'true' }); await loadDrivers(); toast({ title: 'Driver deleted', status: 'success' }); } catch (err) { toast({ title: 'Failed', status: 'error' }); }
+                                }
+                              } else {
+                                toast({ title: 'Failed to delete driver', status: 'error' });
+                              }
+                            }
+                          }}>Delete</MenuItem>
                         </MenuList>
                       </Menu>
                     </Flex>
@@ -219,9 +254,27 @@ export default function DriverManagement() {
           </ModalBody>
           <ModalFooter>
             <Button variant='ghost' mr={3} onClick={editDisc.onClose}>Cancel</Button>
-            <Button colorScheme='blue' onClick={()=>{
-              setRows(prev => prev.map(r => r.id===form.id ? { ...form } : r));
-              editDisc.onClose();
+            <Button colorScheme='blue' onClick={async ()=>{
+              try {
+                if (form.id) {
+                  await driversApi.update(form.id, {
+                    name: form.name,
+                    phone: form.phone,
+                    licenseNumber: form.license,
+                    status: form.status==='On Duty'?'active':'inactive',
+                  });
+                } else {
+                  await driversApi.create({
+                    name: form.name,
+                    phone: form.phone,
+                    licenseNumber: form.license,
+                    status: form.status==='On Duty'?'active':'inactive',
+                  });
+                }
+                await loadDrivers();
+                editDisc.onClose();
+                toast({ title: 'Driver saved', status: 'success' });
+              } catch (e) { toast({ title: 'Failed to save driver', status: 'error' }); }
             }}>Save</Button>
           </ModalFooter>
         </ModalContent>
