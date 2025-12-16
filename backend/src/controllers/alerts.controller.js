@@ -41,3 +41,11 @@ export const listMine = async (req, res, next) => {
     res.json({ items });
   } catch (e) { next(e); }
 };
+
+export const listRecipients = async (req, res, next) => {
+  try {
+    const { role, q } = req.query;
+    const items = await alerts.listRecipients({ role, q });
+    res.json({ items });
+  } catch (e) { next(e); }
+};

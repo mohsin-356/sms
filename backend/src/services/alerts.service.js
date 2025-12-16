@@ -25,6 +25,46 @@ export const list = async ({ severity, status, q, fromDate, toDate, targetUserId
   return rows;
 };
 
+export const listRecipients = async ({ role, q }) => {
+  const params = [];
+  let sql;
+  const like = q ? `%${String(q).toLowerCase()}%` : null;
+
+  if (role === 'student') {
+    sql = `
+      SELECT u.id, COALESCE(s.name, u.name) AS name, u.email, u.role
+      FROM users u
+      JOIN students s ON LOWER(s.email) = LOWER(u.email)
+      WHERE u.role = 'student'
+    `;
+    if (like) { params.push(like); sql += ` AND (LOWER(COALESCE(s.name,u.name)) LIKE $1 OR LOWER(u.email) LIKE $1)`; }
+    sql += ' ORDER BY COALESCE(s.name, u.name)';
+  } else if (role === 'teacher') {
+    sql = `
+      SELECT u.id, COALESCE(t.name, u.name) AS name, u.email, u.role
+      FROM users u
+      JOIN teachers t ON LOWER(t.email) = LOWER(u.email)
+      WHERE u.role = 'teacher'
+    `;
+    if (like) { params.push(like); sql += ` AND (LOWER(COALESCE(t.name,u.name)) LIKE $1 OR LOWER(u.email) LIKE $1)`; }
+    sql += ' ORDER BY COALESCE(t.name, u.name)';
+  } else if (role === 'driver') {
+    sql = `
+      SELECT u.id, COALESCE(d.name, u.name) AS name, u.email, u.role
+      FROM users u
+      JOIN drivers d ON LOWER(d.email) = LOWER(u.email)
+      WHERE u.role = 'driver'
+    `;
+    if (like) { params.push(like); sql += ` AND (LOWER(COALESCE(d.name,u.name)) LIKE $1 OR LOWER(u.email) LIKE $1)`; }
+    sql += ' ORDER BY COALESCE(d.name, u.name)';
+  } else {
+    return [];
+  }
+
+  const { rows } = await query(sql, params);
+  return rows;
+};
+
 export const create = async ({ message, severity = 'info', type, targetUserId, createdBy }) => {
   const { rows } = await query(
     `INSERT INTO alerts (message, severity, type, target_user_id, created_by)

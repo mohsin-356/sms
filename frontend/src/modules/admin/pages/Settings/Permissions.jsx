@@ -1,26 +1,56 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Flex, Heading, Text, SimpleGrid, Icon, Button, ButtonGroup, useColorModeValue, Table, Thead, Tbody, Tr, Th, Td, Select, Checkbox, InputGroup, InputLeftElement, Input } from '@chakra-ui/react';
 import { MdSecurity, MdAdminPanelSettings, MdPeople, MdFileDownload, MdRefresh } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import { rbacApi } from '../../../../services/api';
 
-const roles = ['Administrator','Teacher','Accountant','Viewer'];
-const modules = ['Students','Teachers','Finance','Transport','Attendance','Reports','Communication','Settings'];
-const permList = ['view','create','edit','delete','export','manage'];
+const roleMap = { admin: 'Administrator', teacher: 'Teacher', student: 'Student', driver: 'Driver' };
+const modules = ['students','teachers','finance','transport','attendance','reports','communication','settings'];
+const actions = ['view','edit','export','manage'];
 
 export default function Permissions() {
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const [roleFilter, setRoleFilter] = useState('all');
   const [moduleFilter, setModuleFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [assignments, setAssignments] = useState({});
+  const [roles, setRoles] = useState(['admin','teacher','student','driver']);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await rbacApi.getPermissions();
+        const rs = Array.isArray(data?.roles) ? data.roles : ['admin','teacher','student','driver'];
+        setRoles(rs);
+        setAssignments(data?.assignments || {});
+      } catch (_) {}
+    };
+    load();
+  }, []);
 
   const rows = useMemo(() => {
-    const base = modules.flatMap((m) => permList.map((p) => ({ key: `${m}.${p}`, module: m, action: p })));
+    const base = modules.flatMap((m) => actions.map((a) => ({ key: `${m}.${a}`, module: m, action: a })));
     return base.filter(r => (moduleFilter==='all' || r.module===moduleFilter) && (!search || r.key.toLowerCase().includes(search.toLowerCase())));
   }, [moduleFilter, search]);
 
-  const stats = useMemo(() => ({ modules: modules.length, roles: roles.length, perms: modules.length * permList.length }), []);
+  const stats = useMemo(() => ({ modules: modules.length, roles: roles.length, perms: modules.length * actions.length }), [roles]);
+
+  const toggle = (role, perm, checked) => {
+    setAssignments((prev) => {
+      const curr = new Set(prev[role] || []);
+      if (checked) curr.add(perm); else curr.delete(perm);
+      return { ...prev, [role]: Array.from(curr) };
+    });
+  };
+
+  const save = async () => {
+    const rs = roleFilter==='all' ? roles : [roleFilter];
+    for (const r of rs) {
+      try { await rbacApi.setPermissions(r, assignments[r] || []); } catch (_) {}
+    }
+  };
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -33,6 +63,7 @@ export default function Permissions() {
           <Button leftIcon={<MdRefresh />} variant='outline' onClick={() => window.location.reload()}>Refresh</Button>
           <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
           <Button leftIcon={<MdFileDownload />} colorScheme='blue'>Export PDF</Button>
+          <Button colorScheme='green' onClick={save}>Save</Button>
         </ButtonGroup>
       </Flex>
 
@@ -56,7 +87,7 @@ export default function Permissions() {
           </Select>
           <Select maxW='220px' value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
             <option value='all'>All Roles</option>
-            {roles.map(r => <option key={r} value={r}>{r}</option>)}
+            {roles.map(r => <option key={r} value={r}>{roleMap[r] || r}</option>)}
           </Select>
         </Flex>
       </Card>
@@ -68,7 +99,7 @@ export default function Permissions() {
               <Tr>
                 <Th>Permission</Th>
                 {roles.filter(r => roleFilter==='all' || r===roleFilter).map((r) => (
-                  <Th key={r} isNumeric>{r}</Th>
+                  <Th key={r} isNumeric>{roleMap[r] || r}</Th>
                 ))}
               </Tr>
             </Thead>
@@ -78,7 +109,7 @@ export default function Permissions() {
                   <Td><Text fontWeight='600'>{r.key}</Text></Td>
                   {roles.filter(x => roleFilter==='all' || x===roleFilter).map((role) => (
                     <Td key={role} isNumeric>
-                      <Checkbox defaultChecked={Math.random() > 0.5} />
+                      <Checkbox isChecked={(assignments[role] || []).includes(r.key)} onChange={(e)=> toggle(role, r.key, e.target.checked)} />
                     </Td>
                   ))}
                 </Tr>

@@ -58,6 +58,7 @@ export default function AttendanceAlerts() {
   const [toDate, setToDate] = useState('');
   const composeDisc = useDisclosure();
   const [users, setUsers] = useState([]);
+  const [autoBackfilled, setAutoBackfilled] = useState(false);
   const [compose, setCompose] = useState({ message: '', uiSeverity: 'low', type: 'manual', role: 'student', targetUserId: '' });
 
   const stats = useMemo(() => {
@@ -77,18 +78,32 @@ export default function AttendanceAlerts() {
     );
   }, [alerts, severity, status, query]);
 
-  // Load users for recipient selection (admin)
+  // Load recipients from backend by role (only real users joined with domain tables)
   useEffect(() => {
-    if (!isAdmin) return;
-    const loadUsers = async () => {
+    if (!isAdmin || !composeDisc.isOpen) return;
+    const loadRecipients = async () => {
       try {
-        const res = await authApi.getUsers();
-        const list = Array.isArray(res?.users) ? res.users : [];
+        const res = await alertsApi.recipients({ role: compose.role });
+        const list = Array.isArray(res?.items) ? res.items : [];
         setUsers(list);
+        if (list.length === 0 && !autoBackfilled) {
+          try {
+            await authApi.backfillUsers({ role: compose.role });
+            setAutoBackfilled(true);
+            const res2 = await alertsApi.recipients({ role: compose.role });
+            const list2 = Array.isArray(res2?.items) ? res2.items : [];
+            setUsers(list2);
+          } catch (_) {}
+        }
       } catch (_) {}
     };
-    loadUsers();
-  }, [isAdmin]);
+    loadRecipients();
+  }, [isAdmin, composeDisc.isOpen, compose.role, autoBackfilled]);
+
+  // Reset backfill attempt when role changes or modal opens
+  useEffect(() => {
+    if (composeDisc.isOpen) setAutoBackfilled(false);
+  }, [compose.role, composeDisc.isOpen]);
 
   const toggleSelect = (id) => {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
@@ -325,8 +340,8 @@ export default function AttendanceAlerts() {
                   <option value='driver'>Driver</option>
                 </Select>
                 <Select placeholder='Select user' flex='1' value={compose.targetUserId} onChange={(e)=> setCompose(c=>({ ...c, targetUserId: e.target.value }))}>
-                  {users.filter(u => String(u.role).toLowerCase() === String(compose.role)).map(u => (
-                    <option key={u.id} value={u.id}>{u.name || u.email} — {u.role}</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{u.name || u.email} — {u.email}</option>
                   ))}
                 </Select>
               </HStack>

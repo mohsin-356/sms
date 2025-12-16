@@ -1,34 +1,45 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Flex, Heading, Text, SimpleGrid, Icon, Badge, Button, ButtonGroup, useColorModeValue, Table, Thead, Tbody, Tr, Th, Td, Select, Input, InputGroup, InputLeftElement, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, FormControl, FormLabel, Switch, CheckboxGroup, Checkbox, Stack } from '@chakra-ui/react';
 import { MdAdminPanelSettings, MdGroup, MdSecurity, MdFileDownload, MdAdd, MdRefresh, MdSearch } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import { rbacApi } from '../../../../services/api';
 
-const mockRoles = [
-  { id: 'role-admin', name: 'Administrator', users: 3, perms: 28, active: true },
-  { id: 'role-teacher', name: 'Teacher', users: 22, perms: 16, active: true },
-  { id: 'role-account', name: 'Accountant', users: 4, perms: 14, active: true },
-  { id: 'role-view', name: 'Viewer', users: 2, perms: 8, active: false },
-];
-
-const allPerms = ['students.view','students.edit','teachers.view','teachers.edit','finance.view','finance.edit','transport.view','transport.edit','reports.view','reports.export','communication.send','settings.manage'];
+const allPerms = ['students.view','students.edit','teachers.view','teachers.edit','finance.view','finance.edit','transport.view','transport.edit','attendance.view','attendance.edit','attendance.export','reports.view','reports.export','communication.send','settings.manage'];
 
 export default function RoleManagement() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [selected, setSelected] = useState(null);
+  const [roles, setRoles] = useState([]);
+  const [permAssignments, setPermAssignments] = useState({});
   const createDisc = useDisclosure();
   const editDisc = useDisclosure();
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
 
-  const stats = useMemo(() => ({ roles: mockRoles.length, users: mockRoles.reduce((s, r) => s + r.users, 0), perms: allPerms.length }), []);
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await rbacApi.getRoles();
+        setRoles(Array.isArray(res?.items) ? res.items : []);
+      } catch (_) {}
+      try {
+        const perms = await rbacApi.getPermissions();
+        setPermAssignments(perms?.assignments || {});
+      } catch (_) {}
+    };
+    load();
+  }, []);
 
-  const filtered = useMemo(() => mockRoles.filter(r => {
-    const bySearch = !search || r.name.toLowerCase().includes(search.toLowerCase());
+  const stats = useMemo(() => ({ roles: roles.length, users: roles.reduce((s, r) => s + (r.users || 0), 0), perms: Object.values(permAssignments || {}).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0) }), [roles, permAssignments]);
+
+  const filtered = useMemo(() => roles.filter(r => {
+    const name = r.name || r.id;
+    const bySearch = !search || String(name).toLowerCase().includes(search.toLowerCase());
     const byStatus = status==='all' || (status==='active' ? r.active : !r.active);
     return bySearch && byStatus;
-  }), [search, status]);
+  }), [roles, search, status]);
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -83,7 +94,7 @@ export default function RoleManagement() {
                 <Tr key={r.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
                   <Td><Text fontWeight='600'>{r.name}</Text></Td>
                   <Td isNumeric>{r.users}</Td>
-                  <Td isNumeric>{r.perms}</Td>
+                  <Td isNumeric>{(permAssignments?.[r.id] || []).length}</Td>
                   <Td>
                     <Badge colorScheme={r.active ? 'green' : 'gray'}>{r.active ? 'Active' : 'Inactive'}</Badge>
                   </Td>
@@ -97,7 +108,7 @@ export default function RoleManagement() {
         </Box>
       </Card>
 
-      {/* Create Role Modal */}
+      {/* Create Role Modal (fixed roles only) */}
       <Modal isOpen={createDisc.isOpen} onClose={createDisc.onClose} size='lg'>
         <ModalOverlay />
         <ModalContent>
@@ -125,7 +136,7 @@ export default function RoleManagement() {
           </ModalBody>
           <ModalFooter>
             <Button mr={3} onClick={createDisc.onClose}>Cancel</Button>
-            <Button colorScheme='blue'>Create</Button>
+            <Button colorScheme='blue' isDisabled>Create</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -141,18 +152,18 @@ export default function RoleManagement() {
               <>
                 <FormControl mb={4}>
                   <FormLabel>Role Name</FormLabel>
-                  <Input defaultValue={selected.name} />
+                  <Input defaultValue={selected.name} isReadOnly />
                 </FormControl>
                 <FormControl display='flex' alignItems='center' mb={4}>
                   <FormLabel mb='0' flex='1'>Active</FormLabel>
-                  <Switch defaultChecked={selected.active} />
+                  <Switch defaultChecked={selected.active} onChange={(e)=> setSelected(s => ({ ...s, active: e.target.checked }))} />
                 </FormControl>
                 <FormControl>
                   <FormLabel>Permissions</FormLabel>
-                  <CheckboxGroup defaultValue={['students.view','reports.view']}>
+                  <CheckboxGroup defaultValue={(permAssignments?.[selected.id] || [])}>
                     <Stack spacing={3} maxH='220px' overflowY='auto'>
                       {allPerms.map((p) => (
-                        <Checkbox key={p} value={p}>{p}</Checkbox>
+                        <Checkbox key={p} value={p} isDisabled>{p}</Checkbox>
                       ))}
                     </Stack>
                   </CheckboxGroup>
@@ -162,7 +173,14 @@ export default function RoleManagement() {
           </ModalBody>
           <ModalFooter>
             <Button mr={3} onClick={editDisc.onClose}>Close</Button>
-            <Button colorScheme='blue'>Save</Button>
+            <Button colorScheme='blue' onClick={async ()=> {
+              try {
+                await rbacApi.setRoleActive(selected.id, selected.active);
+                const res = await rbacApi.getRoles();
+                setRoles(Array.isArray(res?.items) ? res.items : []);
+                editDisc.onClose();
+              } catch (_) {}
+            }}>Save</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

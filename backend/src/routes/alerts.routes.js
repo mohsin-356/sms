@@ -72,4 +72,17 @@ router.get(
   controller.listMine
 );
 
+// Recipient lookup by role (admin)
+router.get(
+  '/recipients',
+  authenticate,
+  authorize('admin'),
+  [
+    query('role').isIn(['student','teacher','driver']),
+    query('q').optional().isString(),
+  ],
+  validate,
+  controller.listRecipients
+);
+
 export default router;

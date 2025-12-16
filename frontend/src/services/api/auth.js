@@ -24,3 +24,8 @@ export const getUsers = async () => {
 export const profile = async () => {
   return http.get('/auth/profile');
 };
+
+// Admin only: backfill user accounts from domain tables by role
+export const backfillUsers = async ({ role }) => {
+  return http.post('/auth/backfill-users', { role });
+};

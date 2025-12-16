@@ -19,6 +19,7 @@ import classRoutes from './classes.routes.js';
 import syllabusRoutes from './syllabus.routes.js';
 import gradingRoutes from './grading.routes.js';
 import alertsRoutes from './alerts.routes.js';
+import rbacRoutes from './rbac.routes.js';
 
 const router = Router();
 
@@ -42,5 +43,6 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/classes', classRoutes);
 router.use('/syllabus', syllabusRoutes);
 router.use('/grading', gradingRoutes);
+router.use('/rbac', rbacRoutes);
 
 export default router;

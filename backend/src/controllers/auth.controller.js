@@ -97,3 +97,15 @@ export const getAllUsers = async (req, res, next) => {
     next(e);
   }
 };
+
+export const backfillUsers = async (req, res, next) => {
+  try {
+    const { role } = req.body;
+    const allowed = ['student','teacher','driver'];
+    if (!allowed.includes(role)) return res.status(400).json({ message: 'Invalid role' });
+    const result = await authService.backfillUsersFromDomain(role);
+    return res.json(result);
+  } catch (e) {
+    next(e);
+  }
+};
