@@ -8,4 +8,4 @@ export const remove = (id, params) => http.delete(`/drivers/${id}`, { params });
 
 export const payroll = (id, params) => http.get(`/drivers/${id}/payroll`, { params });
 export const createPayroll = (id, data) => http.post(`/drivers/${id}/payroll`, data);
-export const updatePayrollStatus = (payrollId, data) => http.put(`/drivers/payroll/${payrollId}/status`, data);
+export const updatePayrollStatus = (driverId, payrollId, data) => http.patch(`/drivers/${driverId}/payroll/${payrollId}/status`, data);
