@@ -55,6 +55,8 @@ function SignIn() {
     teacher: { email: 'teacher@mindspire.com', password: 'password123', label: 'Teacher', colorScheme: 'green' },
     student: { email: 'student@mindspire.com', password: 'password123', label: 'Student', colorScheme: 'purple' },
     driver: { email: 'driver@mindspire.com', password: 'password123', label: 'Driver', colorScheme: 'orange' },
+    parent: { email: 'parent@mindspire.com', password: 'password123', label: 'Parent', colorScheme: 'pink' },
+    owner: { email: 'qutaibah@mindspire.org', password: 'Qutaibah@123', label: 'Owner', colorScheme: 'teal' },
   }), []);
 
   // Auth Context

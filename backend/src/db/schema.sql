@@ -8,6 +8,11 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- Upgrade roles to include owner and parent
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users
+  ADD CONSTRAINT users_role_check CHECK (role IN ('owner','admin','teacher','student','driver','parent'));
+
 -- Students
 CREATE TABLE IF NOT EXISTS students (
   id SERIAL PRIMARY KEY,

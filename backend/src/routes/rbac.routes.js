@@ -6,32 +6,32 @@ import * as controller from '../controllers/rbac.controller.js';
 
 const router = Router();
 
-router.get('/roles', authenticate, authorize('admin'), controller.listRoles);
+router.get('/roles', authenticate, authorize('admin','owner'), controller.listRoles);
 router.put(
   '/roles/:role/active',
   authenticate,
-  authorize('admin'),
+  authorize('admin','owner'),
   [param('role').isIn(['admin','teacher','student','driver']), body('active').isBoolean()],
   validate,
   controller.setRoleActive
 );
 
-router.get('/permissions', authenticate, authorize('admin'), controller.listPermissions);
+router.get('/permissions', authenticate, authorize('admin','owner'), controller.listPermissions);
 router.put(
   '/permissions/:role',
   authenticate,
-  authorize('admin'),
+  authorize('admin','owner'),
   [param('role').isIn(['admin','teacher','student','driver']), body('perms').isArray()],
   validate,
   controller.setPermissionsForRole
 );
 
 // Module-level access management
-router.get('/modules', authenticate, authorize('admin'), controller.listModules);
+router.get('/modules', authenticate, authorize('admin','owner'), controller.listModules);
 router.put(
   '/modules/:role',
   authenticate,
-  authorize('admin'),
+  authorize('admin','owner'),
   [param('role').isIn(['admin','teacher','student','driver']), body('allowModules').optional().isArray(), body('allowSubroutes').optional().isArray()],
   validate,
   controller.setModulesForRole

@@ -8,7 +8,18 @@ const router = Router();
 
 router.post(
   '/login',
-  [body('email').isEmail(), body('password').isString().isLength({ min: 6 })],
+  [
+    body('email')
+      .custom((v) => {
+        if (!v) return false;
+        const s = String(v).trim();
+        const emailRegex = /.+@.+\..+/;
+        const phoneRegex = /^\+?\d{10,15}$|^0\d{10}$|^3\d{9}$/;
+        return emailRegex.test(s) || phoneRegex.test(s);
+      })
+      .withMessage('Provide a valid email or phone number'),
+    body('password').isString().isLength({ min: 6 })
+  ],
   validate,
   authController.login
 );

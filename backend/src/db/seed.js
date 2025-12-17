@@ -9,6 +9,25 @@ async function seed() {
   try {
     await client.query('BEGIN');
 
+    // Ensure Super Admin / Owner account exists with desired credentials
+    const ownerEmail = process.env.OWNER_EMAIL || 'qutaibah@mindspire.org';
+    const ownerPassword = process.env.OWNER_PASSWORD || 'Qutaibah@123';
+    const ownerName = process.env.OWNER_NAME || 'Mindspire Owner';
+    {
+      const { rows: existingOwner } = await client.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [ownerEmail]);
+      const ownerHash = await bcrypt.hash(ownerPassword, 10);
+      if (!existingOwner.length) {
+        await client.query(
+          'INSERT INTO users (email, password_hash, role, name) VALUES ($1,$2,$3,$4)',
+          [ownerEmail, ownerHash, 'owner', ownerName]
+        );
+        console.log('Seeded OWNER user:', ownerEmail, 'password:', ownerPassword);
+      } else {
+        await client.query('UPDATE users SET role=$2, password_hash=$3, name=$4 WHERE id=$1', [existingOwner[0].id, 'owner', ownerHash, ownerName]);
+        console.log('Updated OWNER user:', ownerEmail, 'password reset applied');
+      }
+    }
+
     // Create demo users if not exists
     const usersToSeed = [
       { email: 'admin@mindspire.com', role: 'admin', name: 'Admin User', password: 'password123' },
@@ -17,7 +36,7 @@ async function seed() {
       { email: 'driver@mindspire.com', role: 'driver', name: 'Driver Umar', password: 'password123' },
     ];
     for (const u of usersToSeed) {
-      const { rows: existing } = await client.query('SELECT id FROM users WHERE email = $1', [u.email]);
+      const { rows: existing } = await client.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [u.email]);
       if (!existing.length) {
         const hash = await bcrypt.hash(u.password, 10);
         await client.query('INSERT INTO users (email, password_hash, role, name) VALUES ($1,$2,$3,$4)', [u.email, hash, u.role, u.name]);

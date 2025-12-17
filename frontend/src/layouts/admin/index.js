@@ -142,8 +142,8 @@ export default function Dashboard(props) {
   const { user, moduleAccess, loading } = useAuth();
 
   const filterRoutesByAccess = (allRoutes) => {
-    // Admin always sees everything
-    if (!user || user.role === 'admin' || !moduleAccess || moduleAccess.allowModules === 'ALL') return allRoutes;
+    // Owner sees everything; others filtered by licensing
+    if (!user || !moduleAccess || moduleAccess.allowModules === 'ALL' || user.role === 'owner') return allRoutes;
 
     const allowedModules = new Set(moduleAccess.allowModules || []);
     const allowedSubroutes = new Set(
@@ -209,7 +209,7 @@ export default function Dashboard(props) {
               <Box>
                 <Navbar
                   onOpen={onOpen}
-                  logoText={'MindSpire SMS'}
+                  logoText={'Academia Pro'}
                   brandText={brandText}
                   secondary={secondary}
                   message={message}

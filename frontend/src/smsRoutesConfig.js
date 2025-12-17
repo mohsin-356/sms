@@ -580,6 +580,12 @@ export const getSMSRoutes = () => {
           component: lazy(() => import('./modules/admin/pages/Settings/SystemSettings')),
         },
         {
+          name: 'Licensing',
+          layout: '/admin',
+          path: '/settings/licensing',
+          component: lazy(() => import('./modules/admin/pages/Settings/Licensing')),
+        },
+        {
           name: 'Role Management',
           layout: '/admin',
           path: '/settings/roles',

@@ -1,7 +1,7 @@
 import { query } from '../config/db.js';
 import * as settings from './settings.service.js';
 
-const FIXED_ROLES = ['admin','teacher','student','driver','parent'];
+const FIXED_ROLES = ['owner','admin','teacher','student','driver','parent'];
 const ALL_PERMS = [
   'students.view','students.edit','students.export','students.manage',
   'teachers.view','teachers.edit','teachers.export','teachers.manage',
@@ -11,6 +11,7 @@ const ALL_PERMS = [
   'reports.view','reports.export',
   'communication.send',
   'settings.manage',
+  'licensing.manage',
   // Parents module
   'parents.view','parents.edit','parents.manage','parents.inform'
 ];
@@ -42,6 +43,8 @@ const PERM_TO_SUBROUTES = {
   'finance.export': ['/finance/reports'],
   // Settings
   'settings.manage': ['/settings/system'],
+  // Licensing (Owner)
+  'licensing.manage': ['/settings/licensing'],
   // Parents
   'parents.view': ['/parents/list'],
   'parents.edit': ['/parents/list'],

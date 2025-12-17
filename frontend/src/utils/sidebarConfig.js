@@ -189,6 +189,8 @@ export const mergeRoutes = (existingRoutes, userRole) => {
 // Helper function to get dashboard path for each role
 export const getDashboardPath = (role) => {
   switch (role) {
+    case 'owner':
+      return '/admin/settings/licensing';
     case 'admin':
       return '/admin/dashboard';
     case 'teacher':
@@ -210,9 +212,9 @@ export const requiresAuth = (path) => {
 
 // Helper function to get allowed roles for a path
 export const getAllowedRoles = (path) => {
-  if (path.startsWith('/admin/')) return ['admin'];
+  if (path.startsWith('/admin/')) return ['admin','owner'];
   if (path.startsWith('/teacher/')) return ['teacher'];
   if (path.startsWith('/student/')) return ['student'];
   if (path.startsWith('/driver/')) return ['driver'];
-  return ['admin', 'teacher', 'student']; // Allow all roles for other paths
+  return ['owner', 'admin', 'teacher', 'student']; // Allow all roles for other paths
 };

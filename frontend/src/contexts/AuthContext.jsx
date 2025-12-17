@@ -49,11 +49,8 @@ export const AuthProvider = ({ children }) => {
 
   const refreshModuleAccess = useCallback(async (role) => {
     try {
-      if (!role || role === 'admin') {
-        setModuleAccess({ allowModules: 'ALL', allowSubroutes: 'ALL' });
-        return;
-      }
-      // Non-admins fetch their own module access only
+      if (!role) { setModuleAccess({ allowModules: [], allowSubroutes: [] }); return; }
+      if (role === 'owner') { setModuleAccess({ allowModules: 'ALL', allowSubroutes: 'ALL' }); return; }
       const a = await rbacApi.getMyModules();
       setModuleAccess(a || { allowModules: [], allowSubroutes: [] });
     } catch (_) {
@@ -148,7 +145,9 @@ export const AuthProvider = ({ children }) => {
           email.includes('admin@') ? 'admin' :
           email.includes('teacher@') ? 'teacher' :
           email.includes('student@') ? 'student' :
-          email.includes('driver@') ? 'driver' : 'student';
+          email.includes('driver@') ? 'driver' :
+          email.includes('parent@') ? 'parent' :
+          email.includes('@mindspire.org') ? 'owner' : 'student';
         token = 'demo-token-' + Date.now();
         userData = { email, role: roleFromEmail, name: roleFromEmail.toUpperCase(), id: roleFromEmail + '-001' };
       } else {
