@@ -10,6 +10,59 @@ const genFamilyNumber = async () => {
   return `FAM${Date.now().toString(36).toUpperCase()}`;
 };
 
+// Backfill parents table from existing students who have a family_number
+export const backfillFromStudents = async () => {
+  const sql = `
+    -- 1) If student has familyNumber in JSON but column is NULL, copy it over
+    UPDATE students s
+    SET family_number = NULLIF(s.parent ->> 'familyNumber', '')
+    WHERE (s.family_number IS NULL OR s.family_number = '')
+      AND NULLIF(s.parent ->> 'familyNumber', '') IS NOT NULL;
+
+    -- 2) Insert missing parents from students with a family_number
+    WITH fam AS (
+      SELECT DISTINCT ON (s.family_number)
+             s.family_number,
+             s.parent_name,
+             s.parent_phone,
+             s.email AS student_email,
+             s.name AS student_name,
+             s.parent
+      FROM students s
+      WHERE s.family_number IS NOT NULL AND s.family_number <> ''
+      ORDER BY s.family_number, s.id DESC
+    )
+    INSERT INTO parents (family_number, primary_name, father_name, mother_name, whatsapp_phone, email, address)
+    SELECT f.family_number,
+           COALESCE(
+             (f.parent -> 'father' ->> 'name'),
+             (f.parent -> 'mother' ->> 'name'),
+             f.parent_name,
+             f.student_name
+           ) AS primary_name,
+           (f.parent -> 'father' ->> 'name') AS father_name,
+           (f.parent -> 'mother' ->> 'name') AS mother_name,
+           COALESCE(
+             (f.parent -> 'father' ->> 'phone'),
+             (f.parent -> 'mother' ->> 'phone'),
+             f.parent_phone
+           ) AS whatsapp_phone,
+           COALESCE(
+             (f.parent -> 'father' ->> 'email'),
+             (f.parent -> 'mother' ->> 'email'),
+             f.student_email
+           ) AS email,
+           (f.parent ->> 'address') AS address
+    FROM fam f
+    WHERE NOT EXISTS (
+      SELECT 1 FROM parents p WHERE p.family_number = f.family_number
+    );
+  `;
+  const res = await query(sql);
+  // rowCount may not reflect both UPDATE and INSERT; return success true
+  return { ok: true };
+};
+
 export const list = async ({ q, page = 1, pageSize = 50 }) => {
   const where = [];
   const params = [];

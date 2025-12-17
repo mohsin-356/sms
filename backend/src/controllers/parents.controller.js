@@ -4,6 +4,8 @@ import { ensureParentsSchema } from '../db/autoMigrate.js';
 export const list = async (req, res, next) => {
   try {
     await ensureParentsSchema();
+    // Backfill parents table from students having family_number to ensure legacy data shows up
+    try { await parents.backfillFromStudents(); } catch (_) {}
     const { q, page = 1, pageSize = 50 } = req.query;
     const data = await parents.list({ q, page: Number(page), pageSize: Number(pageSize) });
     res.json(data);
