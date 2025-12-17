@@ -16,13 +16,13 @@ export default function ParentInform() {
   useEffect(() => {
     const load = async () => {
       try {
-        const { data } = await parentsApi.list({ pageSize: 200 });
+        const data = await parentsApi.list({ pageSize: 200 });
         const rows = data?.rows || data?.items || [];
         setParents(rows);
         if (parentId) {
           const p = rows.find((r) => String(r.id) === String(parentId));
           if (p) {
-            const { data: pd } = await parentsApi.getById(p.id);
+            const pd = await parentsApi.getById(p.id);
             setChildren(pd?.children || []);
           }
         }
@@ -36,7 +36,7 @@ export default function ParentInform() {
     setChildId('');
     try {
       if (!id) { setChildren([]); return; }
-      const { data } = await parentsApi.getById(id);
+      const data = await parentsApi.getById(id);
       setChildren(data?.children || []);
     } catch (_) {}
   };

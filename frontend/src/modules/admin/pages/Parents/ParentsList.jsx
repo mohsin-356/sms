@@ -44,7 +44,7 @@ export default function ParentsList() {
   const refresh = async () => {
     try {
       setLoading(true);
-      const { data } = await parentsApi.list({ q, pageSize: 100 });
+      const data = await parentsApi.list({ q, pageSize: 100 });
       setRows(data?.rows || data?.items || []);
       setTotal(data?.total ?? (data?.rows?.length || 0));
     } catch (e) {
@@ -61,7 +61,7 @@ export default function ParentsList() {
 
   const openParent = async (id) => {
     try {
-      const { data } = await parentsApi.getById(id);
+      const data = await parentsApi.getById(id);
       setSelected(data);
       setDrawerOpen(true);
     } catch (_) {

@@ -19,6 +19,7 @@ export default function SchoolProfile() {
   const [logoUrl, setLogoUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [whatsappWebhook, setWhatsappWebhook] = useState('');
 
   const defaults = {
     name: 'City Public School',
@@ -44,6 +45,10 @@ export default function SchoolProfile() {
       setPrincipal(p.principal);
       setSession(p.session);
       setLogoUrl(p.logoUrl || '');
+      try {
+        const hook = await settingsApi.get('whatsapp.webhook.url');
+        setWhatsappWebhook(hook?.value || '');
+      } catch (_) {}
     } catch (_) {
       // keep defaults
     } finally {
@@ -60,6 +65,7 @@ export default function SchoolProfile() {
       setSaving(true);
       const payload = { name, branch, phone, email, address, principal, session, logoUrl };
       await settingsApi.saveSchoolProfile(payload);
+      await settingsApi.set('whatsapp.webhook.url', whatsappWebhook || '');
       toast({ title: 'Saved', description: 'School profile updated successfully.', status: 'success', duration: 4000, isClosable: true });
     } catch (e) {
       toast({ title: 'Save failed', description: e?.message || 'Unable to save profile.', status: 'error', duration: 5000, isClosable: true });
@@ -173,6 +179,19 @@ export default function SchoolProfile() {
               <FormLabel>Accent Color</FormLabel>
               <Input type='color' defaultValue='#805ad5' />
             </FormControl>
+          </Card>
+        </GridItem>
+
+        <GridItem>
+          <Card p={5}>
+            <Heading size='md' mb={4}>Messaging & Integrations</Heading>
+            <FormControl>
+              <FormLabel>WhatsApp Webhook URL</FormLabel>
+              <Input placeholder='https://your-gateway.example.com/api/whatsapp' value={whatsappWebhook} onChange={(e) => setWhatsappWebhook(e.target.value)} />
+            </FormControl>
+            <Text mt={2} color={textColorSecondary} fontSize='sm'>
+              When you use Parents → Inform, the server will POST a JSON body to this URL: {`{ to, text, familyNumber, childId }`}
+            </Text>
           </Card>
         </GridItem>
       </Grid>

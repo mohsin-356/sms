@@ -32,13 +32,22 @@ const request = async (method, url, { params, data, headers } = {}) => {
         Object.entries(params).filter(([, v]) => v !== undefined && v !== null)
       )
     : undefined;
-  const qs = cleanedParams && Object.keys(cleanedParams).length > 0
-    ? '?' + new URLSearchParams(cleanedParams).toString()
+
+  // Prevent stale 304/no-body responses by cache-busting GETs
+  let finalParams = cleanedParams ? { ...cleanedParams } : {};
+  if (method === 'GET') {
+    finalParams._ts = Date.now();
+  }
+
+  const qs = Object.keys(finalParams).length > 0
+    ? '?' + new URLSearchParams(finalParams).toString()
     : '';
   const fullUrl = baseURL + url + qs;
 
   const finalHeaders = {
     'Content-Type': 'application/json',
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+    Pragma: 'no-cache',
     ...(headers || {}),
   };
   if (authToken) finalHeaders['Authorization'] = `Bearer ${authToken}`;
@@ -47,7 +56,7 @@ const request = async (method, url, { params, data, headers } = {}) => {
 
   try {
     const fetcher = withTimeout(null, config.REQUEST_TIMEOUT_MS);
-    const res = await fetcher.exec(fullUrl, { method, headers: finalHeaders, body });
+    const res = await fetcher.exec(fullUrl, { method, headers: finalHeaders, body, cache: 'no-store' });
 
     const contentType = res.headers.get('content-type') || '';
     const isJSON = contentType.includes('application/json');

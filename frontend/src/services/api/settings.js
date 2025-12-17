@@ -2,14 +2,14 @@ import { http } from '../http';
 
 // Generic settings API helpers
 export const get = async (key) => {
-  const { data } = await http.get(`/settings/${encodeURIComponent(key)}`);
-  return data; // { key, value, updatedAt }
+  const item = await http.get(`/settings/${encodeURIComponent(key)}`);
+  return item; // { key, value, updatedAt }
 };
 
 export const set = async (key, value) => {
   const payload = { value: typeof value === 'string' ? value : JSON.stringify(value) };
-  const { data } = await http.put(`/settings/${encodeURIComponent(key)}`, payload);
-  return data;
+  const item = await http.put(`/settings/${encodeURIComponent(key)}`, payload);
+  return item;
 };
 
 // Convenience methods for school profile
