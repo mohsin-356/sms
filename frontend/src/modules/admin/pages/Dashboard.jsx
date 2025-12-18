@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -32,10 +32,7 @@ import {
   MdCircle,
 } from 'react-icons/md';
 // Mock data (for charts only)
-import {
-  mockAttendanceStats,
-  mockFeeData,
-} from '../../../utils/mockData';
+// Charts previously used mock data; now we will pull live data below
 // Helpers
 import { formatNumber, formatCurrency, getStatusColor, formatDate, formatTime } from '../../../utils/helpers';
 // API
@@ -57,15 +54,19 @@ export default function AdminDashboard() {
     recentAlerts: [],
   });
   const [buses, setBuses] = useState([]);
+  const [attendanceWeekly, setAttendanceWeekly] = useState([]); // [{ day, present, total }]
+  const [feesMonthly, setFeesMonthly] = useState([]); // [{ month, collected, pending }]
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const [overviewRes, busesRes] = await Promise.all([
+        const [overviewRes, busesRes, attRes, feesRes] = await Promise.all([
           dashboardApi.getOverview(),
           transportApi.listBuses(),
+          dashboardApi.getAttendanceWeekly(),
+          dashboardApi.getFeesMonthly(),
         ]);
 
         const data = overviewRes?.data || {};
@@ -83,6 +84,14 @@ export default function AdminDashboard() {
           ? busesRes
           : [];
         setBuses(busItems);
+
+        // Attendance weekly
+        const attItems = Array.isArray(attRes?.data) ? attRes.data : (Array.isArray(attRes) ? attRes : []);
+        setAttendanceWeekly(attItems);
+
+        // Fees monthly
+        const feeItems = Array.isArray(feesRes?.data) ? feesRes.data : (Array.isArray(feesRes) ? feesRes : []);
+        setFeesMonthly(feeItems);
       } catch (e) {
         console.error('Failed to load admin dashboard', e);
         toast({
@@ -101,6 +110,26 @@ export default function AdminDashboard() {
   }, [toast]);
 
   const recentAlerts = overview.recentAlerts || [];
+
+  const attendanceBars = useMemo(() => {
+    // Normalize last 7 days, compute percentage
+    return (attendanceWeekly || []).slice(-7).map((d) => {
+      const total = Number(d.total) || 0;
+      const present = Number(d.present) || 0;
+      const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+      const dateObj = new Date(d.day);
+      const dayLabel = dateObj.toLocaleDateString(undefined, { weekday: 'short' });
+      return { day: dayLabel, percentage: pct };
+    });
+  }, [attendanceWeekly]);
+
+  const feeMonths = useMemo(() => {
+    return (feesMonthly || []).slice(-4).map((m) => {
+      const dt = new Date(m.month);
+      const label = dt.toLocaleDateString(undefined, { month: 'short' });
+      return { month: label, collected: Number(m.collected) || 0, pending: Number(m.pending) || 0 };
+    });
+  }, [feesMonthly]);
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -384,7 +413,7 @@ export default function AdminDashboard() {
           </Text>
           <Box overflowX='auto'>
             <Box display='grid' gridTemplateColumns='repeat(7, minmax(48px, 1fr))' gap='12px' alignItems='end'>
-              {mockAttendanceStats.slice(0, 7).map((day) => {
+              {attendanceBars.slice(0, 7).map((day) => {
                 const barH = Math.round((day.percentage / 100) * 120);
                 const color = day.percentage >= 90 ? 'green.400' : day.percentage >= 75 ? 'orange.400' : 'red.400';
                 return (
@@ -407,7 +436,7 @@ export default function AdminDashboard() {
             Monthly Fee Collection
           </Text>
           <VStack align='stretch' spacing='12px'>
-            {mockFeeData.slice(0, 4).map(month => {
+            {feeMonths.slice(0, 4).map(month => {
               const total = month.collected + month.pending;
               const percentage = (month.collected / total) * 100;
               

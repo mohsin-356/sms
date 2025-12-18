@@ -378,6 +378,28 @@ function ParentInfoForm() {
                   />
                 </FormControl>
                 
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6} mb={6}>
+                  <FormControl id="guardianPortalPassword" isRequired={false}>
+                    <FormLabel>Parent Portal Password</FormLabel>
+                    <Input
+                      type="password"
+                      value={guardian.portalPassword || ''}
+                      onChange={(e) => handleGuardianChange('portalPassword', e.target.value)}
+                      placeholder="Set a password for Parent login"
+                    />
+                    <FormHelperText>Preferred: guardian's WhatsApp phone + this password for portal login.</FormHelperText>
+                  </FormControl>
+                  <FormControl id="guardianPortalPasswordConfirm" isRequired={false}>
+                    <FormLabel>Confirm Password</FormLabel>
+                    <Input
+                      type="password"
+                      value={guardian.portalPasswordConfirm || ''}
+                      onChange={(e) => handleGuardianChange('portalPasswordConfirm', e.target.value)}
+                      placeholder="Re-enter password"
+                    />
+                  </FormControl>
+                </SimpleGrid>
+
                 <Button 
                   leftIcon={<Icon as={MdContentCopy} />} 
                   colorScheme="brand" 

@@ -40,4 +40,33 @@ export const getOverview = async () => {
   };
 };
 
-export default { getOverview };
+export const getAttendanceWeekly = async () => {
+  const { rows } = await query(
+    `SELECT
+       DATE(date) AS day,
+       SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END)::int AS present,
+       SUM(CASE WHEN status IN ('present','absent','late') THEN 1 ELSE 0 END)::int AS total
+     FROM attendance_records
+     WHERE date >= CURRENT_DATE - INTERVAL '6 days'
+     GROUP BY day
+     ORDER BY day ASC`
+  );
+  return rows.map((r) => ({ day: r.day, present: Number(r.present) || 0, total: Number(r.total) || 0 }));
+};
+
+export const getFeesMonthly = async () => {
+  const { rows } = await query(
+    `SELECT
+       date_trunc('month', issued_at)::date AS month,
+       SUM(CASE WHEN status = 'paid' THEN total ELSE 0 END) AS collected,
+       SUM(CASE WHEN status != 'paid' THEN balance ELSE 0 END) AS pending
+     FROM finance_invoices
+     WHERE user_type = 'student' AND invoice_type = 'fee'
+       AND issued_at >= (date_trunc('month', CURRENT_DATE) - INTERVAL '5 months')
+     GROUP BY month
+     ORDER BY month ASC`
+  );
+  return rows.map((r) => ({ month: r.month, collected: Number(r.collected) || 0, pending: Number(r.pending) || 0 }));
+};
+
+export default { getOverview, getAttendanceWeekly, getFeesMonthly };

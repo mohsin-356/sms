@@ -40,27 +40,26 @@ export const create = async (req, res, next) => {
     // Ensure a parents record exists and attach family number
     try {
       const p = payload.parent || {};
+      const g = p.guardian || {};
       const familyNumberInput = payload.familyNumber || p.familyNumber;
       const ensured = await parentsSvc.ensureByFamilyNumber({
         familyNumber: familyNumberInput,
-        primaryName: p?.father?.name || p?.mother?.name || payload.parentName || payload.name || null,
+        primaryName: (p?.hasGuardian && g?.name) || p?.father?.name || p?.mother?.name || payload.parentName || payload.name || null,
         fatherName: p?.father?.name || null,
         motherName: p?.mother?.name || null,
-        whatsappPhone: p?.father?.phone || p?.mother?.phone || null,
+        whatsappPhone: (p?.hasGuardian && g?.phone) || p?.father?.phone || p?.mother?.phone || null,
         email: p?.father?.email || p?.mother?.email || payload.email || null,
         address: p?.address || null,
       });
       if (ensured?.familyNumber) payload.familyNumber = ensured.familyNumber;
-      // If a Parent Portal password was provided, create/update a parent user now
-      if (p?.portalPassword && String(p.portalPassword).length >= 4) {
-        const pwd = String(p.portalPassword);
-        const conf = String(p.portalPasswordConfirm || '');
-        if (!conf || conf === pwd) {
-          const parentName = p?.father?.name || p?.mother?.name || payload.parentName || payload.name || 'Parent';
-          const phone = p?.father?.phone || p?.mother?.phone;
-          if (phone) {
-            try { await upsertParentUserForPhone({ phone, password: pwd, name: parentName }); } catch (_) {}
-          }
+      // If a Parent/Guardian Portal password was provided, create/update a parent user now
+      const pwd = (p?.hasGuardian && g?.portalPassword) || p?.portalPassword;
+      const conf = (p?.hasGuardian && g?.portalPasswordConfirm) || p?.portalPasswordConfirm;
+      const phone = (p?.hasGuardian && g?.phone) || p?.father?.phone || p?.mother?.phone;
+      const parentName = (p?.hasGuardian && g?.name) || p?.father?.name || p?.mother?.name || payload.parentName || payload.name || 'Parent';
+      if (pwd && String(pwd).length >= 4 && phone) {
+        if (!conf || String(conf) === String(pwd)) {
+          try { await upsertParentUserForPhone({ phone, password: String(pwd), name: parentName }); } catch (_) {}
         }
       }
     } catch (_) {}
@@ -84,6 +83,21 @@ export const update = async (req, res, next) => {
         delete data.avatar;
       }
     }
+    // If Parent/Guardian portal password is supplied on update, upsert the parent user
+    try {
+      const p = data.parent || {};
+      const g = p.guardian || {};
+      const pwd = (p?.hasGuardian && g?.portalPassword) || p?.portalPassword;
+      const conf = (p?.hasGuardian && g?.portalPasswordConfirm) || p?.portalPasswordConfirm;
+      const phone = (p?.hasGuardian && g?.phone) || p?.father?.phone || p?.mother?.phone;
+      const parentName = (p?.hasGuardian && g?.name) || p?.father?.name || p?.mother?.name || data.parentName || data.name || 'Parent';
+      if (pwd && String(pwd).length >= 4 && phone) {
+        if (!conf || String(conf) === String(pwd)) {
+          try { await upsertParentUserForPhone({ phone, password: String(pwd), name: parentName }); } catch (_) {}
+        }
+      }
+    } catch (_) {}
+
     const updated = await students.update(Number(req.params.id), data);
     if (!updated) return res.status(404).json({ message: 'Student not found' });
     return res.json(updated);

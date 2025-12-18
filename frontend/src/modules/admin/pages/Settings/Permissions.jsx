@@ -8,7 +8,20 @@ import { rbacApi } from '../../../../services/api';
 import { useAuth } from '../../../../contexts/AuthContext';
 
 const roleMap = { admin: 'Administrator', teacher: 'Teacher', student: 'Student', driver: 'Driver' };
-const baseModules = ['students','teachers','finance','transport','attendance','reports','communication','settings'];
+const baseModules = ['students','teachers','parents','finance','transport','attendance','reports','communication','settings'];
+const displayToKey = {
+  Students: 'students',
+  Teachers: 'teachers',
+  Finance: 'finance',
+  Transport: 'transport',
+  Attendance: 'attendance',
+  Reports: 'reports',
+  Communication: 'communication',
+  Settings: 'settings',
+  Parents: 'parents',
+  Dashboard: 'dashboard',
+  Academics: 'academics',
+};
 const actions = ['view','edit','export','manage'];
 
 export default function Permissions() {
@@ -19,6 +32,8 @@ export default function Permissions() {
   const [search, setSearch] = useState('');
   const [assignments, setAssignments] = useState({});
   const [roles, setRoles] = useState(['teacher','student','driver','parent']);
+  // When Owner is viewing, we should respect modules assigned to Admin (licensed by Owner)
+  const [adminAllowed, setAdminAllowed] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -33,13 +48,42 @@ export default function Permissions() {
     load();
   }, []);
 
+  // Owner context: fetch Admin licensing to filter visible modules accordingly
+  useEffect(() => {
+    const loadAdminModules = async () => {
+      if (!user || user.role !== 'owner') { setAdminAllowed(null); return; }
+      try {
+        const mods = await rbacApi.getModules();
+        const allowed = Array.isArray(mods?.assignments?.admin?.allowModules)
+          ? mods.assignments.admin.allowModules
+          : [];
+        setAdminAllowed(allowed);
+      } catch (_) {
+        setAdminAllowed([]);
+      }
+    };
+    loadAdminModules();
+  }, [user]);
+
   // Determine which modules to show based on licensing. Owner sees all.
   const allowedModules = useMemo(() => {
-    if (user?.role === 'owner') return baseModules;
+    if (user?.role === 'owner') {
+      if (!Array.isArray(adminAllowed)) return [];
+      const allowedKeys = adminAllowed
+        .map((n) => displayToKey[n] || (typeof n === 'string' ? n.toLowerCase() : null))
+        .filter(Boolean);
+      return baseModules.filter((m) => allowedKeys.includes(m));
+    }
     const allow = moduleAccess?.allowModules;
     if (!allow || allow === 'ALL') return baseModules;
-    return baseModules.filter((m) => Array.isArray(allow) ? allow.includes(m) : false);
-  }, [user, moduleAccess]);
+    if (Array.isArray(allow)) {
+      const allowedKeys = allow
+        .map((n) => displayToKey[n] || (typeof n === 'string' ? n.toLowerCase() : null))
+        .filter(Boolean);
+      return baseModules.filter((m) => allowedKeys.includes(m));
+    }
+    return [];
+  }, [user, moduleAccess, adminAllowed]);
 
   const rows = useMemo(() => {
     const base = allowedModules.flatMap((m) => actions.map((a) => ({ key: `${m}.${a}`, module: m, action: a })));
