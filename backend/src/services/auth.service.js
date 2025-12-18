@@ -128,3 +128,19 @@ export const ensureParentUserForPhone = async ({ phone, password, name }) => {
   );
   return rows[0] || null;
 };
+
+// Create or update a parent user for a given phone, always setting the provided password
+export const upsertParentUserForPhone = async ({ phone, password, name }) => {
+  const emailLike = normalizePkPhone(phone);
+  const existing = await findUserByEmail(emailLike);
+  const passwordHash = await bcrypt.hash(password, 10);
+  if (existing) {
+    await query('UPDATE users SET password_hash = $2, role = $3, name = COALESCE($4, name) WHERE id = $1', [existing.id, passwordHash, 'parent', name || null]);
+    return { ...existing, email: emailLike, role: 'parent', name: name || existing.name };
+  }
+  const { rows } = await query(
+    'INSERT INTO users (email, password_hash, role, name) VALUES ($1,$2,$3,$4) RETURNING id, email, role, name, password_hash',
+    [emailLike, passwordHash, 'parent', name || emailLike]
+  );
+  return rows[0] || null;
+};

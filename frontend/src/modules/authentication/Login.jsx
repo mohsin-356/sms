@@ -168,15 +168,15 @@ function SignIn() {
                 fontWeight='500'
                 color={textColor}
                 mb='8px'>
-                Email<Text color={brandStars}>*</Text>
+                Email or Phone<Text color={brandStars}>*</Text>
               </FormLabel>
               <Input
                 isRequired={true}
                 variant='auth'
                 fontSize='sm'
                 ms={{ base: '0px', md: '0px' }}
-                type='email'
-                placeholder='Enter your email'
+                type='text'
+                placeholder='Enter email or WhatsApp number (+92...)'
                 mb='24px'
                 fontWeight='500'
                 size='lg'

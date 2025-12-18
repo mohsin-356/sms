@@ -142,15 +142,18 @@ export default function Dashboard(props) {
   const { user, moduleAccess, loading } = useAuth();
 
   const filterRoutesByAccess = (allRoutes) => {
-    // Owner sees everything; others filtered by licensing
-    if (!user || !moduleAccess || moduleAccess.allowModules === 'ALL' || user.role === 'owner') return allRoutes;
+    // Owner sees everything unfiltered
+    if (user && user.role === 'owner') return allRoutes;
 
-    const allowedModules = new Set(moduleAccess.allowModules || []);
+    // For non-owner roles, when moduleAccess is missing or 'ALL', treat as allow all modules
+    const allowedModules = (!moduleAccess || moduleAccess.allowModules === 'ALL')
+      ? 'ALL'
+      : new Set(moduleAccess.allowModules || []);
     const allowedSubroutes = new Set(
       moduleAccess.allowSubroutes === 'ALL' ? ['ALL'] : (moduleAccess.allowSubroutes || [])
     );
 
-    const isModuleAllowed = (name) => allowedModules.has(name);
+    const isModuleAllowed = (name) => (allowedModules === 'ALL') || allowedModules.has(name);
     const isSubrouteAllowed = (subPath) => allowedSubroutes.has('ALL') || allowedSubroutes.has(subPath);
 
     const filterTree = (items) => items
@@ -159,7 +162,11 @@ export default function Dashboard(props) {
         if (r.layout !== '/admin') return null;
         if (r.collapse && r.items) {
           if (!isModuleAllowed(r.name)) return null;
-          const filteredItems = (r.items || []).filter((it) => isSubrouteAllowed(it.path));
+          let inner = r.items || [];
+          if (user.role !== 'owner') {
+            inner = inner.filter((it) => it.path !== '/settings/licensing');
+          }
+          const filteredItems = inner.filter((it) => isSubrouteAllowed(it.path));
           if (filteredItems.length === 0) return null;
           return { ...r, items: filteredItems };
         }
@@ -234,6 +241,12 @@ export default function Dashboard(props) {
                 }>
                   <Routes>
                     {getRoutes(effectiveRoutes)}
+                    {user && user.role !== 'owner' && (
+                      <Route
+                        path="settings/licensing"
+                        element={<Navigate to="/admin/dashboard" replace />}
+                      />
+                    )}
                   
                   {/* Direct test routes */}
                   {testRoutes.map((route, index) => (

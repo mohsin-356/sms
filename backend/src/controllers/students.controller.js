@@ -2,6 +2,7 @@ import * as students from '../services/students.service.js';
 import cloudinary from '../config/cloudinary.js';
 import { ensureStudentExtendedColumns, ensureFinanceConstraints, ensureParentsSchema } from '../db/autoMigrate.js';
 import * as parentsSvc from '../services/parents.service.js';
+import { upsertParentUserForPhone } from '../services/auth.service.js';
 
 export const list = async (req, res, next) => {
   try {
@@ -50,6 +51,18 @@ export const create = async (req, res, next) => {
         address: p?.address || null,
       });
       if (ensured?.familyNumber) payload.familyNumber = ensured.familyNumber;
+      // If a Parent Portal password was provided, create/update a parent user now
+      if (p?.portalPassword && String(p.portalPassword).length >= 4) {
+        const pwd = String(p.portalPassword);
+        const conf = String(p.portalPasswordConfirm || '');
+        if (!conf || conf === pwd) {
+          const parentName = p?.father?.name || p?.mother?.name || payload.parentName || payload.name || 'Parent';
+          const phone = p?.father?.phone || p?.mother?.phone;
+          if (phone) {
+            try { await upsertParentUserForPhone({ phone, password: pwd, name: parentName }); } catch (_) {}
+          }
+        }
+      }
     } catch (_) {}
 
     const created = await students.create(payload);

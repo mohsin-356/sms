@@ -5,37 +5,48 @@ import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
 import { rbacApi } from '../../../../services/api';
+import { useAuth } from '../../../../contexts/AuthContext';
 
 const roleMap = { admin: 'Administrator', teacher: 'Teacher', student: 'Student', driver: 'Driver' };
-const modules = ['students','teachers','finance','transport','attendance','reports','communication','settings'];
+const baseModules = ['students','teachers','finance','transport','attendance','reports','communication','settings'];
 const actions = ['view','edit','export','manage'];
 
 export default function Permissions() {
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const { user, moduleAccess } = useAuth();
   const [roleFilter, setRoleFilter] = useState('all');
   const [moduleFilter, setModuleFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [assignments, setAssignments] = useState({});
-  const [roles, setRoles] = useState(['admin','teacher','student','driver']);
+  const [roles, setRoles] = useState(['teacher','student','driver','parent']);
 
   useEffect(() => {
     const load = async () => {
       try {
         const data = await rbacApi.getPermissions();
-        const rs = Array.isArray(data?.roles) ? data.roles : ['admin','teacher','student','driver'];
-        setRoles(rs);
+        const rs = Array.isArray(data?.roles) ? data.roles : ['admin','teacher','student','driver','parent'];
+        // Hide owner and admin columns entirely
+        setRoles(rs.filter((r) => r !== 'owner' && r !== 'admin'));
         setAssignments(data?.assignments || {});
       } catch (_) {}
     };
     load();
   }, []);
 
-  const rows = useMemo(() => {
-    const base = modules.flatMap((m) => actions.map((a) => ({ key: `${m}.${a}`, module: m, action: a })));
-    return base.filter(r => (moduleFilter==='all' || r.module===moduleFilter) && (!search || r.key.toLowerCase().includes(search.toLowerCase())));
-  }, [moduleFilter, search]);
+  // Determine which modules to show based on licensing. Owner sees all.
+  const allowedModules = useMemo(() => {
+    if (user?.role === 'owner') return baseModules;
+    const allow = moduleAccess?.allowModules;
+    if (!allow || allow === 'ALL') return baseModules;
+    return baseModules.filter((m) => Array.isArray(allow) ? allow.includes(m) : false);
+  }, [user, moduleAccess]);
 
-  const stats = useMemo(() => ({ modules: modules.length, roles: roles.length, perms: modules.length * actions.length }), [roles]);
+  const rows = useMemo(() => {
+    const base = allowedModules.flatMap((m) => actions.map((a) => ({ key: `${m}.${a}`, module: m, action: a })));
+    return base.filter(r => (moduleFilter==='all' || r.module===moduleFilter) && (!search || r.key.toLowerCase().includes(search.toLowerCase())));
+  }, [moduleFilter, search, allowedModules]);
+
+  const stats = useMemo(() => ({ modules: allowedModules.length, roles: roles.length, perms: allowedModules.length * actions.length }), [roles, allowedModules]);
 
   const toggle = (role, perm, checked) => {
     setAssignments((prev) => {
@@ -83,7 +94,7 @@ export default function Permissions() {
           </InputGroup>
           <Select maxW='220px' value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
             <option value='all'>All Modules</option>
-            {modules.map(m => <option key={m} value={m}>{m}</option>)}
+            {allowedModules.map(m => <option key={m} value={m}>{m}</option>)}
           </Select>
           <Select maxW='220px' value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
             <option value='all'>All Roles</option>
