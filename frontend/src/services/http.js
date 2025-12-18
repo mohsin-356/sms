@@ -22,8 +22,11 @@ const withTimeout = (promise, ms) => {
   };
 };
 
-// If VITE_API_URL is not set, default to the backend dev URL
-const baseURL = (config.API_BASE_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+// If running under Electron, prefer runtime API base injected by preload
+// Fallback to VITE_API_URL and then to localhost dev API
+const electronBase = (typeof window !== 'undefined' && window.ELECTRON_CONFIG && window.ELECTRON_CONFIG.API_BASE_URL) ||
+  (typeof window !== 'undefined' && window.__API_BASE_URL);
+const baseURL = (electronBase || config.API_BASE_URL || 'http://localhost:5000/api').replace(/\/$/, '');
 
 const request = async (method, url, { params, data, headers } = {}) => {
   // Drop undefined/null query params to avoid sending 'undefined' strings

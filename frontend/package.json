@@ -2,6 +2,7 @@
   "name": "school-management-system",
   "version": "2.0.0",
   "private": true,
+  "main": "electron/main.js",
   "dependencies": {
     "@babel/preset-react": "^7.18.6",
     "@chakra-ui/icons": "^2.0.19",
@@ -42,7 +43,9 @@
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-    "preinstall": "npx npm-force-resolutions"
+    "preinstall": "npx npm-force-resolutions",
+    "electron:dev": "cross-env BACKEND_PORT=59201 concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "vite build && electron-builder --win --x64"
   },
   "resolutions": {
     "react-error-overlay": "6.0.9"
@@ -71,10 +74,39 @@
     "@vitejs/plugin-react": "^4.2.1",
     "anymatch": "^3.1.3",
     "chokidar": "^3.6.0",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.9.1",
     "gh-pages": "^6.1.1",
+    "wait-on": "^7.2.0",
     "micromatch": "^4.0.7",
     "vite": "^7.2.2",
     "vite-plugin-svgr": "^4.2.0",
     "vite-tsconfig-paths": "^5.1.4"
+  }
+  ,
+  "build": {
+    "appId": "org.mindspire.academia.pro",
+    "productName": "Academia Pro",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": ["**/*", "!**/.git/**"]
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "artifactName": "academia-pro.exe"
+    },
+    "directories": {
+      "buildResources": "public"
+    }
   }
 }
