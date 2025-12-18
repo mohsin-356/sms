@@ -7,4 +7,5 @@ export * as subjectsApi from './subjects';
 export * as rbacApi from './rbac';
 export * as settingsApi from './settings';
 export * as parentsApi from './parents';
+export * as alertsApi from './alerts';
 export { http, setAuthToken, setUnauthorizedHandler } from '../http';

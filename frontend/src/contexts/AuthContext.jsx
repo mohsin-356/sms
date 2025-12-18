@@ -50,7 +50,7 @@ export const AuthProvider = ({ children }) => {
   const refreshModuleAccess = useCallback(async (role) => {
     try {
       if (!role) { setModuleAccess({ allowModules: [], allowSubroutes: [] }); return; }
-      if (role === 'owner') { setModuleAccess({ allowModules: 'ALL', allowSubroutes: 'ALL' }); return; }
+      if (role === 'owner' || role === 'parent') { setModuleAccess({ allowModules: 'ALL', allowSubroutes: 'ALL' }); return; }
       const a = await rbacApi.getMyModules();
       setModuleAccess(a || { allowModules: [], allowSubroutes: [] });
     } catch (_) {

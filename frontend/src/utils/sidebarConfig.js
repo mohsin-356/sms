@@ -199,6 +199,8 @@ export const getDashboardPath = (role) => {
       return '/admin/dashboard';
     case 'driver':
       return '/admin/dashboard';
+    case 'parent':
+      return '/admin/parent/alerts';
     default:
       return '/auth/sign-in';
   }

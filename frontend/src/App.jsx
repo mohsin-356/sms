@@ -45,7 +45,7 @@ export default function Main() {
               path="admin/*"
               element={
                 <AuthProvider>
-                  <ProtectedRoute allowedRoles={['owner','admin','teacher','student','driver']}>
+                  <ProtectedRoute allowedRoles={['owner','admin','teacher','student','driver','parent']}>
                     <AdminLayout theme={currentTheme} setTheme={setCurrentTheme} />
                   </ProtectedRoute>
                 </AuthProvider>

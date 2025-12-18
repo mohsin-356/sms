@@ -24,6 +24,24 @@ export const login = async (req, res, next) => {
         // fall through to standard flow
       }
     }
+    // If identifier looks like a phone number, treat as Parent Portal login first to avoid misclassifying as admin.
+    {
+      const id = String(email || '').trim();
+      const looksLikePhone = /^\+?\d{10,15}$/.test(id) || /^0\d{10}$/.test(id) || /^3\d{9}$/.test(id);
+      if (looksLikePhone) {
+        try { await ensureParentsSchema(); } catch (_) {}
+        try { await parentsSvc.backfillFromStudents(); } catch (_) {}
+        try {
+          const ensured = await authService.upsertParentUserForPhone({ phone: id, password, name: 'Parent' });
+          if (ensured) {
+            const userPayload = { id: ensured.id, email: ensured.email, role: 'parent', name: ensured.name || 'Parent' };
+            const token = signAccessToken(userPayload);
+            const refreshToken = signRefreshToken({ id: ensured.id });
+            return res.json({ token, refreshToken, user: userPayload });
+          }
+        } catch (_) {}
+      }
+    }
     // Accept either email or WhatsApp number in the "email" field for parents
     let user = await authService.findUserByEmail(email);
     if (!user) {

@@ -144,6 +144,13 @@ export default function Dashboard(props) {
   const filterRoutesByAccess = (allRoutes) => {
     // Owner sees everything unfiltered
     if (user && user.role === 'owner') return allRoutes;
+    // Parent: show only Parent Portal group
+    if (user && user.role === 'parent') {
+      const pickParentPortal = (items) => items
+        .filter((r) => r.layout === '/admin' && r.name === 'Parent Portal')
+        .map((r) => ({ ...r }));
+      return pickParentPortal(allRoutes);
+    }
 
     // For non-owner roles, when moduleAccess is missing or 'ALL', treat as allow all modules
     const allowedModules = (!moduleAccess || moduleAccess.allowModules === 'ALL')
@@ -259,7 +266,7 @@ export default function Dashboard(props) {
                   
                   <Route
                     path="/"
-                    element={<Navigate to="/admin/dashboard" replace />}
+                    element={<Navigate to={user ? (user.role === 'parent' ? '/admin/parent/alerts' : '/admin/dashboard') : '/admin/dashboard'} replace />}
                   />
                 </Routes>
                 </Suspense>

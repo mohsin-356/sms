@@ -44,6 +44,7 @@ import {
 
 // SMS Component Imports
 import AdminDashboard from './modules/admin/pages/Dashboard';
+import ParentAlerts from './modules/parent/pages/Alerts';
 import StudentsList from './modules/admin/pages/Students/StudentsList';
 import EditStudent from './modules/admin/pages/Students/EditStudent';
 import StudentProfile from './modules/admin/pages/Students/StudentProfile';
@@ -83,6 +84,33 @@ export const getSMSRoutes = () => {
     },
 
     // Parents Section
+    {
+      name: 'Parent Portal',
+      layout: '/admin',
+      icon: <Icon as={MdNotifications} width="20px" height="20px" color="inherit" />,
+      collapse: true,
+      items: [
+        {
+          name: 'Alerts',
+          layout: '/admin',
+          path: '/parent/alerts',
+          component: <ParentAlerts />,
+        },
+        {
+          name: 'Notifications',
+          layout: '/admin',
+          path: '/parent/notifications',
+          component: <ParentAlerts />,
+        },
+        {
+          name: 'Messages',
+          layout: '/admin',
+          path: '/parent/messages',
+          component: <ParentAlerts />,
+        },
+      ],
+    },
+
     {
       name: 'Parents',
       layout: '/admin',
