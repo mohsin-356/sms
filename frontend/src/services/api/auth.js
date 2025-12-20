@@ -1,11 +1,17 @@
 import { http } from '../http';
 
-export const login = async ({ email, password }) => {
-  return http.post('/auth/login', { email, password });
+export const login = async ({ email, password, ownerKey }) => {
+  const payload = { email, password };
+  if (ownerKey) payload.ownerKey = ownerKey;
+  return http.post('/auth/login', payload);
 };
 
 export const register = async ({ email, password, name, role }) => {
   return http.post('/auth/register', { email, password, name, role });
+};
+
+export const status = async () => {
+  return http.get('/auth/status');
 };
 
 export const logout = async () => {

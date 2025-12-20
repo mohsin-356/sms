@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Button, Card, CardBody, Checkbox, Flex, Heading, SimpleGrid, Text, useToast } from '@chakra-ui/react';
 import { useAuth } from '../../../../contexts/AuthContext';
-import { rbacApi } from '../../../../services/api';
+import { rbacApi, settingsApi } from '../../../../services/api';
 
 const ALL_MODULES = [
   'Dashboard',
@@ -47,7 +47,11 @@ export default function Licensing() {
     try {
       setSaving(true);
       await rbacApi.setModules('admin', { allowModules: allowed, allowSubroutes: ['ALL'] });
-      toast({ title: 'Licensing saved', description: 'Admin module access updated.', status: 'success' });
+      // Persist the selected modules to settings for login gating
+      await settingsApi.set('licensing.allowed_modules', allowed);
+      // Mark licensing as configured only after Owner saves module unlocks
+      await settingsApi.set('licensing.configured', 'true');
+      toast({ title: 'Licensing saved', description: 'Admin module access updated. System setup completed.', status: 'success' });
     } catch (e) {
       toast({ title: 'Save failed', status: 'error' });
     } finally {

@@ -18,11 +18,15 @@ router.post(
         return emailRegex.test(s) || phoneRegex.test(s);
       })
       .withMessage('Provide a valid email or phone number'),
-    body('password').isString().isLength({ min: 6 })
+    body('password').isString().isLength({ min: 6 }),
+    body('ownerKey').optional().isString().isLength({ min: 30 })
   ],
   validate,
   authController.login
 );
+
+// Public status endpoint used by frontend to toggle login buttons before setup
+router.get('/status', authController.status);
 
 router.post(
   '/register',

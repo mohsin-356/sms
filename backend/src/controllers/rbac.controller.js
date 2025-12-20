@@ -1,4 +1,5 @@
 import * as rbac from '../services/rbac.service.js';
+import * as settingsSvc from '../services/settings.service.js';
 
 export const listRoles = async (req, res, next) => {
   try {
@@ -19,7 +20,57 @@ export const setRoleActive = async (req, res, next) => {
 export const listPermissions = async (req, res, next) => {
   try {
     const data = await rbac.listPermissions();
-    res.json(data);
+    // Dynamic licensing filter: only show permissions for purchased + assigned modules
+    // 1) Licensing allowed modules (display names array)
+    let licAllowed = [];
+    try {
+      const licRow = await settingsSvc.getByKey('licensing.allowed_modules');
+      licAllowed = JSON.parse(licRow?.value || '[]');
+    } catch (_) { licAllowed = []; }
+    const toKey = (n) => {
+      if (!n) return null;
+      const s = String(n).toLowerCase();
+      // Map display names to internal module keys used in permissions
+      const map = {
+        students: 'students', teachers: 'teachers', parents: 'parents',
+        finance: 'finance', transport: 'transport', attendance: 'attendance',
+        reports: 'reports', communication: 'communication', settings: 'settings', dashboard: 'dashboard', academics: 'academics'
+      };
+      return map[s] || s;
+    };
+    const licKeys = new Set(licAllowed.map(toKey).filter(Boolean));
+
+    // 2) Admin-assigned allowed modules (display names array) for intersection
+    let adminAllowed = [];
+    try {
+      const mods = await rbac.listModuleAssignments();
+      adminAllowed = mods?.assignments?.admin?.allowModules || [];
+    } catch (_) { adminAllowed = []; }
+    const adminKeys = new Set(adminAllowed.map(toKey).filter(Boolean));
+
+    // Compute effective allowed keys based on who is requesting
+    const requesterRole = String(req.user?.role || '').toLowerCase();
+    let allowedKeys;
+    if (requesterRole === 'owner') {
+      // Owner sees intersection of what was purchased and what Admin is configured to use
+      allowedKeys = new Set(Array.from(adminKeys).filter((k) => licKeys.has(k)));
+    } else {
+      // Admin sees only modules they are assigned AND that are licensed
+      // Their own assignment equals adminKeys; intersect with licKeys.
+      allowedKeys = new Set(Array.from(adminKeys).filter((k) => licKeys.has(k)));
+    }
+
+    // Reduce permissions list and assignments to only allowed modules
+    const filterPerm = (p) => {
+      const mod = String(p).split('.')[0];
+      return allowedKeys.has(mod);
+    };
+    const allPerms = Array.isArray(data?.allPerms) ? data.allPerms.filter(filterPerm) : [];
+    const assignments = {};
+    for (const [role, perms] of Object.entries(data?.assignments || {})) {
+      assignments[role] = Array.isArray(perms) ? perms.filter(filterPerm) : [];
+    }
+    res.json({ roles: data?.roles || [], allPerms, assignments });
   } catch (e) { next(e); }
 };
 

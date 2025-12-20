@@ -120,9 +120,9 @@ export const AuthProvider = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logout]);
 
-  // Lightweight polling to apply RBAC changes quickly for non-admins
+  // Lightweight polling to apply RBAC changes quickly for all roles (including admin)
   useEffect(() => {
-    if (!user || user.role === 'admin') return;
+    if (!user) return;
     let timer = setInterval(() => {
       refreshModuleAccess(user.role);
     }, 2000);
@@ -130,7 +130,7 @@ export const AuthProvider = ({ children }) => {
   }, [user, refreshModuleAccess]);
 
   // Login function
-  const login = useCallback(async (email, password, remember = false) => {
+  const login = useCallback(async (email, password, remember = false, ownerKey) => {
     setLoading(true);
     setError(null);
     try {
@@ -152,7 +152,7 @@ export const AuthProvider = ({ children }) => {
         userData = { email, role: roleFromEmail, name: roleFromEmail.toUpperCase(), id: roleFromEmail + '-001' };
       } else {
         // Real backend login
-        const res = await authApi.login({ email, password });
+        const res = await authApi.login({ email, password, ownerKey });
         token = res?.token || res?.accessToken;
         userData = res?.user || null;
         if (!token || !userData) throw new Error('Invalid auth response');
@@ -177,7 +177,7 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: userData };
     } catch (e) {
       setError(e.message || 'Login failed');
-      return { success: false, error: e.message || 'Login failed' };
+      return { success: false, error: e.message || 'Login failed', status: e.status, data: e.data };
     } finally {
       setLoading(false);
     }

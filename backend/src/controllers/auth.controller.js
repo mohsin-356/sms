@@ -1,28 +1,78 @@
 import bcrypt from 'bcryptjs';
+import { query } from '../config/db.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
 import * as authService from '../services/auth.service.js';
 import { ensureParentsSchema } from '../db/autoMigrate.js';
 import * as parentsSvc from '../services/parents.service.js';
+import * as settingsSvc from '../services/settings.service.js';
 
 export const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, ownerKey } = req.body;
     const ownerEmail = process.env.OWNER_EMAIL || 'qutaibah@mindspire.org';
 
-    // Owner-first: always allow and sync credentials for the configured owner email
+    // Gate: disallow non-owner logins until licensing is configured
+    const lic = await settingsSvc.getByKey('licensing.configured');
+    const licensingConfigured = String(lic?.value || '').toLowerCase() === 'true';
+    // Determine allowed modules/roles after licensing is configured
+    let allowedModules = [];
+    try {
+      const allowedRow = await settingsSvc.getByKey('licensing.allowed_modules');
+      allowedModules = JSON.parse(allowedRow?.value || '[]');
+    } catch (_) { allowedModules = []; }
+    const allowedRoles = new Set();
+    if (Array.isArray(allowedModules)) {
+      if (allowedModules.includes('Teachers')) allowedRoles.add('teacher');
+      if (allowedModules.includes('Students')) allowedRoles.add('student');
+      if (allowedModules.includes('Parents')) allowedRoles.add('parent');
+      if (allowedModules.includes('Transport')) allowedRoles.add('driver');
+      if (allowedModules.includes('Dashboard') || allowedModules.includes('Settings')) allowedRoles.add('admin');
+    }
+
+    // Owner-first: verify email/password first, then require Owner Key as step-2
     if (String(email).toLowerCase().trim() === String(ownerEmail).toLowerCase().trim()) {
       try {
-        const ensured = await authService.ensureOwnerUser({ email: ownerEmail, password, name: 'Mindspire Owner' });
-        const ownerId = ensured?.id;
-        if (ownerId) {
-          const userPayload = { id: ownerId, email: ownerEmail, role: 'owner', name: 'Mindspire Owner' };
-          const token = signAccessToken(userPayload);
-          const refreshToken = signRefreshToken({ id: ownerId });
-          return res.json({ token, refreshToken, user: userPayload });
+        // Ensure owner exists (bootstrap) and verify password
+        let ownerUser = await authService.findUserByEmail(ownerEmail);
+        if (!ownerUser) {
+          await authService.ensureOwnerUser({ email: ownerEmail, password, name: 'Mindspire Owner' });
+          ownerUser = await authService.findUserByEmail(ownerEmail);
         }
+        if (!ownerUser) return res.status(401).json({ message: 'Invalid credentials' });
+        const passOk = await bcrypt.compare(password, ownerUser.password_hash || '');
+        if (!passOk) return res.status(401).json({ message: 'Invalid credentials' });
+
+        // After password verified, check license key
+        const keyRow = await settingsSvc.getByKey('owner.key_hash');
+        const keyHash = keyRow?.value || '';
+        if (!keyHash) {
+          if (!ownerKey || String(ownerKey).length < 30) {
+            return res.status(401).json({ message: 'Owner key not set. Provide a 30+ character key to initialize.', code: 'OWNER_KEY_REQUIRED' });
+          }
+          const newHash = await bcrypt.hash(String(ownerKey), 10);
+          await settingsSvc.setKey('owner.key_hash', newHash);
+        } else {
+          if (!ownerKey) {
+            return res.status(401).json({ message: 'Owner key required', code: 'OWNER_KEY_REQUIRED' });
+          }
+          const keyOk = await bcrypt.compare(String(ownerKey), keyHash);
+          if (!keyOk) {
+            return res.status(401).json({ message: 'Invalid owner key' });
+          }
+        }
+
+        const userPayload = { id: ownerUser.id, email: ownerEmail, role: 'owner', name: ownerUser.name || 'Mindspire Owner' };
+        const token = signAccessToken(userPayload);
+        const refreshToken = signRefreshToken({ id: ownerUser.id });
+        return res.json({ token, refreshToken, user: userPayload });
       } catch (err) {
         // fall through to standard flow
       }
+    }
+
+    // If licensing is not configured yet, block all non-owner logins
+    if (!licensingConfigured) {
+      return res.status(423).json({ message: 'System setup pending. Only owner can sign in until licensing is configured.' });
     }
     // If identifier looks like a phone number, treat as Parent Portal login first to avoid misclassifying as admin.
     {
@@ -34,6 +84,9 @@ export const login = async (req, res, next) => {
         try {
           const ensured = await authService.upsertParentUserForPhone({ phone: id, password, name: 'Parent' });
           if (ensured) {
+            if (allowedRoles.size && !allowedRoles.has('parent')) {
+              return res.status(423).json({ message: 'Parent portal is not licensed for this installation.' });
+            }
             const userPayload = { id: ensured.id, email: ensured.email, role: 'parent', name: ensured.name || 'Parent' };
             const token = signAccessToken(userPayload);
             const refreshToken = signRefreshToken({ id: ensured.id });
@@ -102,6 +155,10 @@ export const login = async (req, res, next) => {
       }
     }
 
+    // Enforce module-based licensing for roles other than owner
+    if (user.role !== 'owner' && allowedRoles.size && !allowedRoles.has(user.role)) {
+      return res.status(423).json({ message: 'Your role is not licensed for login on this installation.' });
+    }
     const userPayload = { id: user.id, email: user.email, role: user.role, name: user.name };
     const token = signAccessToken(userPayload);
     const refreshToken = signRefreshToken({ id: user.id });
@@ -115,6 +172,14 @@ export const login = async (req, res, next) => {
 export const register = async (req, res, next) => {
   try {
     const { email, password, name, role } = req.body;
+
+    // Enforce single Admin policy: only one admin user may exist
+    if (role === 'admin') {
+      const { rows: adminRows } = await query('SELECT 1 FROM users WHERE role = $1 LIMIT 1', ['admin']);
+      if (adminRows.length) {
+        return res.status(409).json({ message: 'An Admin account already exists. Admin signup is disabled.' });
+      }
+    }
 
     const existing = await authService.findUserByEmail(email);
     if (existing) return res.status(409).json({ message: 'Email already in use' });
@@ -197,6 +262,23 @@ export const backfillUsers = async (req, res, next) => {
     if (!allowed.includes(role)) return res.status(400).json({ message: 'Invalid role' });
     const result = await authService.backfillUsersFromDomain(role);
     return res.json(result);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const status = async (req, res, next) => {
+  try {
+    const lic = await settingsSvc.getByKey('licensing.configured');
+    const licensingConfigured = String(lic?.value || '').toLowerCase() === 'true';
+    let allowedModules = [];
+    try {
+      const allowedRow = await settingsSvc.getByKey('licensing.allowed_modules');
+      allowedModules = JSON.parse(allowedRow?.value || '[]');
+    } catch (_) { allowedModules = []; }
+    const { rows: adminRows } = await query('SELECT 1 FROM users WHERE role = $1 LIMIT 1', ['admin']);
+    const adminExists = adminRows.length > 0;
+    return res.json({ licensingConfigured, allowedModules, adminExists });
   } catch (e) {
     next(e);
   }

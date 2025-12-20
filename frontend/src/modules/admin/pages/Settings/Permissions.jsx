@@ -4,7 +4,7 @@ import { MdSecurity, MdAdminPanelSettings, MdPeople, MdFileDownload, MdRefresh }
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
-import { rbacApi } from '../../../../services/api';
+import { rbacApi, authApi } from '../../../../services/api';
 import { useAuth } from '../../../../contexts/AuthContext';
 
 const roleMap = { admin: 'Administrator', teacher: 'Teacher', student: 'Student', driver: 'Driver' };
@@ -34,6 +34,7 @@ export default function Permissions() {
   const [roles, setRoles] = useState(['teacher','student','driver','parent']);
   // When Owner is viewing, we should respect modules assigned to Admin (licensed by Owner)
   const [adminAllowed, setAdminAllowed] = useState(null);
+  const [licAllowed, setLicAllowed] = useState([]);
 
   useEffect(() => {
     const load = async () => {
@@ -65,25 +66,42 @@ export default function Permissions() {
     loadAdminModules();
   }, [user]);
 
+  // Licensing cap: Always fetch licensed modules (what the Owner purchased)
+  useEffect(() => {
+    let timer;
+    const fetchLic = async () => {
+      try {
+        const st = await authApi.status();
+        const arr = Array.isArray(st?.allowedModules) ? st.allowedModules : [];
+        setLicAllowed(arr);
+      } catch (_) {}
+    };
+    fetchLic();
+    // Light polling for fast, dynamic updates when Owner changes licensing
+    timer = setInterval(fetchLic, 3000);
+    return () => { if (timer) clearInterval(timer); };
+  }, []);
+
   // Determine which modules to show based on licensing. Owner sees all.
   const allowedModules = useMemo(() => {
+    const licKeys = (Array.isArray(licAllowed) ? licAllowed : [])
+      .map((n) => displayToKey[n] || (typeof n === 'string' ? n.toLowerCase() : null))
+      .filter(Boolean);
     if (user?.role === 'owner') {
-      if (!Array.isArray(adminAllowed)) return [];
-      const allowedKeys = adminAllowed
+      const adminKeys = (Array.isArray(adminAllowed) ? adminAllowed : [])
         .map((n) => displayToKey[n] || (typeof n === 'string' ? n.toLowerCase() : null))
         .filter(Boolean);
-      return baseModules.filter((m) => allowedKeys.includes(m));
+      const keys = adminKeys.filter(k => licKeys.includes(k));
+      return baseModules.filter((m) => keys.includes(m));
     }
     const allow = moduleAccess?.allowModules;
-    if (!allow || allow === 'ALL') return baseModules;
-    if (Array.isArray(allow)) {
-      const allowedKeys = allow
-        .map((n) => displayToKey[n] || (typeof n === 'string' ? n.toLowerCase() : null))
-        .filter(Boolean);
-      return baseModules.filter((m) => allowedKeys.includes(m));
+    let roleKeys = [];
+    if (allow === 'ALL') roleKeys = baseModules; else if (Array.isArray(allow)) {
+      roleKeys = allow.map((n) => displayToKey[n] || (typeof n === 'string' ? n.toLowerCase() : null)).filter(Boolean);
     }
-    return [];
-  }, [user, moduleAccess, adminAllowed]);
+    const keys = (roleKeys.length ? roleKeys : []).filter(k => licKeys.includes(k));
+    return baseModules.filter((m) => keys.includes(m));
+  }, [user, moduleAccess, adminAllowed, licAllowed]);
 
   const rows = useMemo(() => {
     const base = allowedModules.flatMap((m) => actions.map((a) => ({ key: `${m}.${a}`, module: m, action: a })));

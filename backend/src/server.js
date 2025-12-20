@@ -5,7 +5,8 @@ import * as authService from './services/auth.service.js';
 
 loadEnv();
 
-const PORT = process.env.PORT || 5000;
+// Use a stable default port for Electron packaging
+const PORT = process.env.PORT || 59201;
 
 async function boot() {
   // Seed or ensure Owner account exists BEFORE starting server to avoid race
@@ -18,7 +19,7 @@ async function boot() {
 
   const server = http.createServer(app);
   server.listen(PORT, () => {
-    console.log(`API server listening on port ${PORT}`);
+    console.log(`Backend running on port ${PORT}`);
   });
 }
 

@@ -66,7 +66,8 @@ const request = async (method, url, { params, data, headers } = {}) => {
     const payload = isJSON ? await res.json() : await res.text();
 
     if (!res.ok) {
-      if (res.status === 401 && onUnauthorized) onUnauthorized();
+      // Only trigger global 401 handler when a session token exists (i.e., post-login)
+      if (res.status === 401 && authToken && onUnauthorized) onUnauthorized();
       const error = new Error(payload?.message || 'Request failed');
       error.status = res.status;
       error.data = payload;
