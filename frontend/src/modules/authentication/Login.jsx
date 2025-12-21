@@ -3,7 +3,6 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
-  Checkbox,
   Flex,
   FormControl,
   FormLabel,
@@ -49,7 +48,6 @@ function SignIn() {
   const [show, setShow] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [ownerKey, setOwnerKey] = useState('');
   const [showOwnerKey, setShowOwnerKey] = useState(false);
   const [setupMode, setSetupMode] = useState(true);
@@ -108,7 +106,7 @@ function SignIn() {
     if (isOwnerEmail) {
       // Step 1: if key not yet provided and step1 not passed, attempt login to trigger owner-key prompt
       if (!ownerStep1Passed && !ownerKey) {
-        const res = await login(email, password, rememberMe, undefined);
+        const res = await login(email, password, false, undefined);
         if (!res?.success) {
           const requiresKey =
             res?.status === 401 && (res?.data?.code === 'OWNER_KEY_REQUIRED' || /owner key|key not set/i.test(String(res?.error || '')));
@@ -125,11 +123,11 @@ function SignIn() {
         return;
       }
       // Step 2: have key, complete login
-      await login(email, password, rememberMe, ownerKey);
+      await login(email, password, false, ownerKey);
       return;
     }
     // Non-owner: normal login
-    await login(email, password, rememberMe, undefined);
+    await login(email, password, false, undefined);
   };
 
   // Role selection: updates view (does not autofill or auto-login)
@@ -343,31 +341,7 @@ function SignIn() {
                 </>
               ) : null}
               
-              <Flex justifyContent='space-between' align='center' mb='24px'>
-                <FormControl display='flex' alignItems='center'>
-                  <Checkbox
-                    id='remember-login'
-                    colorScheme='brandScheme'
-                    me='10px'
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    disabled={authLoading}
-                  />
-                  <FormLabel
-                    htmlFor='remember-login'
-                    mb='0'
-                    fontWeight='normal'
-                    color={textColor}
-                    fontSize='sm'>
-                    Keep me logged in
-                  </FormLabel>
-                </FormControl>
-                <NavLink to='/auth/forgot-password'>
-                  <Text color={brandStars} fontSize='sm' w='124px' fontWeight='500'>
-                    Forgot password?
-                  </Text>
-                </NavLink>
-              </Flex>
+              {/* Removed 'Keep me logged in' and 'Forgot password?' from UI */}
               
               <Button
                 fontSize='sm'
