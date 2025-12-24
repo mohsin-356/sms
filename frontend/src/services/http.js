@@ -26,7 +26,7 @@ const withTimeout = (promise, ms) => {
 // Fallback to VITE_API_URL and then to localhost dev API
 const electronBase = (typeof window !== 'undefined' && window.ELECTRON_CONFIG && window.ELECTRON_CONFIG.API_BASE_URL) ||
   (typeof window !== 'undefined' && window.__API_BASE_URL);
-const baseURL = (electronBase || config.API_BASE_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+const baseURL = (electronBase || config.API_BASE_URL || 'http://localhost:5001/api').replace(/\/$/, '');
 
 const request = async (method, url, { params, data, headers } = {}) => {
   // Drop undefined/null query params to avoid sending 'undefined' strings
