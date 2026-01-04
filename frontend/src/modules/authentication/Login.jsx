@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { NavLink } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -16,7 +16,6 @@ import {
   Alert,
   AlertIcon,
   VStack,
-  HStack,
 } from '@chakra-ui/react';
 // Custom components
 import DefaultAuth from '../../layouts/auth/Default';
@@ -53,27 +52,14 @@ function SignIn() {
   const [setupMode, setSetupMode] = useState(true);
   const [allowedModules, setAllowedModules] = useState([]);
   const [ownerStep1Passed, setOwnerStep1Passed] = useState(false);
-  const [selectedRole, setSelectedRole] = useState(null);
   const ownerKeyRef = useRef(null);
   const ownerKeyBlockRef = useRef(null);
 
   const ownerEmail = 'qutaibah@mindspire.org';
   const isOwnerEmail = String(email).trim().toLowerCase() === ownerEmail.toLowerCase();
 
-  // No prefetched/demo credentials: all fields start empty and must be entered by user
-  // Presets exist only for clickable badges and do NOT prefill inputs
-  const quickProfiles = useMemo(() => ({
-    admin: { email: 'admin@mindspire.com', password: 'password123', label: 'Admin', colorScheme: 'blue' },
-    teacher: { email: 'teacher@mindspire.com', password: 'password123', label: 'Teacher', colorScheme: 'green' },
-    student: { email: 'student@mindspire.com', password: 'password123', label: 'Student', colorScheme: 'purple' },
-    driver: { email: 'driver@mindspire.com', password: 'password123', label: 'Driver', colorScheme: 'orange' },
-    parent: { email: 'parent@mindspire.com', password: 'password123', label: 'Parent', colorScheme: 'pink' },
-    owner: { email: ownerEmail, password: 'Qutaibah@123', label: 'Owner', colorScheme: 'teal' },
-  }), []);
-
   // Auth Context
   const { login, clearError, loading: authLoading, error: authError, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
 
   // Handle click to show/hide password
   const handleClick = () => setShow(!show);
@@ -130,11 +116,6 @@ function SignIn() {
     await login(email, password, false, undefined);
   };
 
-  // Role selection: updates view (does not autofill or auto-login)
-  const selectRole = (role) => {
-    setSelectedRole(role);
-  };
-
   // After step 1 passes, focus license key
   useEffect(() => {
     if (ownerStep1Passed) {
@@ -146,12 +127,12 @@ function SignIn() {
 
   // Ensure the license key block scrolls into view whenever owner is selected or owner email typed
   useEffect(() => {
-    if (selectedRole === 'owner' || isOwnerEmail) {
+    if (isOwnerEmail) {
       setTimeout(() => {
         try { ownerKeyBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
       }, 0);
     }
-  }, [selectedRole, isOwnerEmail]);
+  }, [isOwnerEmail]);
 
   return (
     <DefaultAuth illustrationBackground={illustration} image={illustration}>
@@ -201,42 +182,6 @@ function SignIn() {
               ) : (
                 <Text fontSize='xs' color='gray.600'>Licensed modules active: {allowedModules.length ? allowedModules.join(', ') : 'None'}</Text>
               )}
-            </VStack>
-          </Alert>
-
-          {/* Role badges (select to filter fields; no autofill) */}
-          <Alert status='info' variant='subtle' borderRadius='12px' mb='20px'>
-            <VStack align='start' spacing={2} w='100%'>
-              <Text fontWeight='600'>Roles</Text>
-              <HStack spacing={3} flexWrap='wrap' sx={{ gap: '10px 8px' }}>
-                {Object.entries(quickProfiles).map(([roleKey, preset]) => {
-                  const roleAllowed = (() => {
-                    if (roleKey === 'owner') return true;
-                    if (setupMode) return false;
-                    const has = (name) => allowedModules.includes(name);
-                    if (roleKey === 'admin') return has('Dashboard') || has('Settings');
-                    if (roleKey === 'teacher') return has('Teachers');
-                    if (roleKey === 'student') return has('Students');
-                    if (roleKey === 'parent') return has('Parents');
-                    if (roleKey === 'driver') return has('Transport');
-                    return false;
-                  })();
-                  const disabled = authLoading || !roleAllowed;
-                  const isSelected = selectedRole === roleKey;
-                  return (
-                    <Button
-                      key={roleKey}
-                      size='sm'
-                      colorScheme={preset.colorScheme}
-                      variant={roleAllowed ? (isSelected ? 'solid' : 'outline') : 'outline'}
-                      onClick={() => selectRole(roleKey)}
-                      isDisabled={disabled}
-                    >
-                      {preset.label}
-                    </Button>
-                  );
-                })}
-              </HStack>
             </VStack>
           </Alert>
 
@@ -305,7 +250,7 @@ function SignIn() {
                 </InputRightElement>
               </InputGroup>
 
-              {(selectedRole === 'owner' || isOwnerEmail || ownerStep1Passed) ? (
+              {(isOwnerEmail || ownerStep1Passed) ? (
                 <>
                   <FormLabel
                     ms='4px'

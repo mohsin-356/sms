@@ -51,6 +51,7 @@ import { AddIcon } from '@chakra-ui/icons';
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 import { MdClass, MdPeople, MdTrendingUp, MdSchool, MdSearch, MdAssignment, MdFileDownload, MdPictureAsPdf, MdRefresh, MdRemoveRedEye, MdEdit, MdMoreVert, MdDelete } from 'react-icons/md';
 import jsPDF from 'jspdf';
 import * as classesApi from '../../../../services/api/classes';
@@ -339,11 +340,11 @@ export default function Classes() {
 
   // Class subjects (full marks) editor helpers
   const addCreateClassSubjectRow = () => setCreateClassSubjects(prev => [...prev, { subjectId: '', fullMarks: '', gradeScheme: '' }]);
-  const updateCreateClassSubjectRow = (idx, field, value) => setCreateClassSubjects(prev => prev.map((r,i)=> i===idx ? { ...r, [field]: value } : r));
-  const removeCreateClassSubjectRow = (idx) => setCreateClassSubjects(prev => prev.filter((_,i)=> i!==idx));
+  const updateCreateClassSubjectRow = (idx, field, value) => setCreateClassSubjects(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
+  const removeCreateClassSubjectRow = (idx) => setCreateClassSubjects(prev => prev.filter((_, i) => i !== idx));
   const addEditClassSubjectRow = () => setEditClassSubjects(prev => [...prev, { subjectId: '', fullMarks: '', gradeScheme: '' }]);
-  const updateEditClassSubjectRow = (idx, field, value) => setEditClassSubjects(prev => prev.map((r,i)=> i===idx ? { ...r, [field]: value } : r));
-  const removeEditClassSubjectRow = (idx) => setEditClassSubjects(prev => prev.filter((_,i)=> i!==idx));
+  const updateEditClassSubjectRow = (idx, field, value) => setEditClassSubjects(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
+  const removeEditClassSubjectRow = (idx) => setEditClassSubjects(prev => prev.filter((_, i) => i !== idx));
 
   const handleRemoveAssignmentRow = (index) => {
     setCreateForm((prev) => {
@@ -359,7 +360,7 @@ export default function Classes() {
 
   const handleCreateClass = async () => {
     if (!createForm.className.trim() || !createForm.section.trim()) {
-    setIsDeleting(true);
+      setIsDeleting(true);
       toast({
         title: 'Class name and section are required',
         status: 'warning',
@@ -400,9 +401,9 @@ export default function Classes() {
       // Save class subjects with full marks
       const classSubjectsPayload = (createClassSubjects || [])
         .filter(r => r && r.subjectId)
-        .map(r => ({ subjectId: Number(r.subjectId), fullMarks: r.fullMarks===''? null : Number(r.fullMarks), gradeScheme: r.gradeScheme || null }));
+        .map(r => ({ subjectId: Number(r.subjectId), fullMarks: r.fullMarks === '' ? null : Number(r.fullMarks), gradeScheme: r.gradeScheme || null }));
       if (classSubjectsPayload.length) {
-        try { await classesApi.upsertSubjects(created.id, classSubjectsPayload); } catch (_) {}
+        try { await classesApi.upsertSubjects(created.id, classSubjectsPayload); } catch (_) { }
       }
 
       // Assign selected subjects and teachers to this class
@@ -540,9 +541,9 @@ export default function Classes() {
       // Save class subjects updates
       const payloadSubjects = Array.isArray(editClassSubjects) ? editClassSubjects
         .filter(r => r && r.subjectId)
-        .map(r => ({ subjectId: Number(r.subjectId), fullMarks: r.fullMarks===''? null : Number(r.fullMarks), gradeScheme: r.gradeScheme || null })) : [];
+        .map(r => ({ subjectId: Number(r.subjectId), fullMarks: r.fullMarks === '' ? null : Number(r.fullMarks), gradeScheme: r.gradeScheme || null })) : [];
       if (payloadSubjects.length) {
-        try { await classesApi.upsertSubjects(selected.id, payloadSubjects); } catch (_) {}
+        try { await classesApi.upsertSubjects(selected.id, payloadSubjects); } catch (_) { }
       } else if (hasSubjectEdits && !Object.keys(sanitized).length) {
         // User edited subject rows but didn't pick any subjectId
         toast({ title: 'Please select at least one subject to save', status: 'warning', duration: 2500 });
@@ -728,25 +729,29 @@ export default function Classes() {
       </Flex>
 
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap="20px" mb={5}>
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)" icon={<MdClass color="white" />} />}
-          name="Total Classes"
+        <StatCard
+          title="Total Classes"
           value={String(totalClasses)}
+          icon={MdClass}
+          colorScheme="blue"
         />
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#01B574 0%,#51CB97 100%)" icon={<MdPeople color="white" />} />}
-          name="Sections"
+        <StatCard
+          title="Sections"
           value={String(totalSections)}
+          icon={MdPeople}
+          colorScheme="green"
         />
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)" icon={<MdSchool color="white" />} />}
-          name="Students"
+        <StatCard
+          title="Students"
           value={String(totalStudents)}
+          icon={MdSchool}
+          colorScheme="orange"
         />
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#8952FF 0%,#AA80FF 100%)" icon={<MdTrendingUp color="white" />} />}
-          name="Avg Strength"
+        <StatCard
+          title="Avg Strength"
           value={`${avgStrength}`}
+          icon={MdTrendingUp}
+          colorScheme="purple"
         />
       </SimpleGrid>
 
@@ -762,7 +767,7 @@ export default function Classes() {
               <InputLeftElement pointerEvents="none">
                 <MdSearch color="gray.300" />
               </InputLeftElement>
-              <Input placeholder="Search section/teacher" value={search} onChange={(e)=>setSearch(e.target.value)} />
+              <Input placeholder="Search section/teacher" value={search} onChange={(e) => setSearch(e.target.value)} />
             </InputGroup>
           </HStack>
           <HStack>
@@ -820,7 +825,7 @@ export default function Classes() {
                     <Td>{c.section}</Td>
                     <Td>{c.strength}</Td>
                     <Td>
-                      <Button size='xs' variant='outline' onClick={async ()=>{
+                      <Button size='xs' variant='outline' onClick={async () => {
                         setSubjectsModalLoading(true);
                         setSubjectsModalOpen(true);
                         let items = [];
@@ -852,7 +857,7 @@ export default function Classes() {
                               const tResp = await teacherApi.listSubjectsByClass({ className: cls, section: sec });
                               const tItems = Array.isArray(tResp?.items) ? tResp.items : Array.isArray(tResp) ? tResp : [];
                               items = tItems.map(s => ({ subjectName: s.name || s.subjectName || s.subject || '', fullMarks: null, gradeScheme: null }));
-                            } catch {}
+                            } catch { }
                           }
                         } catch {
                           items = [];
@@ -1026,11 +1031,11 @@ export default function Classes() {
                   </FormControl>
                   <FormControl>
                     <FormLabel>Full Marks</FormLabel>
-                    <Input type='number' min={0} value={row.fullMarks} onChange={(e)=> updateCreateClassSubjectRow(idx, 'fullMarks', e.target.value)} />
+                    <Input type='number' min={0} value={row.fullMarks} onChange={(e) => updateCreateClassSubjectRow(idx, 'fullMarks', e.target.value)} />
                   </FormControl>
                   <FormControl>
                     <FormLabel>Grade Scheme</FormLabel>
-                    <Input value={row.gradeScheme} onChange={(e)=> updateCreateClassSubjectRow(idx, 'gradeScheme', e.target.value)} placeholder='e.g. A-F' />
+                    <Input value={row.gradeScheme} onChange={(e) => updateCreateClassSubjectRow(idx, 'gradeScheme', e.target.value)} placeholder='e.g. A-F' />
                   </FormControl>
                   <IconButton aria-label="Remove subject" colorScheme="red" variant="ghost" icon={<MdDelete />} onClick={() => removeCreateClassSubjectRow(idx)} />
                 </HStack>
@@ -1054,7 +1059,7 @@ export default function Classes() {
       </Modal>
 
       {/* Subjects quick view modal */}
-      <Modal isOpen={isSubjectsModalOpen} onClose={()=> setSubjectsModalOpen(false)} isCentered>
+      <Modal isOpen={isSubjectsModalOpen} onClose={() => setSubjectsModalOpen(false)} isCentered>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Class Subjects</ModalHeader>
@@ -1093,7 +1098,7 @@ export default function Classes() {
             )}
           </ModalBody>
           <ModalFooter>
-            <Button onClick={()=> setSubjectsModalOpen(false)}>Close</Button>
+            <Button onClick={() => setSubjectsModalOpen(false)}>Close</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -1249,11 +1254,11 @@ export default function Classes() {
                       </FormControl>
                       <FormControl>
                         <FormLabel>Full Marks</FormLabel>
-                        <Input type='number' min={0} value={row.fullMarks} onChange={(e)=> updateEditClassSubjectRow(idx, 'fullMarks', e.target.value)} />
+                        <Input type='number' min={0} value={row.fullMarks} onChange={(e) => updateEditClassSubjectRow(idx, 'fullMarks', e.target.value)} />
                       </FormControl>
                       <FormControl>
                         <FormLabel>Grade Scheme</FormLabel>
-                        <Input value={row.gradeScheme} onChange={(e)=> updateEditClassSubjectRow(idx, 'gradeScheme', e.target.value)} placeholder='e.g. A-F' />
+                        <Input value={row.gradeScheme} onChange={(e) => updateEditClassSubjectRow(idx, 'gradeScheme', e.target.value)} placeholder='e.g. A-F' />
                       </FormControl>
                       <IconButton aria-label="Remove subject" colorScheme="red" variant="ghost" icon={<MdDelete />} onClick={() => removeEditClassSubjectRow(idx)} />
                     </HStack>

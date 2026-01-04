@@ -33,16 +33,94 @@ import {
   ModalFooter,
   useToast,
   useColorModeValue,
+  Badge,
+  useBreakpointValue,
 } from '@chakra-ui/react';
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
+import LineChart from 'components/charts/LineChart';
+import BarChart from 'components/charts/BarChart.tsx';
+import DonutChart from 'components/charts/v2/DonutChart.tsx';
 import { MdTrendingUp, MdDoneAll, MdBook, MdAssignment, MdFileDownload, MdPictureAsPdf, MdRefresh, MdSearch, MdRemoveRedEye, MdEdit, MdDelete } from 'react-icons/md';
 import * as resultsApi from '../../../../services/api/results';
 import useClassOptions from '../../../../hooks/useClassOptions';
 import { useNavigate } from 'react-router-dom';
 
-const fmt = (n) => (n===null||n===undefined||Number.isNaN(Number(n)) ? '' : String(n));
+const fmt = (n) => (n === null || n === undefined || Number.isNaN(Number(n)) ? '' : String(n));
+
+const DEMO_RESULTS = [
+  {
+    id: 'demo-1',
+    studentName: 'Subhan',
+    studentId: 2,
+    class: '9A',
+    section: 'A',
+    examTitle: 'Mid Term',
+    examId: 1,
+    subject: 'English',
+    marks: 50,
+    grade: 'C',
+  },
+  {
+    id: 'demo-2',
+    studentName: 'Ayesha',
+    studentId: 3,
+    class: '9A',
+    section: 'A',
+    examTitle: 'Mid Term',
+    examId: 1,
+    subject: 'Mathematics',
+    marks: 78,
+    grade: 'B',
+  },
+  {
+    id: 'demo-3',
+    studentName: 'Bilal',
+    studentId: 5,
+    class: '9A',
+    section: 'A',
+    examTitle: 'Final',
+    examId: 2,
+    subject: 'Mathematics',
+    marks: 91,
+    grade: 'A',
+  },
+  {
+    id: 'demo-4',
+    studentName: 'Sana',
+    studentId: 7,
+    class: '9A',
+    section: 'A',
+    examTitle: 'Final',
+    examId: 2,
+    subject: 'English',
+    marks: 34,
+    grade: 'D',
+  },
+  {
+    id: 'demo-5',
+    studentName: 'Hassan',
+    studentId: 9,
+    class: '9A',
+    section: 'A',
+    examTitle: 'Final',
+    examId: 2,
+    subject: 'Physics',
+    marks: 22,
+    grade: 'F',
+  },
+];
+
+const gradeFromMarks = (marks) => {
+  const m = Number(marks || 0);
+  if (m >= 85) return 'A';
+  if (m >= 70) return 'B';
+  if (m >= 55) return 'C';
+  if (m >= 33) return 'D';
+  return 'F';
+};
 
 export default function Results() {
   const [cls, setCls] = useState('All');
@@ -62,6 +140,8 @@ export default function Results() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const chartH = useBreakpointValue({ base: 240, md: 280, lg: 320 });
 
   const subjects = useMemo(() => ['All', ...Array.from(new Set(rows.map(r => r.subject).filter(Boolean)))], [rows]);
   const classes = useMemo(() => ['All', ...classOptions], [classOptions]);
@@ -87,11 +167,88 @@ export default function Results() {
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
-  const avgOverall = useMemo(() => Math.round(rows.reduce((a, b) => a + (Number(b.marks)||0), 0) / (rows.length || 1)), [rows]);
+  const chartRows = useMemo(() => (rows.length ? rows : DEMO_RESULTS), [rows]);
+  const hasRealData = Boolean(rows.length);
+
+  const avgOverall = useMemo(() => Math.round(chartRows.reduce((a, b) => a + (Number(b.marks) || 0), 0) / (chartRows.length || 1)), [chartRows]);
   const passOverall = useMemo(() => {
-    const total = rows.length || 1; const passed = rows.filter(r => (Number(r.marks)||0) >= 33).length; return Math.round((passed/total)*100);
-  }, [rows]);
-  const subjectsCount = useMemo(() => new Set(rows.map(r => r.subject)).size, [rows]);
+    const total = chartRows.length || 1;
+    const passed = chartRows.filter(r => (Number(r.marks) || 0) >= 33).length;
+    return Math.round((passed / total) * 100);
+  }, [chartRows]);
+  const subjectsCount = useMemo(() => new Set(chartRows.map(r => r.subject)).size, [chartRows]);
+
+  const examTrend = useMemo(() => {
+    const map = new Map();
+    chartRows.forEach((r) => {
+      const key = r.examTitle || (r.examId ? `Exam ${r.examId}` : 'Exam');
+      const list = map.get(key) || [];
+      list.push(Number(r.marks) || 0);
+      map.set(key, list);
+    });
+    const rowsAgg = Array.from(map.entries()).map(([k, arr]) => ({
+      name: k,
+      avg: arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0,
+      count: arr.length,
+    }));
+    rowsAgg.sort((a, b) => b.count - a.count);
+    const top = rowsAgg.slice(0, 8);
+    return {
+      categories: top.map((r) => r.name),
+      series: [{ name: 'Avg Marks', data: top.map((r) => Math.round(r.avg)) }],
+    };
+  }, [chartRows]);
+
+  const gradeDonut = useMemo(() => {
+    const counts = { A: 0, B: 0, C: 0, D: 0, F: 0 };
+    chartRows.forEach((r) => {
+      const g = String(r.grade || gradeFromMarks(r.marks) || 'F').toUpperCase();
+      if (counts[g] === undefined) counts[g] = 0;
+      counts[g] += 1;
+    });
+    const labels = Object.keys(counts).filter((k) => counts[k] > 0);
+    return { labels, series: labels.map((k) => counts[k]) };
+  }, [chartRows]);
+
+  const subjectAvg = useMemo(() => {
+    const map = new Map();
+    chartRows.forEach((r) => {
+      const key = r.subject || 'Unknown';
+      const list = map.get(key) || [];
+      list.push(Number(r.marks) || 0);
+      map.set(key, list);
+    });
+    const agg = Array.from(map.entries()).map(([k, arr]) => ({
+      name: k,
+      avg: arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0,
+    }));
+    agg.sort((a, b) => b.avg - a.avg);
+    const top = agg.slice(0, 8);
+    return {
+      categories: top.map((r) => r.name),
+      series: [{ name: 'Avg %', data: top.map((r) => Math.round(r.avg)) }],
+    };
+  }, [chartRows]);
+
+  const topStudents = useMemo(() => {
+    const map = new Map();
+    chartRows.forEach((r) => {
+      const key = r.studentName || (r.studentId ? `ID ${r.studentId}` : 'Student');
+      const list = map.get(key) || [];
+      list.push(Number(r.marks) || 0);
+      map.set(key, list);
+    });
+    const agg = Array.from(map.entries()).map(([k, arr]) => ({
+      name: k,
+      avg: arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0,
+    }));
+    agg.sort((a, b) => b.avg - a.avg);
+    const top = agg.slice(0, 8);
+    return {
+      categories: top.map((r) => r.name),
+      series: [{ name: 'Avg %', data: top.map((r) => Math.round(r.avg)) }],
+    };
+  }, [chartRows]);
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -101,8 +258,8 @@ export default function Results() {
           <Text color={textColorSecondary}>Summary and detailed results by subject</Text>
         </Box>
         <ButtonGroup>
-          <Button leftIcon={<MdAssignment />} variant='outline' colorScheme='blue' onClick={()=> navigate('/admin/academics/results/generate')}>Generate Results</Button>
-          <Button leftIcon={<MdRefresh />} variant='outline' onClick={()=>window.location.reload()}>Refresh</Button>
+          <Button leftIcon={<MdAssignment />} variant='outline' colorScheme='blue' onClick={() => navigate('/admin/academics/results/generate')}>Generate Results</Button>
+          <Button leftIcon={<MdRefresh />} variant='outline' onClick={() => window.location.reload()}>Refresh</Button>
         </ButtonGroup>
       </Flex>
 
@@ -113,42 +270,163 @@ export default function Results() {
               <InputLeftElement pointerEvents='none'>
                 <MdSearch color='gray.400' />
               </InputLeftElement>
-              <Input placeholder='Search by student name' value={query} onChange={(e)=>setQuery(e.target.value)} />
+              <Input placeholder='Search by student name' value={query} onChange={(e) => setQuery(e.target.value)} />
             </InputGroup>
             <Select size='sm' w="140px" value={cls} onChange={(e) => { setCls(e.target.value); setSection('All'); }}>
               {classes.map(c => <option key={c} value={c}>{c}</option>)}
             </Select>
-            <Select size='sm' w="120px" value={section} onChange={(e) => setSection(e.target.value)} isDisabled={cls==='All'}>
+            <Select size='sm' w="120px" value={section} onChange={(e) => setSection(e.target.value)} isDisabled={cls === 'All'}>
               {['All', ...((sectionsByClass[cls] || []))].map(s => <option key={s} value={s}>{s}</option>)}
             </Select>
             <Select size='sm' w="150px" value={subject} onChange={(e) => setSubject(e.target.value)}>
               {subjects.map(s => <option key={s} value={s}>{s}</option>)}
             </Select>
-            <Input size='sm' placeholder='Student ID' w='120px' value={studentId} onChange={(e)=> setStudentId(e.target.value.replace(/[^0-9]/g,''))} />
+            <Input size='sm' placeholder='Student ID' w='120px' value={studentId} onChange={(e) => setStudentId(e.target.value.replace(/[^0-9]/g, ''))} />
           </HStack>
           <HStack spacing={3} flexWrap='wrap'>
             <Button size='sm' leftIcon={<MdRefresh />} variant='outline' onClick={fetchRows} isLoading={loading}>Refresh</Button>
-            <Button size='sm' leftIcon={<MdAssignment />} variant="outline" colorScheme="blue" onClick={()=> window.print()}>Export PDF</Button>
+            <Button size='sm' leftIcon={<MdAssignment />} variant="outline" colorScheme="blue" onClick={() => window.print()}>Export PDF</Button>
           </HStack>
         </Flex>
       </Card>
 
       <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap="20px" mb={5}>
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)" icon={<MdTrendingUp color="white" />} />}
-          name="Average Score"
+        <StatCard
+          title="Average Score"
           value={`${avgOverall}%`}
+          icon={MdTrendingUp}
+          colorScheme="blue"
         />
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#01B574 0%,#51CB97 100%)" icon={<MdDoneAll color="white" />} />}
-          name="Pass Rate"
+        <StatCard
+          title="Pass Rate"
           value={`${passOverall}%`}
+          icon={MdDoneAll}
+          colorScheme="green"
         />
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#8952FF 0%,#AA80FF 100%)" icon={<MdBook color="white" />} />}
-          name="Subjects"
+        <StatCard
+          title="Subjects"
           value={String(subjectsCount)}
+          icon={MdBook}
+          colorScheme="purple"
         />
+      </SimpleGrid>
+
+      <SimpleGrid columns={{ base: 1, lg: 3 }} gap="20px" mb={5}>
+        <Card p={5} gridColumn={{ base: 'auto', lg: 'span 2' }}>
+          <Flex justify="space-between" align="center" mb={3} flexWrap="wrap" gap={2}>
+            <Box>
+              <Text fontSize="lg" fontWeight="700" color={textColor}>Marks Trend</Text>
+              <Text fontSize="sm" color={textColorSecondary}>Average marks by exam</Text>
+            </Box>
+            <Badge colorScheme="blue">{hasRealData ? `${rows.length} rows` : 'Demo'}</Badge>
+          </Flex>
+          <LineChart
+            height={chartH || 280}
+            chartData={examTrend.series}
+            chartOptions={{
+              stroke: { curve: 'smooth', width: 3 },
+              colors: ['#60a5fa'],
+              xaxis: { categories: examTrend.categories },
+              yaxis: { min: 0, max: 100 },
+              tooltip: { shared: true, intersect: false },
+              responsive: [
+                {
+                  breakpoint: 640,
+                  options: {
+                    xaxis: { labels: { rotate: -40, hideOverlappingLabels: true } },
+                    legend: { position: 'bottom' },
+                  },
+                },
+              ],
+            }}
+          />
+        </Card>
+
+        <Card p={5}>
+          <Flex justify="space-between" align="center" mb={3} flexWrap="wrap" gap={2}>
+            <Box>
+              <Text fontSize="lg" fontWeight="700" color={textColor}>Grade Distribution</Text>
+              <Text fontSize="sm" color={textColorSecondary}>A/B/C/D/F breakdown</Text>
+            </Box>
+            <Badge colorScheme="purple">Donut</Badge>
+          </Flex>
+          <DonutChart
+            ariaLabel="Grade distribution donut"
+            height={chartH || 280}
+            labels={gradeDonut.labels}
+            series={gradeDonut.series}
+            options={{
+              colors: ['#22c55e', '#60a5fa', '#f59e0b', '#fb923c', '#ef4444'],
+              legend: { position: 'bottom' },
+            }}
+          />
+        </Card>
+      </SimpleGrid>
+
+      <SimpleGrid columns={{ base: 1, lg: 2 }} gap="20px" mb={5}>
+        <Card p={5}>
+          <Flex justify="space-between" align="center" mb={3} flexWrap="wrap" gap={2}>
+            <Box>
+              <Text fontSize="lg" fontWeight="700" color={textColor}>Subject-wise Average</Text>
+              <Text fontSize="sm" color={textColorSecondary}>Top subjects by average marks</Text>
+            </Box>
+            <Badge colorScheme="green">Bar</Badge>
+          </Flex>
+          <BarChart
+            ariaLabel="Subject averages"
+            height={chartH || 280}
+            categories={subjectAvg.categories}
+            series={subjectAvg.series}
+            options={{
+              colors: ['#60a5fa'],
+              yaxis: { min: 0, max: 100 },
+              plotOptions: { bar: { borderRadius: 8, columnWidth: '55%' } },
+              tooltip: { y: { formatter: (v) => `${Math.round(v)}%` } },
+              responsive: [
+                {
+                  breakpoint: 640,
+                  options: {
+                    xaxis: { labels: { rotate: -35, hideOverlappingLabels: true } },
+                    legend: { position: 'bottom' },
+                    plotOptions: { bar: { columnWidth: '70%' } },
+                  },
+                },
+              ],
+            }}
+          />
+        </Card>
+
+        <Card p={5}>
+          <Flex justify="space-between" align="center" mb={3} flexWrap="wrap" gap={2}>
+            <Box>
+              <Text fontSize="lg" fontWeight="700" color={textColor}>Top Students</Text>
+              <Text fontSize="sm" color={textColorSecondary}>Top average performers</Text>
+            </Box>
+            <Badge colorScheme="blue">Top 8</Badge>
+          </Flex>
+          <BarChart
+            ariaLabel="Top students"
+            height={chartH || 280}
+            categories={topStudents.categories}
+            series={topStudents.series}
+            options={{
+              colors: ['#22c55e'],
+              yaxis: { min: 0, max: 100 },
+              plotOptions: { bar: { borderRadius: 8, columnWidth: '55%' } },
+              tooltip: { y: { formatter: (v) => `${Math.round(v)}%` } },
+              responsive: [
+                {
+                  breakpoint: 640,
+                  options: {
+                    xaxis: { labels: { rotate: -35, hideOverlappingLabels: true } },
+                    legend: { position: 'bottom' },
+                    plotOptions: { bar: { columnWidth: '70%' } },
+                  },
+                },
+              ],
+            }}
+          />
+        </Card>
       </SimpleGrid>
 
       <Card overflow="hidden">
@@ -160,7 +438,7 @@ export default function Results() {
             <Thead bg={useColorModeValue('gray.50', 'gray.800')}>
               <Tr>
                 <Th>
-                  <Checkbox isChecked={selectedIds.length===rows.length && rows.length>0} isIndeterminate={selectedIds.length>0 && selectedIds.length<rows.length} onChange={(e)=> setSelectedIds(e.target.checked ? rows.map((r)=> r.id) : [])} />
+                  <Checkbox isChecked={selectedIds.length === rows.length && rows.length > 0} isIndeterminate={selectedIds.length > 0 && selectedIds.length < rows.length} onChange={(e) => setSelectedIds(e.target.checked ? rows.map((r) => r.id) : [])} />
                 </Th>
                 <Th>Student</Th>
                 <Th>Student ID</Th>
@@ -177,7 +455,7 @@ export default function Results() {
                 <Tr><Td colSpan={9}><Flex align='center' justify='center' py={6}>Loading...</Flex></Td></Tr>
               ) : rows.map((r) => (
                 <Tr key={r.id}>
-                  <Td><Checkbox isChecked={selectedIds.includes(r.id)} onChange={()=> setSelectedIds(prev => prev.includes(r.id) ? prev.filter(i=>i!==r.id) : [...prev, r.id])} /></Td>
+                  <Td><Checkbox isChecked={selectedIds.includes(r.id)} onChange={() => setSelectedIds(prev => prev.includes(r.id) ? prev.filter(i => i !== r.id) : [...prev, r.id])} /></Td>
                   <Td>{r.studentName}</Td>
                   <Td>{r.studentId}</Td>
                   <Td>{r.class}{r.section ? `-${r.section}` : ''}</Td>
@@ -187,13 +465,13 @@ export default function Results() {
                   <Td>{fmt(r.grade)}</Td>
                   <Td>
                     <HStack spacing={1}>
-                      <IconButton aria-label='View Class Results' icon={<MdRemoveRedEye />} size='sm' variant='ghost' onClick={()=>{
-                        const params = new URLSearchParams(); if(r.class) params.set('class', r.class); if(r.section) params.set('section', r.section); if(r.examId) params.set('examId', r.examId); if(r.subject) params.set('subject', r.subject);
+                      <IconButton aria-label='View Class Results' icon={<MdRemoveRedEye />} size='sm' variant='ghost' onClick={() => {
+                        const params = new URLSearchParams(); if (r.class) params.set('class', r.class); if (r.section) params.set('section', r.section); if (r.examId) params.set('examId', r.examId); if (r.subject) params.set('subject', r.subject);
                         navigate(`/admin/academics/results/class-view?${params.toString()}`);
                       }} />
-                      <IconButton aria-label='Edit' icon={<MdEdit />} size='sm' variant='ghost' onClick={()=>{ setEditItem({ ...r }); editDisc.onOpen(); }} />
-                      <IconButton aria-label='Delete' icon={<MdDelete />} size='sm' variant='ghost' colorScheme='red' onClick={async ()=>{
-                        if(!window.confirm('Delete this result entry?')) return; try { await resultsApi.remove(r.id); toast({ title:'Deleted', status:'success', duration:1200 }); fetchRows(); } catch { toast({ title:'Delete failed', status:'error' }); }
+                      <IconButton aria-label='Edit' icon={<MdEdit />} size='sm' variant='ghost' onClick={() => { setEditItem({ ...r }); editDisc.onOpen(); }} />
+                      <IconButton aria-label='Delete' icon={<MdDelete />} size='sm' variant='ghost' colorScheme='red' onClick={async () => {
+                        if (!window.confirm('Delete this result entry?')) return; try { await resultsApi.remove(r.id); toast({ title: 'Deleted', status: 'success', duration: 1200 }); fetchRows(); } catch { toast({ title: 'Delete failed', status: 'error' }); }
                       }} />
                     </HStack>
                   </Td>
@@ -242,11 +520,11 @@ export default function Results() {
                 <HStack>
                   <Box flex='1'>
                     <Text mb={1}>Marks</Text>
-                    <Input type='number' value={fmt(editItem.marks)} onChange={(e)=> setEditItem(it=>({ ...it, marks: e.target.value }))} />
+                    <Input type='number' value={fmt(editItem.marks)} onChange={(e) => setEditItem(it => ({ ...it, marks: e.target.value }))} />
                   </Box>
                   <Box flex='1'>
                     <Text mb={1}>Grade</Text>
-                    <Input value={fmt(editItem.grade)} onChange={(e)=> setEditItem(it=>({ ...it, grade: e.target.value }))} />
+                    <Input value={fmt(editItem.grade)} onChange={(e) => setEditItem(it => ({ ...it, grade: e.target.value }))} />
                   </Box>
                 </HStack>
               </Box>
@@ -254,8 +532,8 @@ export default function Results() {
           </ModalBody>
           <ModalFooter>
             <Button variant='ghost' mr={3} onClick={editDisc.onClose}>Cancel</Button>
-            <Button colorScheme='blue' onClick={async ()=>{
-              if(!editItem) return; try { await resultsApi.update(editItem.id, { marks: editItem.marks===''? null : Number(editItem.marks), grade: editItem.grade || null }); toast({ title:'Result updated', status:'success', duration:1500 }); editDisc.onClose(); fetchRows(); } catch { toast({ title:'Update failed', status:'error' }); }
+            <Button colorScheme='blue' onClick={async () => {
+              if (!editItem) return; try { await resultsApi.update(editItem.id, { marks: editItem.marks === '' ? null : Number(editItem.marks), grade: editItem.grade || null }); toast({ title: 'Result updated', status: 'success', duration: 1500 }); editDisc.onClose(); fetchRows(); } catch { toast({ title: 'Update failed', status: 'error' }); }
             }}>Save</Button>
           </ModalFooter>
         </ModalContent>

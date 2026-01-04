@@ -23,6 +23,7 @@ import {
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 import { MdSave, MdRestore, MdAssignment, MdLeaderboard, MdFileDownload, MdPictureAsPdf, MdRefresh } from 'react-icons/md';
 import * as gradingApi from '../../../../services/api/grading';
 
@@ -123,7 +124,7 @@ export default function GradeCalculation() {
           <Text color={textColorSecondary}>Configure grade bands and preview computed grade</Text>
         </Box>
         <ButtonGroup>
-          <Button leftIcon={<MdRefresh />} variant='outline' onClick={()=>window.location.reload()} isDisabled={loading}>Refresh</Button>
+          <Button leftIcon={<MdRefresh />} variant='outline' onClick={() => window.location.reload()} isDisabled={loading}>Refresh</Button>
           <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue' isDisabled>Export CSV</Button>
           <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue' isDisabled>Export PDF</Button>
         </ButtonGroup>
@@ -133,7 +134,7 @@ export default function GradeCalculation() {
         <Flex p={4} justifyContent="space-between" alignItems="center" direction={{ base: 'column', md: 'row' }} gap={4}>
           <HStack>
             <Box>Sample Score</Box>
-            <NumberInput maxW="120px" value={score} min={0} max={100} onChange={(v)=>setScore(v)}>
+            <NumberInput maxW="120px" value={score} min={0} max={100} onChange={(v) => setScore(v)}>
               <NumberInputField />
             </NumberInput>
           </HStack>
@@ -146,20 +147,23 @@ export default function GradeCalculation() {
       </Card>
 
       <SimpleGrid columns={{ base: 1, md: 3 }} gap="20px" mb={5}>
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)" icon={<MdLeaderboard color="white" />} />}
-          name="Computed Grade"
+        <StatCard
+          title="Computed Grade"
           value={grade}
+          icon={MdLeaderboard}
+          colorScheme="blue"
         />
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#01B574 0%,#51CB97 100%)" icon={<MdSave color="white" />} />}
-          name="Bands Defined"
+        <StatCard
+          title="Bands Defined"
           value={String(Object.keys(bands).length)}
+          icon={MdSave}
+          colorScheme="green"
         />
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#8952FF 0%,#AA80FF 100%)" icon={<MdAssignment color="white" />} />}
-          name="Sample Score"
+        <StatCard
+          title="Sample Score"
           value={`${score}%`}
+          icon={MdAssignment}
+          colorScheme="purple"
         />
       </SimpleGrid>
 
@@ -167,13 +171,13 @@ export default function GradeCalculation() {
         <Card>
           <HStack justify="space-between">
             <Heading size="sm">Scheme Name</Heading>
-            <Input maxW='240px' value={name} onChange={(e)=> setName(e.target.value)} placeholder='Default' />
+            <Input maxW='240px' value={name} onChange={(e) => setName(e.target.value)} placeholder='Default' />
           </HStack>
         </Card>
         <Card>
           <HStack justify="space-between">
             <Heading size="sm">Academic Year</Heading>
-            <Input maxW='180px' value={academicYear} onChange={(e)=> setAcademicYear(e.target.value)} placeholder='2024-2025' />
+            <Input maxW='180px' value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} placeholder='2024-2025' />
           </HStack>
         </Card>
         {Object.keys(bands).map((k) => (
@@ -185,7 +189,7 @@ export default function GradeCalculation() {
               </NumberInput>
             </HStack>
             <Flex justify='flex-end' p={2}>
-              <Button size='sm' variant='ghost' colorScheme='red' onClick={()=> removeBand(k)}>Remove</Button>
+              <Button size='sm' variant='ghost' colorScheme='red' onClick={() => removeBand(k)}>Remove</Button>
             </Flex>
           </Card>
         ))}

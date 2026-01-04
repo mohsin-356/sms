@@ -99,16 +99,18 @@ export function useFinanceUsers() {
 /**
  * Hook for dashboard statistics
  */
-export function useDashboardStats() {
+export function useDashboardStats(initialParams = {}) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [stats, setStats] = useState(null);
+    const [params, setParams] = useState(initialParams);
 
-    const fetchStats = useCallback(async () => {
+    const fetchStats = useCallback(async (newParams) => {
+        const p = newParams || params;
         setLoading(true);
         setError(null);
         try {
-            const data = await financeApi.getDashboardStats();
+            const data = await financeApi.getDashboardStats(p);
             setStats(data);
         } catch (e) {
             setError(e.message || 'Failed to fetch stats');
@@ -116,13 +118,49 @@ export function useDashboardStats() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [params]);
 
     useEffect(() => {
         fetchStats();
-    }, [fetchStats]);
+    }, [params]);
 
-    return { loading, error, stats, refresh: fetchStats };
+    const updateParams = useCallback((newParams) => {
+        setParams(prev => ({ ...prev, ...newParams }));
+    }, []);
+
+    return { loading, error, stats, params, updateParams, refresh: fetchStats };
+}
+
+export function useDashboardAnalytics(initialParams = {}) {
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [analytics, setAnalytics] = useState(null);
+    const [params, setParams] = useState(initialParams);
+
+    const fetchAnalytics = useCallback(async (newParams) => {
+        const p = newParams || params;
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await financeApi.getDashboardAnalytics(p);
+            setAnalytics(data);
+        } catch (e) {
+            setError(e.message || 'Failed to fetch dashboard analytics');
+            console.error('Failed to fetch dashboard analytics:', e);
+        } finally {
+            setLoading(false);
+        }
+    }, [params]);
+
+    useEffect(() => {
+        fetchAnalytics();
+    }, [params]);
+
+    const updateParams = useCallback((newParams) => {
+        setParams(prev => ({ ...prev, ...newParams }));
+    }, []);
+
+    return { loading, error, analytics, params, updateParams, refresh: fetchAnalytics };
 }
 
 /**

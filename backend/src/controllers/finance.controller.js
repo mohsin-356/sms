@@ -27,8 +27,17 @@ export const getUsersByType = async (req, res, next) => {
 // Get dashboard statistics
 export const getDashboardStats = async (req, res, next) => {
   try {
-    const stats = await service.getDashboardStats();
+    const { userType } = req.query;
+    const stats = await service.getDashboardStats({ userType });
     res.json(stats);
+  } catch (e) { next(e); }
+};
+
+export const getDashboardAnalytics = async (req, res, next) => {
+  try {
+    const { userType, days } = req.query;
+    const analytics = await service.getDashboardAnalytics({ userType, days });
+    res.json(analytics);
   } catch (e) { next(e); }
 };
 

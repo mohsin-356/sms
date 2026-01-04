@@ -37,7 +37,7 @@ export const globalStyles = {
     secondaryGray: {
       100: "#E0E5F2",
       200: "#E1E9F8",
-      300: "#F4F7FE",
+      300: "#ffffff",
       400: "#E9EDF7",
       500: "#8F9BBA",
       600: "#A3AED0",

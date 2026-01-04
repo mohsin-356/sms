@@ -17,6 +17,7 @@ import {
   Select,
   Grid,
   GridItem,
+  SimpleGrid,
   HStack,
   VStack,
   Avatar,
@@ -62,6 +63,9 @@ import AttendanceDetailModal from './components/attendance/AttendanceDetailModal
 import * as studentsApi from '../../services/api/students';
 import * as attendanceApi from '../../services/api/attendance';
 import Card from '../../components/card/Card';
+import StatCard from '../../components/card/StatCard';
+import BarChart from '../../components/charts/BarChart.tsx';
+import PieChart from '../../components/charts/PieChart';
 import useClassOptions from '../../hooks/useClassOptions';
 
 const StudentAttendance = () => {
@@ -77,6 +81,17 @@ const StudentAttendance = () => {
     attendanceStatus: 'all',
     searchTerm: '',
   });
+
+  // Get today's attendance status for a student
+  function getTodayAttendance(studentId) {
+    const today = new Date().toISOString().split('T')[0];
+
+    if (attendanceData[studentId] && attendanceData[studentId][today]) {
+      return attendanceData[studentId][today];
+    }
+
+    return { status: 'not-marked', checkIn: null, checkOut: null };
+  }
   
   // Modal controls
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -100,15 +115,22 @@ const StudentAttendance = () => {
         const rows = Array.isArray(payload?.rows) ? payload.rows : (Array.isArray(payload) ? payload : []);
         setStudents((rows || []).slice(0, 100));
       } catch {}
-      // Load today's attendance for all students
+
+      // Load last 7 days attendance for all students (drives charts)
       try {
-        const today = new Date().toISOString().split('T')[0];
-        const payload = await attendanceApi.list({ startDate: today, endDate: today });
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - 6);
+        const startDate = start.toISOString().split('T')[0];
+        const endDate = end.toISOString().split('T')[0];
+
+        const payload = await attendanceApi.list({ startDate, endDate });
         const rows = payload?.items || payload?.rows || (Array.isArray(payload) ? payload : []);
         const map = {};
         rows.forEach(r => {
           if (!map[r.studentId]) map[r.studentId] = {};
-          map[r.studentId][today] = {
+          const d = new Date(r.date || r.day || r.created_at || r.updated_at || Date.now()).toISOString().split('T')[0];
+          map[r.studentId][d] = {
             status: r.status,
             checkIn: r.checkInTime || null,
             checkOut: r.checkOutTime || null
@@ -194,7 +216,7 @@ const StudentAttendance = () => {
   const handleFilterChange = (field, value) => {
     setFilterValues(prev => ({ ...prev, [field]: value }));
   };
-  
+
   // Apply filters to student list
   const filteredStudents = students.filter(student => {
     let matchesClass = filterValues.class === 'all' || student.class === filterValues.class;
@@ -205,12 +227,81 @@ const StudentAttendance = () => {
     
     return matchesClass && matchesSection && matchesSearch;
   });
+
+  const displayedStudents = filteredStudents.filter((student) => {
+    if (filterValues.attendanceStatus === 'all') return true;
+    const a = getTodayAttendance(student.id);
+    if (filterValues.attendanceStatus === 'present') {
+      return a.status === 'present' || a.status === 'late';
+    }
+    return a.status === filterValues.attendanceStatus;
+  });
+
+  const trend = React.useMemo(() => {
+    const end = new Date();
+    const days = Array.from({ length: 7 }).map((_, idx) => {
+      const d = new Date(end);
+      d.setDate(end.getDate() - (6 - idx));
+      return d;
+    });
+    const keys = days.map((d) => d.toISOString().split('T')[0]);
+    const labels = days.map((d) => d.toLocaleDateString(undefined, { weekday: 'short' }));
+
+    const present = [];
+    const absent = [];
+    const leave = [];
+    const notMarked = [];
+
+    keys.forEach((key) => {
+      let p = 0;
+      let a = 0;
+      let l = 0;
+      let n = 0;
+      displayedStudents.forEach((s) => {
+        const status = attendanceData?.[s.id]?.[key]?.status || 'not-marked';
+        if (status === 'present' || status === 'late') p += 1;
+        else if (status === 'absent') a += 1;
+        else if (status === 'leave') l += 1;
+        else n += 1;
+      });
+      present.push(p);
+      absent.push(a);
+      leave.push(l);
+      notMarked.push(n);
+    });
+
+    return {
+      labels,
+      keys,
+      present,
+      absent,
+      leave,
+      notMarked,
+    };
+  }, [attendanceData, displayedStudents]);
+
+  const todayCounts = React.useMemo(() => {
+    let present = 0;
+    let absent = 0;
+    let leave = 0;
+    let notMarked = 0;
+
+    displayedStudents.forEach((s) => {
+      const status = getTodayAttendance(s.id).status;
+      if (status === 'present' || status === 'late') present += 1;
+      else if (status === 'absent') absent += 1;
+      else if (status === 'leave') leave += 1;
+      else notMarked += 1;
+    });
+
+    return { present, absent, leave, notMarked };
+  }, [displayedStudents]);
   
   // Export CSV of today's filtered attendance
   const exportCSV = () => {
     const today = new Date().toISOString().split('T')[0];
     const headers = ['Student','Roll No.','Class','Status','Check-In','Check-Out'];
-    const rows = filteredStudents.map((s) => {
+    const rows = displayedStudents.map((s) => {
       const a = attendanceData[s.id]?.[today] || { status: 'not-marked', checkIn: '', checkOut: '' };
       return [
         '"' + (s.name || '') + '"',
@@ -242,13 +333,19 @@ const StudentAttendance = () => {
       setStudents((rows || []).slice(0, 100));
     } catch {}
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const payload = await attendanceApi.list({ startDate: today, endDate: today });
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 6);
+      const startDate = start.toISOString().split('T')[0];
+      const endDate = end.toISOString().split('T')[0];
+
+      const payload = await attendanceApi.list({ startDate, endDate });
       const rows = payload?.items || payload?.rows || (Array.isArray(payload) ? payload : []);
       const map = {};
       rows.forEach(r => {
         if (!map[r.studentId]) map[r.studentId] = {};
-        map[r.studentId][today] = {
+        const d = new Date(r.date || r.day || r.created_at || r.updated_at || Date.now()).toISOString().split('T')[0];
+        map[r.studentId][d] = {
           status: r.status,
           checkIn: r.checkInTime || null,
           checkOut: r.checkOutTime || null
@@ -287,17 +384,6 @@ const StudentAttendance = () => {
     }
   };
   
-  // Get today's attendance status for a student
-  const getTodayAttendance = (studentId) => {
-    const today = new Date().toISOString().split('T')[0];
-    
-    if (attendanceData[studentId] && attendanceData[studentId][today]) {
-      return attendanceData[studentId][today];
-    }
-    
-    return { status: 'not-marked', checkIn: null, checkOut: null };
-  };
-
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
       {/* Page Header */}
@@ -329,76 +415,85 @@ const StudentAttendance = () => {
       </Grid>
       
       {/* Stats Cards */}
-      <Grid
-        templateColumns={{ base: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }}
-        gap="20px"
-        mb="20px"
-      >
-        <GridItem>
-          <Card p="20px">
-            <Stat>
-              <StatLabel>Total Students</StatLabel>
-              <StatNumber>{students.length}</StatNumber>
-              <StatHelpText>
-                <StatArrow type="increase" />
-                4.5%
-              </StatHelpText>
-            </Stat>
-          </Card>
-        </GridItem>
-        <GridItem>
-          <Card p="20px">
-            <Stat>
-              <StatLabel>Present Today</StatLabel>
-              <StatNumber>
-                {students.filter(s => 
-                  getTodayAttendance(s.id).status === 'present' ||
-                  getTodayAttendance(s.id).status === 'late'
-                ).length}
-              </StatNumber>
-              <StatHelpText>
-                <StatArrow type="increase" />
-                {Math.round((students.filter(s => 
-                  getTodayAttendance(s.id).status === 'present' ||
-                  getTodayAttendance(s.id).status === 'late'
-                ).length / students.length) * 100)}%
-              </StatHelpText>
-            </Stat>
-          </Card>
-        </GridItem>
-        <GridItem>
-          <Card p="20px">
-            <Stat>
-              <StatLabel>Absent Today</StatLabel>
-              <StatNumber>
-                {students.filter(s => getTodayAttendance(s.id).status === 'absent').length}
-              </StatNumber>
-              <StatHelpText>
-                <StatArrow type="decrease" />
-                {Math.round((students.filter(s => 
-                  getTodayAttendance(s.id).status === 'absent'
-                ).length / students.length) * 100)}%
-              </StatHelpText>
-            </Stat>
-          </Card>
-        </GridItem>
-        <GridItem>
-          <Card p="20px">
-            <Stat>
-              <StatLabel>On Leave Today</StatLabel>
-              <StatNumber>
-                {students.filter(s => getTodayAttendance(s.id).status === 'leave').length}
-              </StatNumber>
-              <StatHelpText>
-                <StatArrow type="increase" />
-                {Math.round((students.filter(s => 
-                  getTodayAttendance(s.id).status === 'leave'
-                ).length / students.length) * 100)}%
-              </StatHelpText>
-            </Stat>
-          </Card>
-        </GridItem>
-      </Grid>
+      <SimpleGrid columns={{ base: 1, sm: 2, md: 4 }} spacing='20px' mb='20px'>
+        <StatCard
+          title="Total Students"
+          value={displayedStudents.length}
+          note="Students in current filters"
+          icon={MdPerson}
+          colorScheme="blue"
+        />
+        <StatCard
+          title="Present Today"
+          value={todayCounts.present}
+          note={displayedStudents.length ? `${Math.round((todayCounts.present / displayedStudents.length) * 100)}%` : '0%'}
+          icon={MdCheck}
+          colorScheme="green"
+        />
+        <StatCard
+          title="Absent Today"
+          value={todayCounts.absent}
+          note={displayedStudents.length ? `${Math.round((todayCounts.absent / displayedStudents.length) * 100)}%` : '0%'}
+          icon={MdClose}
+          colorScheme="red"
+        />
+        <StatCard
+          title="On Leave Today"
+          value={todayCounts.leave}
+          note={displayedStudents.length ? `${Math.round((todayCounts.leave / displayedStudents.length) * 100)}%` : '0%'}
+          icon={MdCalendarToday}
+          colorScheme="orange"
+        />
+      </SimpleGrid>
+
+      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing='20px' mb='20px'>
+        <Card p='20px'>
+          <Flex justify='space-between' align='center' mb='12px'>
+            <Box>
+              <Text fontSize='lg' fontWeight='bold'>Weekly Attendance Trend</Text>
+              <Text fontSize='sm' color='gray.500'>Present/Absent/Leave (last 7 days)</Text>
+            </Box>
+            <Button size='sm' variant='outline' leftIcon={<MdRefresh />} onClick={refreshAll}>Refresh</Button>
+          </Flex>
+          <BarChart
+            ariaLabel="Weekly attendance trend"
+            height={300}
+            stacked
+            categories={trend.labels}
+            series={[
+              { name: 'Present', data: trend.present },
+              { name: 'Absent', data: trend.absent },
+              { name: 'Leave', data: trend.leave },
+              { name: 'Not Marked', data: trend.notMarked },
+            ]}
+            options={{
+              plotOptions: { bar: { borderRadius: 8, columnWidth: '55%' } },
+              legend: { position: 'top' },
+              tooltip: { shared: true, intersect: false },
+            }}
+          />
+        </Card>
+
+        <Card p='20px'>
+          <Flex justify='space-between' align='center' mb='12px'>
+            <Box>
+              <Text fontSize='lg' fontWeight='bold'>Today's Status Split</Text>
+              <Text fontSize='sm' color='gray.500'>Present vs Absent vs Leave</Text>
+            </Box>
+            <Badge colorScheme='blue'>{new Date().toLocaleDateString()}</Badge>
+          </Flex>
+          <PieChart
+            type="donut"
+            height={300}
+            chartData={[todayCounts.present, todayCounts.absent, todayCounts.leave, todayCounts.notMarked]}
+            chartOptions={{
+              labels: ['Present', 'Absent', 'Leave', 'Not Marked'],
+              colors: ['#22c55e', '#ef4444', '#f59e0b', '#94a3b8'],
+              legend: { position: 'bottom' },
+            }}
+          />
+        </Card>
+      </SimpleGrid>
       
       {/* Filter Panel */}
       <Card mb="20px" p="20px">
@@ -494,7 +589,7 @@ const StudentAttendance = () => {
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {filteredStudents.map(student => {
+                    {displayedStudents.map(student => {
                       const todayAttendance = getTodayAttendance(student.id);
                       
                       return (

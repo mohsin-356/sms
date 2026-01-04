@@ -1,69 +1,155 @@
-import React, { useState } from 'react';
-import { Box, Flex, Heading, Text, SimpleGrid, Icon, Badge, Button, ButtonGroup, useColorModeValue, Table, Thead, Tbody, Tr, Th, Td, Spinner, useToast } from '@chakra-ui/react';
-import { MdAttachMoney, MdTrendingUp, MdWarning, MdFileDownload, MdPictureAsPdf, MdDirectionsBus } from 'react-icons/md';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Box, Flex, Heading, Text, SimpleGrid, Badge, Button, ButtonGroup, useBreakpointValue, useColorModeValue, Table, Thead, Tbody, Tr, Th, Td, Spinner, useToast } from '@chakra-ui/react';
+import { MdAttachMoney, MdTrendingUp, MdWarning, MdFileDownload, MdPictureAsPdf, MdCalendarMonth } from 'react-icons/md';
 import { FaUserGraduate, FaChalkboardTeacher, FaTruck } from 'react-icons/fa';
 import Card from '../../../../components/card/Card';
-import MiniStatistics from '../../../../components/card/MiniStatistics';
-import IconBox from '../../../../components/icons/IconBox';
-import PieChart from '../../../../components/charts/PieChart';
+import StatCard from '../../../../components/card/StatCard';
 import { UserTypeFilter } from './components/UserTypeSelector';
 import NoUsersWarning from './components/NoUsersWarning';
-import { useFinanceUsers, useDashboardStats, useUnifiedInvoices } from '../../../../hooks/useFinanceUsers';
+import { useFinanceUsers, useDashboardAnalytics, useDashboardStats, useUnifiedInvoices } from '../../../../hooks/useFinanceUsers';
+import AreaChart from '../../../../components/charts/v2/AreaChart';
+import BarChart from '../../../../components/charts/v2/BarChart';
+import DonutChart from '../../../../components/charts/v2/DonutChart';
 
 export default function FeeDashboard() {
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const toast = useToast();
+  const chartHeight = useBreakpointValue({ base: 220, sm: 240, md: 280, lg: 300, xl: 320 });
+  const legendPosition = useBreakpointValue({ base: 'bottom', xl: 'right' });
+  const isMobile = useBreakpointValue({ base: true, md: false });
+  const primaryBlue = '#60a5fa';
 
   // Hooks
-  const { loading: usersLoading, hasUsers, counts } = useFinanceUsers();
-  const { loading: statsLoading, stats } = useDashboardStats();
-  const { loading: invoicesLoading, invoices } = useUnifiedInvoices({ pageSize: 5 });
+  const { loading: usersLoading, counts } = useFinanceUsers();
+  const { loading: statsLoading, stats, updateParams: updateStatsParams } = useDashboardStats({});
+  const { loading: analyticsLoading, analytics, updateParams: updateAnalyticsParams } = useDashboardAnalytics({ days: 14 });
+  const { loading: invoicesLoading, invoices, updateParams: updateInvoiceParams } = useUnifiedInvoices({ pageSize: 5 });
 
   const [roleFilter, setRoleFilter] = useState('all');
 
-  const loading = usersLoading || statsLoading;
+  const loading = usersLoading || statsLoading || analyticsLoading;
+
+  const userTypeFromRoleFilter = useMemo(() => {
+    if (roleFilter === 'students') return 'student';
+    if (roleFilter === 'teachers') return 'teacher';
+    if (roleFilter === 'drivers') return 'driver';
+    return undefined;
+  }, [roleFilter]);
+
+  useEffect(() => {
+    updateStatsParams({ userType: userTypeFromRoleFilter });
+    updateAnalyticsParams({ userType: userTypeFromRoleFilter, days: 14 });
+    updateInvoiceParams({ userType: userTypeFromRoleFilter, page: 1, pageSize: 5 });
+  }, [updateAnalyticsParams, updateInvoiceParams, updateStatsParams, userTypeFromRoleFilter]);
 
   // Safe counts with defaults
   const safeCounts = counts && typeof counts === 'object'
     ? { students: Number(counts.students) || 0, teachers: Number(counts.teachers) || 0, drivers: Number(counts.drivers) || 0 }
     : { students: 0, teachers: 0, drivers: 0 };
 
-  // Calculate role-based totals with null safety
-  const getRoleStats = () => {
-    const defaultStats = { studentFees: 0, teacherPayroll: 0, driverPayroll: 0, total: 0, collected: 0, outstanding: 0, collectionRate: 0 };
-    if (!stats) return defaultStats;
-
-    const studentFees = Number(stats.studentFees?.total) || 0;
-    const teacherPayroll = Number(stats.teacherPayroll?.total) || 0;
-    const driverPayroll = Number(stats.driverPayroll?.total) || 0;
-    const outstanding = Number(stats.studentFees?.outstanding) || 0;
-    const paid = Number(stats.studentFees?.paid) || 0;
-    const collected = Number(stats.collections?.last30Days) || 0;
-
-    return {
-      studentFees,
-      teacherPayroll,
-      driverPayroll,
-      total: studentFees + teacherPayroll + driverPayroll,
-      collected,
-      outstanding,
-      collectionRate: studentFees > 0 ? Math.round((paid / studentFees) * 100) : 0,
-    };
-  };
-
-  const roleStats = getRoleStats();
-
-  // Invoice status breakdown with null safety
-  const statusBreakdown = stats?.invoices
-    ? [Number(stats.invoices.paid) || 0, Number(stats.invoices.pending) || 0, Number(stats.invoices.overdue) || 0]
-    : [0, 0, 0];
-
-  // Collections with null safety
-  const collections = {
+  const collections = useMemo(() => ({
     today: Number(stats?.collections?.today) || 0,
     last7Days: Number(stats?.collections?.last7Days) || 0,
     last30Days: Number(stats?.collections?.last30Days) || 0,
+  }), [stats]);
+
+  // Calculate role-based totals with null safety
+  const roleStats = useMemo(() => {
+    const defaultStats = { studentFees: 0, teacherPayroll: 0, driverPayroll: 0, total: 0, collected: 0, outstanding: 0, collectionRate: 0 };
+    if (!stats) return defaultStats;
+
+    const studentFeesTotal = Number(stats.studentFees?.total) || 0;
+    const teacherPayrollTotal = Number(stats.teacherPayroll?.total) || 0;
+    const driverPayrollTotal = Number(stats.driverPayroll?.total) || 0;
+
+    const studentFeesPaid = Number(stats.studentFees?.paid) || 0;
+    const teacherPayrollPaid = Number(stats.teacherPayroll?.paid) || 0;
+    const driverPayrollPaid = Number(stats.driverPayroll?.paid) || 0;
+
+    const studentOutstanding = Number(stats.studentFees?.outstanding) || 0;
+
+    const totalsByRole = {
+      all: {
+        studentFees: studentFeesTotal,
+        teacherPayroll: teacherPayrollTotal,
+        driverPayroll: driverPayrollTotal,
+        outstanding: studentOutstanding,
+        paidBase: studentFeesPaid,
+        totalBase: studentFeesTotal,
+      },
+      students: {
+        studentFees: studentFeesTotal,
+        teacherPayroll: 0,
+        driverPayroll: 0,
+        outstanding: studentOutstanding,
+        paidBase: studentFeesPaid,
+        totalBase: studentFeesTotal,
+      },
+      teachers: {
+        studentFees: 0,
+        teacherPayroll: teacherPayrollTotal,
+        driverPayroll: 0,
+        outstanding: Number(stats.teacherPayroll?.pending) || 0,
+        paidBase: teacherPayrollPaid,
+        totalBase: teacherPayrollTotal,
+      },
+      drivers: {
+        studentFees: 0,
+        teacherPayroll: 0,
+        driverPayroll: driverPayrollTotal,
+        outstanding: Number(stats.driverPayroll?.pending) || 0,
+        paidBase: driverPayrollPaid,
+        totalBase: driverPayrollTotal,
+      },
+    };
+
+    const block = totalsByRole[roleFilter] || totalsByRole.all;
+    const total = block.studentFees + block.teacherPayroll + block.driverPayroll;
+    const collectionRate = block.totalBase > 0 ? Math.round((block.paidBase / block.totalBase) * 100) : 0;
+
+    return {
+      studentFees: block.studentFees,
+      teacherPayroll: block.teacherPayroll,
+      driverPayroll: block.driverPayroll,
+      total,
+      collected: Number(collections.last30Days) || 0,
+      outstanding: Number(block.outstanding) || 0,
+      collectionRate,
+    };
+  }, [collections.last30Days, roleFilter, stats]);
+
+  const safeDonutSeries = (series) => {
+    const s = Array.isArray(series) ? series.map((v) => Number(v) || 0) : [];
+    const sum = s.reduce((a, b) => a + b, 0);
+    return sum > 0 ? s : [];
   };
+
+  // Invoice status breakdown
+  const statusBreakdown = safeDonutSeries(
+    stats?.invoices
+      ? [Number(stats.invoices.paid) || 0, Number(stats.invoices.pending) || 0, Number(stats.invoices.overdue) || 0]
+      : []
+  );
+
+  const collectionsTrend = useMemo(() => ({
+    categories: analytics?.collectionsTrend?.categories || [],
+    series: analytics?.collectionsTrend?.series || [],
+  }), [analytics]);
+
+  const paymentMethods = useMemo(() => ({
+    labels: analytics?.paymentMethods?.labels || [],
+    series: safeDonutSeries(analytics?.paymentMethods?.series || []),
+  }), [analytics]);
+
+  const overdueAging = useMemo(() => ({
+    categories: analytics?.overdueAging?.categories || [],
+    series: analytics?.overdueAging?.series || [],
+  }), [analytics]);
+
+  const topDefaulters = useMemo(() => ({
+    categories: analytics?.topOutstanding?.categories || [],
+    series: analytics?.topOutstanding?.series || [],
+  }), [analytics]);
 
   const exportCSV = () => {
     const safeInvoices = invoices || [];
@@ -112,71 +198,179 @@ export default function FeeDashboard() {
 
       {/* Role-based Statistics */}
       <SimpleGrid columns={{ base: 1, md: 4 }} spacing={5} mb={5}>
-        <MiniStatistics
-          name="Total Student Fees"
+        <StatCard
+          title="Total Student Fees"
           value={`Rs. ${roleStats.studentFees.toLocaleString()}`}
-          startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#00c6ff 0%,#0072ff 100%)' icon={<Icon as={FaUserGraduate} w='28px' h='28px' color='white' />} />}
+          icon={FaUserGraduate}
+          colorScheme="blue"
         />
-        <MiniStatistics
-          name="Total Teacher Payroll"
+        <StatCard
+          title="Total Teacher Payroll"
           value={`Rs. ${roleStats.teacherPayroll.toLocaleString()}`}
-          startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#11998e 0%,#38ef7d 100%)' icon={<Icon as={FaChalkboardTeacher} w='28px' h='28px' color='white' />} />}
+          icon={FaChalkboardTeacher}
+          colorScheme="green"
         />
-        <MiniStatistics
-          name="Total Driver Payroll"
+        <StatCard
+          title="Total Driver Payroll"
           value={`Rs. ${roleStats.driverPayroll.toLocaleString()}`}
-          startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<Icon as={FaTruck} w='28px' h='28px' color='white' />} />}
+          icon={FaTruck}
+          colorScheme="red"
         />
-        <MiniStatistics
-          name="Collection Rate"
+        <StatCard
+          title="Collection Rate"
           value={`${roleStats.collectionRate}%`}
-          startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#FDBB2D 0%,#22C1C3 100%)' icon={<Icon as={MdTrendingUp} w='28px' h='28px' color='white' />} />}
+          icon={MdTrendingUp}
+          colorScheme="orange"
         />
       </SimpleGrid>
 
       <SimpleGrid columns={{ base: 1, md: 4 }} spacing={5} mb={5}>
-        <MiniStatistics
-          name="Today's Collection"
+        <StatCard
+          title="Today's Collection"
           value={`Rs. ${collections.today.toLocaleString()}`}
-          startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#01B574 0%,#319795 100%)' icon={<Icon as={MdAttachMoney} w='28px' h='28px' color='white' />} />}
+          icon={MdAttachMoney}
+          colorScheme="green"
         />
-        <MiniStatistics
-          name="Outstanding Fees"
+        <StatCard
+          title="Outstanding Fees"
           value={`Rs. ${roleStats.outstanding.toLocaleString()}`}
-          startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<Icon as={MdWarning} w='28px' h='28px' color='white' />} />}
+          icon={MdWarning}
+          colorScheme="red"
         />
-        <MiniStatistics
-          name="Last 7 Days"
+        <StatCard
+          title="Last 7 Days"
           value={`Rs. ${collections.last7Days.toLocaleString()}`}
-          startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#F6AD55 0%,#ED8936 100%)' icon={<Icon as={MdTrendingUp} w='28px' h='28px' color='white' />} />}
+          icon={MdTrendingUp}
+          colorScheme="orange"
         />
-        <MiniStatistics
-          name="Last 30 Days"
+        <StatCard
+          title="Last 30 Days"
           value={`Rs. ${collections.last30Days.toLocaleString()}`}
-          startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#63B3ED 0%,#4299E1 100%)' icon={<Icon as={MdDirectionsBus} w='28px' h='28px' color='white' />} />}
+          icon={MdCalendarMonth}
+          colorScheme="blue"
         />
       </SimpleGrid>
 
       <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={5} mb={5}>
         <Card p={4}>
           <Heading size='md' mb={3}>Role-wise Breakdown</Heading>
-          <PieChart
-            chartData={[roleStats.studentFees, roleStats.teacherPayroll, roleStats.driverPayroll]}
-            chartOptions={{
-              labels: ['Student Fees', 'Teacher Payroll', 'Driver Payroll'],
-              colors: ['#3182CE', '#38A169', '#DD6B20'],
-              legend: { position: 'right' }
+          <DonutChart
+            height={chartHeight}
+            series={safeDonutSeries([roleStats.studentFees, roleStats.teacherPayroll, roleStats.driverPayroll])}
+            labels={['Student Fees', 'Teacher Payroll', 'Driver Payroll']}
+            ariaLabel="Role-wise fees and payroll donut chart"
+            options={{
+              colors: [primaryBlue, '#22c55e', '#f59e0b'],
+              legend: { position: legendPosition },
+              tooltip: { y: { formatter: (v) => `Rs. ${Number(v || 0).toLocaleString()}` } },
             }}
           />
         </Card>
         <Card p={4}>
           <Heading size='md' mb={3}>Invoice Status</Heading>
-          <PieChart
-            chartData={statusBreakdown}
-            chartOptions={{
-              labels: ['Paid', 'Pending', 'Overdue'],
-              colors: ['#38A169', '#ECC94B', '#E53E3E'],
-              legend: { position: 'right' }
+          <DonutChart
+            height={chartHeight}
+            series={statusBreakdown}
+            labels={['Paid', 'Pending', 'Overdue']}
+            ariaLabel="Invoice status donut chart"
+            options={{
+              colors: ['#22c55e', '#f59e0b', '#ef4444'],
+              legend: { position: legendPosition },
+            }}
+          />
+        </Card>
+      </SimpleGrid>
+
+      <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={5} mb={5}>
+        <Card p={4}>
+          <Flex justify="space-between" align="center" mb={1}>
+            <Heading size="md">Collections Trend</Heading>
+          </Flex>
+          <Text fontSize="sm" color={textColorSecondary} mb={3}>Last 14 days collected amount</Text>
+          <AreaChart
+            ariaLabel="Collections trend area chart"
+            height={chartHeight}
+            categories={collectionsTrend.categories}
+            series={collectionsTrend.series}
+            options={{
+              colors: [primaryBlue],
+              tooltip: { y: { formatter: (v) => `Rs. ${Number(v || 0).toLocaleString()}` } },
+              yaxis: { labels: { formatter: (v) => `${Math.round(Number(v) || 0)}` } },
+            }}
+          />
+        </Card>
+        <Card p={4}>
+          <Flex justify="space-between" align="center" mb={1}>
+            <Heading size="md">Payment Methods</Heading>
+          </Flex>
+          <Text fontSize="sm" color={textColorSecondary} mb={3}>Share by payment method (amount)</Text>
+          <DonutChart
+            ariaLabel="Payment methods donut chart"
+            height={chartHeight}
+            labels={paymentMethods.labels}
+            series={paymentMethods.series}
+            options={{
+              colors: [primaryBlue, '#22c55e', '#a78bfa', '#f59e0b', '#ef4444'],
+              legend: { position: legendPosition },
+              tooltip: { y: { formatter: (v) => `Rs. ${Number(v || 0).toLocaleString()}` } },
+            }}
+          />
+        </Card>
+      </SimpleGrid>
+
+      <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={5} mb={5}>
+        <Card p={4}>
+          <Flex justify="space-between" align="center" mb={1}>
+            <Heading size="md">Overdue Aging</Heading>
+          </Flex>
+          <Text fontSize="sm" color={textColorSecondary} mb={3}>Outstanding amount by overdue bucket</Text>
+          <BarChart
+            ariaLabel="Overdue aging bar chart"
+            height={chartHeight}
+            categories={overdueAging.categories}
+            series={overdueAging.series}
+            options={{
+              colors: [primaryBlue],
+              tooltip: { y: { formatter: (v) => `Rs. ${Number(v || 0).toLocaleString()}` } },
+            }}
+          />
+        </Card>
+        <Card p={4}>
+          <Flex justify="space-between" align="center" mb={1}>
+            <Heading size="md">Top Outstanding</Heading>
+          </Flex>
+          <Text fontSize="sm" color={textColorSecondary} mb={3}>Users with highest remaining balances</Text>
+          <BarChart
+            ariaLabel="Top outstanding users bar chart"
+            height={chartHeight}
+            categories={topDefaulters.categories}
+            series={topDefaulters.series}
+            options={{
+              colors: [primaryBlue],
+              plotOptions: {
+                bar: {
+                  horizontal: true,
+                  barHeight: topDefaulters.categories?.length <= 1 ? '28%' : '40%',
+                },
+              },
+              xaxis: {
+                labels: {
+                  formatter: (v) => {
+                    const n = Number(v || 0);
+                    if (!Number.isFinite(n)) return '';
+                    if (Math.abs(n) >= 1000000) return `Rs. ${(n / 1000000).toFixed(1)}M`;
+                    if (Math.abs(n) >= 1000) return `Rs. ${(n / 1000).toFixed(1)}k`;
+                    return `Rs. ${Math.round(n)}`;
+                  },
+                },
+                tickAmount: 4,
+              },
+              yaxis: {
+                labels: {
+                  formatter: (v) => String(v || '').slice(0, 14),
+                },
+              },
+              tooltip: { y: { formatter: (v) => `Rs. ${Number(v || 0).toLocaleString()}` } },
             }}
           />
         </Card>

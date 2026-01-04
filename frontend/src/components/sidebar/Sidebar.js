@@ -29,7 +29,7 @@ import { IoMenuOutline } from "react-icons/io5";
 function Sidebar(props) {
   const { routes, sidebarWidth } = props;
 
-  const { toggleSidebar } = useContext(SidebarContext) || {};
+  useContext(SidebarContext);
 
   let variantChange = "0.2s linear";
   let shadow = useColorModeValue(
@@ -37,7 +37,8 @@ function Sidebar(props) {
     "unset"
   );
   // Chakra Color Mode
-  let sidebarBg = useColorModeValue("white", "navy.800");
+  let sidebarBg = useColorModeValue("#e3edff", "rgba(11, 20, 55, 0.72)");
+  let sidebarBorder = useColorModeValue("#cfe0ff", "#f0f5ffe0");
   let sidebarMargins = "0px";
 
   // SIDEBAR
@@ -45,6 +46,11 @@ function Sidebar(props) {
     <Box display={{ sm: "none", xl: "block" }} w={`${sidebarWidth || 260}px`} h='100vh' position='fixed' top='0' left='0' overflow='hidden'>
       <Box
         bg={sidebarBg}
+        backdropFilter='blur(18px)'
+        sx={{ WebkitBackdropFilter: 'blur(18px)' }}
+        borderRightWidth='1px'
+        borderRightStyle='solid'
+        borderRightColor={sidebarBorder}
         transition={variantChange}
         w={`${sidebarWidth || 260}px`}
         h='100vh'
@@ -67,7 +73,8 @@ function Sidebar(props) {
 
 // FUNCTIONS
 export function SidebarResponsive(props) {
-  let sidebarBackgroundColor = useColorModeValue("white", "navy.800");
+  let sidebarBackgroundColor = useColorModeValue('rgba(227, 237, 255, 0.92)', 'rgba(11, 20, 55, 0.78)');
+  let sidebarBorderColor = useColorModeValue('rgba(255, 255, 255, 0.55)', 'rgba(255, 255, 255, 0.10)');
   let menuColor = useColorModeValue("gray.400", "white");
   // // SIDEBAR
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -96,7 +103,16 @@ export function SidebarResponsive(props) {
         placement={document.documentElement.dir === "rtl" ? "right" : "left"}
         finalFocusRef={btnRef}>
         <DrawerOverlay />
-        <DrawerContent w='285px' maxW='285px' bg={sidebarBackgroundColor}>
+        <DrawerContent
+          w='285px'
+          maxW='285px'
+          bg={sidebarBackgroundColor}
+          backdropFilter='blur(18px)'
+          sx={{ WebkitBackdropFilter: 'blur(18px)' }}
+          borderRightWidth={document.documentElement.dir === "rtl" ? '0px' : '1px'}
+          borderLeftWidth={document.documentElement.dir === "rtl" ? '1px' : '0px'}
+          borderColor={sidebarBorderColor}
+        >
           <DrawerCloseButton
             zIndex='3'
             onClose={onClose}

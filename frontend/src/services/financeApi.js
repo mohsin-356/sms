@@ -35,8 +35,12 @@ export const financeApi = {
      * Get dashboard statistics
      * @returns {Promise<Object>}
      */
-    getDashboardStats: async () => {
-        return await http.get(`${API_BASE}/dashboard-stats`);
+    getDashboardStats: async (params = {}) => {
+        return await http.get(`${API_BASE}/dashboard-stats`, { params });
+    },
+
+    getDashboardAnalytics: async (params = {}) => {
+        return await http.get(`${API_BASE}/dashboard-analytics`, { params });
     },
 
     // ========================================

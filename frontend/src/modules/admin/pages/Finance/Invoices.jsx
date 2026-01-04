@@ -10,6 +10,7 @@ import { MdReceipt, MdPending, MdDoneAll, MdAdd, MdSearch, MdSend, MdFileDownloa
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 import UserTypeSelector, { UserTypeFilter } from './components/UserTypeSelector';
 import UserSelector from './components/UserSelector';
 import NoUsersWarning, { UserRequiredNotice } from './components/NoUsersWarning';
@@ -198,10 +199,10 @@ export default function Invoices() {
 
       {/* Stats */}
       <SimpleGrid columns={{ base: 1, md: 4 }} spacing={5} mb={5}>
-        <MiniStatistics name="Total" value={String(total)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#00c6ff 0%,#0072ff 100%)' icon={<Icon as={MdReceipt} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Paid" value={String(stats.paid)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#11998e 0%,#38ef7d 100%)' icon={<Icon as={MdDoneAll} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Pending" value={String(stats.pending)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#FDBB2D 0%,#22C1C3 100%)' icon={<Icon as={MdPending} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Overdue" value={String(stats.overdue)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<Icon as={MdReceipt} w='28px' h='28px' color='white' />} />} />
+        <StatCard title="Total" value={String(total)} icon={MdReceipt} colorScheme="blue" />
+        <StatCard title="Paid" value={String(stats.paid)} icon={MdDoneAll} colorScheme="green" />
+        <StatCard title="Pending" value={String(stats.pending)} icon={MdPending} colorScheme="orange" />
+        <StatCard title="Overdue" value={String(stats.overdue)} icon={MdReceipt} colorScheme="red" />
       </SimpleGrid>
 
       {/* Role Filter */}

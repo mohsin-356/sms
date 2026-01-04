@@ -42,6 +42,7 @@ import { MdDirectionsBus, MdBuild, MdCheckCircle, MdPlaylistAdd, MdSearch, MdFil
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 import * as transportApi from '../../../../services/api/transport';
 
 const fallbackBuses = [
@@ -89,8 +90,8 @@ export default function BusManagement() {
       const source = Array.isArray(data?.items)
         ? data.items
         : Array.isArray(data)
-        ? data
-        : [];
+          ? data
+          : [];
       const list = source.map(normalizeBus).filter(Boolean);
       setRows(list.length ? list : fallbackBuses);
     } catch (e) {
@@ -116,7 +117,7 @@ export default function BusManagement() {
         const data = await transportApi.listRoutes();
         const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
         setRoutesOptions(items);
-      } catch (e) {}
+      } catch (e) { }
     };
     loadRoutes();
   }, []);
@@ -222,10 +223,10 @@ export default function BusManagement() {
       </Flex>
 
       <SimpleGrid columns={{ base: 1, md: 4 }} spacing={5} mb={5}>
-        <MiniStatistics name="Total Buses" value={String(stats.total)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#00c6ff 0%,#0072ff 100%)' icon={<Icon as={MdDirectionsBus} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Active" value={String(stats.active)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#11998e 0%,#38ef7d 100%)' icon={<Icon as={MdCheckCircle} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Maintenance Due" value={String(stats.maint)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<Icon as={MdBuild} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Total Capacity" value={`${stats.capacity}`} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#FDBB2D 0%,#22C1C3 100%)' icon={<Icon as={MdDirectionsBus} w='28px' h='28px' color='white' />} />} />
+        <StatCard title="Total Buses" value={String(stats.total)} icon={MdDirectionsBus} colorScheme="blue" />
+        <StatCard title="Active" value={String(stats.active)} icon={MdCheckCircle} colorScheme="green" />
+        <StatCard title="Maintenance Due" value={String(stats.maint)} icon={MdBuild} colorScheme="red" />
+        <StatCard title="Total Capacity" value={`${stats.capacity}`} icon={MdDirectionsBus} colorScheme="orange" />
       </SimpleGrid>
 
       <Card p={4} mb={5}>
@@ -277,25 +278,25 @@ export default function BusManagement() {
                   <Td><Text color={textColorSecondary}>{b.lastService}</Text></Td>
                   <Td>
                     <Flex align='center' gap={1}>
-                      <IconButton aria-label='View' icon={<MdRemoveRedEye />} size='sm' variant='ghost' onClick={()=>{ setSelected(b); viewDisc.onOpen(); }} />
+                      <IconButton aria-label='View' icon={<MdRemoveRedEye />} size='sm' variant='ghost' onClick={() => { setSelected(b); viewDisc.onOpen(); }} />
                       <Menu isLazy placement='bottom-end'>
                         <MenuButton as={IconButton} aria-label='More' icon={<MdMoreVert />} size='sm' variant='ghost' />
                         <Portal>
-                        <MenuList zIndex={1500}>
-                          <MenuItem onClick={()=>{ setSelected(b); viewDisc.onOpen(); }}>View Details</MenuItem>
-                          <MenuItem onClick={()=>{ setSelected(b); setForm({ ...b }); editDisc.onOpen(); }}>Edit</MenuItem>
-                          <MenuItem color='red.500' onClick={async ()=>{
-                            if (!b.backendId) { toast({ title: 'Cannot delete demo bus', status: 'warning' }); return; }
-                            if (!window.confirm('Delete this bus?')) return;
-                            try {
-                              await transportApi.deleteBus(b.backendId);
-                              await loadBuses();
-                              toast({ title: 'Bus deleted', status: 'success' });
-                            } catch (e) {
-                              toast({ title: 'Failed to delete bus', description: e.message || 'Error', status: 'error' });
-                            }
-                          }}>Delete</MenuItem>
-                        </MenuList>
+                          <MenuList zIndex={1500}>
+                            <MenuItem onClick={() => { setSelected(b); viewDisc.onOpen(); }}>View Details</MenuItem>
+                            <MenuItem onClick={() => { setSelected(b); setForm({ ...b }); editDisc.onOpen(); }}>Edit</MenuItem>
+                            <MenuItem color='red.500' onClick={async () => {
+                              if (!b.backendId) { toast({ title: 'Cannot delete demo bus', status: 'warning' }); return; }
+                              if (!window.confirm('Delete this bus?')) return;
+                              try {
+                                await transportApi.deleteBus(b.backendId);
+                                await loadBuses();
+                                toast({ title: 'Bus deleted', status: 'success' });
+                              } catch (e) {
+                                toast({ title: 'Failed to delete bus', description: e.message || 'Error', status: 'error' });
+                              }
+                            }}>Delete</MenuItem>
+                          </MenuList>
                         </Portal>
                       </Menu>
                     </Flex>
@@ -320,7 +321,7 @@ export default function BusManagement() {
                 <Flex justify='space-between' mb={2}><Text fontWeight='600'>Capacity</Text><Text>{selected.capacity}</Text></Flex>
                 <Flex justify='space-between' mb={2}><Text fontWeight='600'>Driver</Text><Text>{selected.driver}</Text></Flex>
                 <Flex justify='space-between' mb={2}><Text fontWeight='600'>Route</Text><Text>{selected.route}</Text></Flex>
-                <Flex justify='space-between' mb={2}><Text fontWeight='600'>Status</Text><Badge colorScheme={selected.status==='Active'?'green':'yellow'}>{selected.status}</Badge></Flex>
+                <Flex justify='space-between' mb={2}><Text fontWeight='600'>Status</Text><Badge colorScheme={selected.status === 'Active' ? 'green' : 'yellow'}>{selected.status}</Badge></Flex>
                 <Flex justify='space-between'><Text fontWeight='600'>Last Service</Text><Text>{selected.lastService || '-'}</Text></Flex>
               </Box>
             )}
@@ -339,23 +340,23 @@ export default function BusManagement() {
           <ModalBody>
             <FormControl mb={3}>
               <FormLabel>Bus ID</FormLabel>
-              <Input value={form.id} onChange={(e)=> setForm(f=>({ ...f, id: e.target.value }))} placeholder='e.g. BUS-200' />
+              <Input value={form.id} onChange={(e) => setForm(f => ({ ...f, id: e.target.value }))} placeholder='e.g. BUS-200' />
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Plate</FormLabel>
-              <Input value={form.plate} onChange={(e)=> setForm(f=>({ ...f, plate: e.target.value }))} />
+              <Input value={form.plate} onChange={(e) => setForm(f => ({ ...f, plate: e.target.value }))} />
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Capacity</FormLabel>
-              <Input type='number' value={form.capacity} onChange={(e)=> setForm(f=>({ ...f, capacity: Number(e.target.value)||0 }))} />
+              <Input type='number' value={form.capacity} onChange={(e) => setForm(f => ({ ...f, capacity: Number(e.target.value) || 0 }))} />
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Driver</FormLabel>
-              <Input value={form.driver} onChange={(e)=> setForm(f=>({ ...f, driver: e.target.value }))} />
+              <Input value={form.driver} onChange={(e) => setForm(f => ({ ...f, driver: e.target.value }))} />
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Route</FormLabel>
-              <Select placeholder='Unassigned' value={form.routeId} onChange={(e)=> setForm(f=>({ ...f, routeId: e.target.value }))}>
+              <Select placeholder='Unassigned' value={form.routeId} onChange={(e) => setForm(f => ({ ...f, routeId: e.target.value }))}>
                 {routesOptions.map(r => (
                   <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
@@ -363,14 +364,14 @@ export default function BusManagement() {
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Status</FormLabel>
-              <Select value={form.status.toLowerCase()} onChange={(e)=> setForm(f=>({ ...f, status: e.target.value.charAt(0).toUpperCase()+e.target.value.slice(1) }))}>
+              <Select value={form.status.toLowerCase()} onChange={(e) => setForm(f => ({ ...f, status: e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1) }))}>
                 <option value='active'>Active</option>
                 <option value='maintenance'>Maintenance</option>
               </Select>
             </FormControl>
             <FormControl>
               <FormLabel>Last Service</FormLabel>
-              <Input type='date' value={form.lastService} onChange={(e)=> setForm(f=>({ ...f, lastService: e.target.value }))} />
+              <Input type='date' value={form.lastService} onChange={(e) => setForm(f => ({ ...f, lastService: e.target.value }))} />
             </FormControl>
           </ModalBody>
           <ModalFooter>

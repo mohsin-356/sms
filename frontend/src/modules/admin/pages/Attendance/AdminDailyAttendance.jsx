@@ -18,10 +18,12 @@ import {
   useToast,
   TableContainer,
 } from '@chakra-ui/react';
-import { MdSearch, MdRefresh, MdFileDownload } from 'react-icons/md';
+import { MdSearch, MdRefresh, MdFileDownload, MdCheckCircle, MdCancel, MdAvTimer } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
+import { SimpleGrid } from '@chakra-ui/react';
 import { getStatusColor } from '../../../../utils/helpers';
 import * as attendanceApi from '../../../../services/api/attendance';
 import * as studentsApi from '../../../../services/api/students';
@@ -51,7 +53,7 @@ export default function AdminDailyAttendance() {
         const sections = Array.from(new Set((rows || []).map((s) => s.section).filter(Boolean)));
         setClassOptions(classes);
         setSectionOptions(sections);
-      } catch (_) {}
+      } catch (_) { }
     };
     if (!authLoading && isAuthenticated) loadOptions();
   }, [authLoading, isAuthenticated]);
@@ -93,7 +95,7 @@ export default function AdminDailyAttendance() {
       });
       setStatuses(st);
     } catch (e) {
-      const details = Array.isArray(e?.data?.errors) ? e.data.errors.map(x=>`${x.param}: ${x.msg}`).join(', ') : '';
+      const details = Array.isArray(e?.data?.errors) ? e.data.errors.map(x => `${x.param}: ${x.msg}`).join(', ') : '';
       const msg = (e?.data?.message || e?.message || 'Failed to load daily attendance') + (details ? ` — ${details}` : '');
       const id = 'daily-attendance-error';
       if (!toast.isActive(id)) toast({ id, title: 'Failed to load daily attendance', description: msg, status: 'error' });
@@ -130,26 +132,52 @@ export default function AdminDailyAttendance() {
       <Text fontSize='md' color='gray.500' mb='16px'>Filter by class/section, mark statuses, and save.</Text>
 
       <Card p='16px' mb='16px'>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap="20px" mb="20px">
+          <StatCard
+            title="Total Students"
+            value={String(kpis.total)}
+            icon={MdSearch}
+            colorScheme="blue"
+          />
+          <StatCard
+            title="Present"
+            value={String(kpis.present)}
+            icon={MdCheckCircle}
+            colorScheme="green"
+          />
+          <StatCard
+            title="Absent"
+            value={String(kpis.absent)}
+            icon={MdCancel}
+            colorScheme="red"
+          />
+          <StatCard
+            title="Late"
+            value={String(kpis.late)}
+            icon={MdAvTimer}
+            colorScheme="orange"
+          />
+        </SimpleGrid>
         <Flex gap={3} flexWrap='wrap' justify='space-between' align='center'>
           <HStack spacing={3} flexWrap='wrap' rowGap={3}>
-            <Input type='date' value={date} onChange={(e)=>setDate(e.target.value)} size='sm' maxW='180px' />
-            <Select placeholder='Class' value={cls} onChange={(e)=>setCls(e.target.value)} size='sm' maxW='160px'>
+            <Input type='date' value={date} onChange={(e) => setDate(e.target.value)} size='sm' maxW='180px' />
+            <Select placeholder='Class' value={cls} onChange={(e) => setCls(e.target.value)} size='sm' maxW='160px'>
               {classOptions.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </Select>
-            <Select placeholder='Section' value={section} onChange={(e)=>setSection(e.target.value)} size='sm' maxW='160px'>
+            <Select placeholder='Section' value={section} onChange={(e) => setSection(e.target.value)} size='sm' maxW='160px'>
               {sectionOptions.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </Select>
             <HStack>
-              <Input placeholder='Search student' value={q} onChange={(e)=>setQ(e.target.value)} size='sm' maxW='220px' />
+              <Input placeholder='Search student' value={q} onChange={(e) => setQ(e.target.value)} size='sm' maxW='220px' />
               <IconButton aria-label='Search' icon={<MdSearch />} size='sm' onClick={loadDaily} />
             </HStack>
           </HStack>
           <HStack>
-            <Button leftIcon={<MdRefresh />} size='sm' variant='outline' onClick={()=>{ setQ(''); loadDaily(); }}>Refresh</Button>
+            <Button leftIcon={<MdRefresh />} size='sm' variant='outline' onClick={() => { setQ(''); loadDaily(); }}>Refresh</Button>
             <Button leftIcon={<MdFileDownload />} size='sm' colorScheme='blue' onClick={exportCSV}>Export CSV</Button>
           </HStack>
         </Flex>
@@ -181,7 +209,7 @@ export default function AdminDailyAttendance() {
                   <Td>{s.rollNumber || '-'}</Td>
                   <Td>{(s.class || '-') + (s.section ? '-' + s.section : '')}</Td>
                   <Td>
-                    <Select size='sm' value={statuses[s.id] || 'present'} onChange={(e)=>setStatuses((prev)=>({ ...prev, [s.id]: e.target.value }))} maxW='140px'>
+                    <Select size='sm' value={statuses[s.id] || 'present'} onChange={(e) => setStatuses((prev) => ({ ...prev, [s.id]: e.target.value }))} maxW='140px'>
                       <option value='present'>Present</option>
                       <option value='absent'>Absent</option>
                       <option value='late'>Late</option>

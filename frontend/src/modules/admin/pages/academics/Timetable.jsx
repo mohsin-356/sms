@@ -30,6 +30,7 @@ import {
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 import { MdSchedule, MdAccessTime, MdGridOn, MdAssignment, MdUpdate, MdCalendarToday, MdChevronLeft, MdChevronRight, MdViewWeek, MdViewModule, MdFileDownload, MdPictureAsPdf, MdDelete } from 'react-icons/md';
 import * as teacherApi from '../../../../services/api/teachers';
 import useClassOptions from '../../../../hooks/useClassOptions';
@@ -379,7 +380,7 @@ export default function Timetable() {
     const html = `<!doctype html><html><head><title>Timetable</title><style>table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px;font-family:Arial;font-size:12px}</style></head><body>
       <h2>Timetable - ${cls || 'All Classes'} ${section ? 'Section ' + section : ''}</h2>
       <table><thead><tr><th>Teacher</th><th>Day</th><th>Start</th><th>End</th><th>Class</th><th>Section</th><th>Subject</th><th>Room</th></tr></thead><tbody>
-      ${rows.map((s)=>`<tr><td>${s.teacherName||''}</td><td>${s.dayName||s.day||''}</td><td>${s.startTime||''}</td><td>${s.endTime||''}</td><td>${s.className||s.class||''}</td><td>${s.section||''}</td><td>${s.subject||''}</td><td>${s.room||''}</td></tr>`).join('')}
+      ${rows.map((s) => `<tr><td>${s.teacherName || ''}</td><td>${s.dayName || s.day || ''}</td><td>${s.startTime || ''}</td><td>${s.endTime || ''}</td><td>${s.className || s.class || ''}</td><td>${s.section || ''}</td><td>${s.subject || ''}</td><td>${s.room || ''}</td></tr>`).join('')}
       </tbody></table>
     </body></html>`;
     w.document.write(html);
@@ -463,25 +464,29 @@ export default function Timetable() {
       </Flex>
 
       <SimpleGrid columns={{ base: 1, md: 3, lg: 4 }} gap="20px" mb={5}>
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)" icon={<MdSchedule color="white" />} />}
-          name="Total Periods"
+        <StatCard
+          title="Total Periods"
           value={String(totalCells)}
+          icon={MdSchedule}
+          colorScheme="blue"
         />
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#01B574 0%,#51CB97 100%)" icon={<MdGridOn color="white" />} />}
-          name="Scheduled"
+        <StatCard
+          title="Scheduled"
           value={String(filledCells)}
+          icon={MdGridOn}
+          colorScheme="green"
         />
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)" icon={<MdAccessTime color="white" />} />}
-          name="Free Slots"
+        <StatCard
+          title="Free Slots"
           value={String(freeCells)}
+          icon={MdAccessTime}
+          colorScheme="orange"
         />
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#8952FF 0%,#AA80FF 100%)" icon={<MdGridOn color="white" />} />}
-          name="Subjects"
+        <StatCard
+          title="Subjects"
           value={String(uniqueSubjects)}
+          icon={MdGridOn}
+          colorScheme="purple"
         />
       </SimpleGrid>
 
@@ -530,49 +535,49 @@ export default function Timetable() {
       <Card mb={5}>
         <Flex p={4} gap={4} align="center" direction={{ base: 'column', md: 'row' }}>
           <ButtonGroup isAttached>
-            <Button leftIcon={<MdCalendarToday />} variant={view==='day'?'solid':'outline'} colorScheme='blue' onClick={()=>setView('day')}>Day</Button>
-            <Button leftIcon={<MdViewWeek />} variant={view==='week'?'solid':'outline'} colorScheme='blue' onClick={()=>setView('week')}>Week</Button>
-            <Button leftIcon={<MdViewModule />} variant={view==='month'?'solid':'outline'} colorScheme='blue' onClick={()=>setView('month')}>Month</Button>
+            <Button leftIcon={<MdCalendarToday />} variant={view === 'day' ? 'solid' : 'outline'} colorScheme='blue' onClick={() => setView('day')}>Day</Button>
+            <Button leftIcon={<MdViewWeek />} variant={view === 'week' ? 'solid' : 'outline'} colorScheme='blue' onClick={() => setView('week')}>Week</Button>
+            <Button leftIcon={<MdViewModule />} variant={view === 'month' ? 'solid' : 'outline'} colorScheme='blue' onClick={() => setView('month')}>Month</Button>
           </ButtonGroup>
           <HStack>
-            <IconButton aria-label='Prev' icon={<MdChevronLeft />} onClick={()=>{
-              const d=new Date(selectedDate);
-              if(view==='day') d.setDate(d.getDate()-1);
-              else if(view==='week') d.setDate(d.getDate()-7);
-              else d.setMonth(d.getMonth()-1);
+            <IconButton aria-label='Prev' icon={<MdChevronLeft />} onClick={() => {
+              const d = new Date(selectedDate);
+              if (view === 'day') d.setDate(d.getDate() - 1);
+              else if (view === 'week') d.setDate(d.getDate() - 7);
+              else d.setMonth(d.getMonth() - 1);
               setSelectedDate(d);
             }} />
-            <Input type='date' value={fmt(selectedDate)} onChange={(e)=>setSelectedDate(parseLocalDate(e.target.value))} maxW='220px' />
-            <IconButton aria-label='Next' icon={<MdChevronRight />} onClick={()=>{
-              const d=new Date(selectedDate);
-              if(view==='day') d.setDate(d.getDate()+1);
-              else if(view==='week') d.setDate(d.getDate()+7);
-              else d.setMonth(d.getMonth()+1);
+            <Input type='date' value={fmt(selectedDate)} onChange={(e) => setSelectedDate(parseLocalDate(e.target.value))} maxW='220px' />
+            <IconButton aria-label='Next' icon={<MdChevronRight />} onClick={() => {
+              const d = new Date(selectedDate);
+              if (view === 'day') d.setDate(d.getDate() + 1);
+              else if (view === 'week') d.setDate(d.getDate() + 7);
+              else d.setMonth(d.getMonth() + 1);
               setSelectedDate(d);
             }} />
-            <Button onClick={()=>setSelectedDate(new Date())}>Today</Button>
+            <Button onClick={() => setSelectedDate(new Date())}>Today</Button>
           </HStack>
         </Flex>
       </Card>
 
       {/* Views */}
-      {view==='day' && (
+      {view === 'day' && (
         <Card>
           <Flex p={4} borderBottomWidth={1} borderColor={useColorModeValue('gray.200', 'gray.700')} align="center" justify="space-between">
             <Heading size="md">
               {cls} - Section {section} • {selectedDate.toDateString()}
             </Heading>
-            <Button leftIcon={<MdDelete />} colorScheme='red' variant='outline' onClick={()=>deleteWholeDay(selectedDate)} isDisabled={!cls || !section || !selectedTeacher}>Delete Day</Button>
+            <Button leftIcon={<MdDelete />} colorScheme='red' variant='outline' onClick={() => deleteWholeDay(selectedDate)} isDisabled={!cls || !section || !selectedTeacher}>Delete Day</Button>
           </Flex>
           <Box p={4}>
             <Grid templateColumns={`160px 1fr`} gap={2}>
-              {periodLabels.map((p, i)=> (
+              {periodLabels.map((p, i) => (
                 <React.Fragment key={p}>
                   <GridItem><Text fontWeight='600'>{p}</Text></GridItem>
                   <GridItem>
-                    <Box role='group' position='relative' borderWidth='1px' borderRadius='md' p={3} cursor='pointer' onClick={()=>openEditForDate(selectedDate)}>
+                    <Box role='group' position='relative' borderWidth='1px' borderRadius='md' p={3} cursor='pointer' onClick={() => openEditForDate(selectedDate)}>
                       <Text>{getScheduleForDate(selectedDate)[i] || '- (click to edit)'}</Text>
-                      <IconButton aria-label={`Delete P${i+1}`} icon={<MdDelete />} size='xs' colorScheme='red' variant='ghost' position='absolute' top='4px' right='4px' opacity={0} _groupHover={{ opacity: 1 }} onClick={(e)=>{ e.stopPropagation(); deletePeriodForDate(selectedDate, i); }} />
+                      <IconButton aria-label={`Delete P${i + 1}`} icon={<MdDelete />} size='xs' colorScheme='red' variant='ghost' position='absolute' top='4px' right='4px' opacity={0} _groupHover={{ opacity: 1 }} onClick={(e) => { e.stopPropagation(); deletePeriodForDate(selectedDate, i); }} />
                     </Box>
                   </GridItem>
                 </React.Fragment>
@@ -582,9 +587,9 @@ export default function Timetable() {
         </Card>
       )}
 
-      {view==='week' && (()=>{
-        const d = new Date(selectedDate); const day=(d.getDay()+6)%7; const monday=new Date(d); monday.setDate(d.getDate()-day);
-        const weekDays=[...Array(7)].map((_,i)=>{ const t=new Date(monday); t.setDate(monday.getDate()+i); return t;});
+      {view === 'week' && (() => {
+        const d = new Date(selectedDate); const day = (d.getDay() + 6) % 7; const monday = new Date(d); monday.setDate(d.getDate() - day);
+        const weekDays = [...Array(7)].map((_, i) => { const t = new Date(monday); t.setDate(monday.getDate() + i); return t; });
         return (
           <Card overflow="hidden">
             <Heading size="md" p={4} borderBottomWidth={1} borderColor={useColorModeValue('gray.200', 'gray.700')}>
@@ -600,12 +605,12 @@ export default function Timetable() {
                 ))}
                 {weekDays.map((dateObj) => (
                   <React.Fragment key={fmt(dateObj)}>
-                    <GridItem><Text fontWeight="600">{dayName(dateObj)}<br/><Text as='span' fontWeight='400' color={textColorSecondary}>{fmt(dateObj)}</Text></Text></GridItem>
+                    <GridItem><Text fontWeight="600">{dayName(dateObj)}<br /><Text as='span' fontWeight='400' color={textColorSecondary}>{fmt(dateObj)}</Text></Text></GridItem>
                     {periodLabels.map((p, i) => (
                       <GridItem key={`${fmt(dateObj)}-${p}`}>
-                        <Box role='group' position='relative' borderWidth="1px" borderRadius="md" p={3} textAlign="center" cursor='pointer' _hover={{ bg: useColorModeValue('gray.50','gray.700') }} onClick={()=>{ setSelectedDate(dateObj); openEditForDate(dateObj); }}>
+                        <Box role='group' position='relative' borderWidth="1px" borderRadius="md" p={3} textAlign="center" cursor='pointer' _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }} onClick={() => { setSelectedDate(dateObj); openEditForDate(dateObj); }}>
                           <Text>{getScheduleForDate(dateObj)[i] || '-'}</Text>
-                          <IconButton aria-label={`Delete ${p}`} icon={<MdDelete />} size='xs' colorScheme='red' variant='ghost' position='absolute' top='4px' right='4px' opacity={0} _groupHover={{ opacity: 1 }} onClick={(e)=>{ e.stopPropagation(); deletePeriodForDate(dateObj, i); }} />
+                          <IconButton aria-label={`Delete ${p}`} icon={<MdDelete />} size='xs' colorScheme='red' variant='ghost' position='absolute' top='4px' right='4px' opacity={0} _groupHover={{ opacity: 1 }} onClick={(e) => { e.stopPropagation(); deletePeriodForDate(dateObj, i); }} />
                         </Box>
                       </GridItem>
                     ))}
@@ -617,19 +622,19 @@ export default function Timetable() {
         );
       })()}
 
-      {view==='month' && (
+      {view === 'month' && (
         <Card>
           <Heading size="md" p={4} borderBottomWidth={1} borderColor={useColorModeValue('gray.200', 'gray.700')}>
-            {cls} - Section {section} • {selectedDate.toLocaleString(undefined,{ month:'long', year:'numeric'})}
+            {cls} - Section {section} • {selectedDate.toLocaleString(undefined, { month: 'long', year: 'numeric' })}
           </Heading>
           <Box p={4}>
             <Grid templateColumns="repeat(7, 1fr)" gap={2}>
-              {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d)=> (
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
                 <GridItem key={d}><Text fontWeight='600' textAlign='center'>{d}</Text></GridItem>
               ))}
-              {monthMatrix.map((week, wi)=> week.map((d, i)=> (
+              {monthMatrix.map((week, wi) => week.map((d, i) => (
                 <GridItem key={`${wi}-${i}`}>
-                  <Box borderWidth='1px' borderRadius='md' p={2} h='90px' cursor='pointer' _hover={{ bg: useColorModeValue('gray.50','gray.700') }} onClick={()=>{ setSelectedDate(d); openEditForDate(d); }} opacity={d.getMonth()===selectedDate.getMonth()?1:0.5}>
+                  <Box borderWidth='1px' borderRadius='md' p={2} h='90px' cursor='pointer' _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }} onClick={() => { setSelectedDate(d); openEditForDate(d); }} opacity={d.getMonth() === selectedDate.getMonth() ? 1 : 0.5}>
                     <Text fontSize='sm' fontWeight='600'>{d.getDate()}</Text>
                     <Text color={textColorSecondary} fontSize='xs' mt={1}>{getScheduleForDate(d).filter(Boolean).length} periods</Text>
                   </Box>
@@ -649,22 +654,22 @@ export default function Timetable() {
           <ModalBody>
             <HStack mb={3}>
               <Text fontWeight='600'>Periods</Text>
-              <Select maxW='120px' value={String(modalPeriodCount|| (periodLabels.length||6))} onChange={(e)=>{ const next=Number(e.target.value)||0; setModalPeriodCount(next); setEditValues((prev)=>{ const arr=[...prev]; if(arr.length<next){ while(arr.length<next) arr.push(''); } else if(arr.length>next){ arr.length=next; } return arr; }); setEditRooms((prev)=>{ const arr=[...prev]; if(arr.length<next){ while(arr.length<next) arr.push(''); } else if(arr.length>next){ arr.length=next; } return arr; }); }}>
-                {Array.from({length:12}).map((_,i)=>(<option key={i+1} value={i+1}>{i+1}</option>))}
+              <Select maxW='120px' value={String(modalPeriodCount || (periodLabels.length || 6))} onChange={(e) => { const next = Number(e.target.value) || 0; setModalPeriodCount(next); setEditValues((prev) => { const arr = [...prev]; if (arr.length < next) { while (arr.length < next) arr.push(''); } else if (arr.length > next) { arr.length = next; } return arr; }); setEditRooms((prev) => { const arr = [...prev]; if (arr.length < next) { while (arr.length < next) arr.push(''); } else if (arr.length > next) { arr.length = next; } return arr; }); }}>
+                {Array.from({ length: 12 }).map((_, i) => (<option key={i + 1} value={i + 1}>{i + 1}</option>))}
               </Select>
             </HStack>
             <Grid templateColumns='80px 1fr 160px 40px' gap={3}>
-              {Array.from({length: modalPeriodCount || (periodLabels.length||6)}).map((_, idx)=> (
+              {Array.from({ length: modalPeriodCount || (periodLabels.length || 6) }).map((_, idx) => (
                 <React.Fragment key={`edit-${idx}`}>
-                  <GridItem><Text fontWeight='600'>{`P${idx+1}`}</Text></GridItem>
+                  <GridItem><Text fontWeight='600'>{`P${idx + 1}`}</Text></GridItem>
                   <GridItem>
-                    <Input placeholder='Subject' value={editValues[idx] || ''} onChange={(e)=>{ const v=[...editValues]; v[idx]=e.target.value; setEditValues(v); }} />
+                    <Input placeholder='Subject' value={editValues[idx] || ''} onChange={(e) => { const v = [...editValues]; v[idx] = e.target.value; setEditValues(v); }} />
                   </GridItem>
                   <GridItem>
-                    <Input placeholder='Room (optional)' value={editRooms[idx] || ''} onChange={(e)=>{ const v=[...editRooms]; v[idx]=e.target.value; setEditRooms(v); }} />
+                    <Input placeholder='Room (optional)' value={editRooms[idx] || ''} onChange={(e) => { const v = [...editRooms]; v[idx] = e.target.value; setEditRooms(v); }} />
                   </GridItem>
                   <GridItem display='flex' alignItems='center' justifyContent='center'>
-                    <IconButton aria-label={`Delete P${idx+1}`} size='sm' colorScheme='red' variant='ghost' icon={<MdDelete />} onClick={()=>deletePeriodForDate(selectedDate, idx)} />
+                    <IconButton aria-label={`Delete P${idx + 1}`} size='sm' colorScheme='red' variant='ghost' icon={<MdDelete />} onClick={() => deletePeriodForDate(selectedDate, idx)} />
                   </GridItem>
                 </React.Fragment>
               ))}
@@ -672,8 +677,8 @@ export default function Timetable() {
           </ModalBody>
           <ModalFooter>
             <Button variant='ghost' mr={3} onClick={editDisc.onClose}>Cancel</Button>
-            <Button variant='outline' colorScheme='red' mr={3} leftIcon={<MdDelete />} onClick={()=>deleteWholeDay(selectedDate)}>Delete Day</Button>
-            <Button colorScheme='blue' onClick={async ()=>{ try { const count=modalPeriodCount || (periodLabels.length||6); const values=editValues.slice(0, count); const rooms=editRooms.slice(0, count); setScheduleForDate(selectedDate, values); await upsertBackendForDate(selectedDate, values, rooms); await fetchSchedules(); toast({ title: 'Timetable saved', status: 'success', duration: 2500, isClosable: true }); editDisc.onClose(); } catch (e) { toast({ title: 'Save failed', description: e?.message || 'Unable to save timetable', status: 'error', duration: 3500, isClosable: true }); } }}>Save</Button>
+            <Button variant='outline' colorScheme='red' mr={3} leftIcon={<MdDelete />} onClick={() => deleteWholeDay(selectedDate)}>Delete Day</Button>
+            <Button colorScheme='blue' onClick={async () => { try { const count = modalPeriodCount || (periodLabels.length || 6); const values = editValues.slice(0, count); const rooms = editRooms.slice(0, count); setScheduleForDate(selectedDate, values); await upsertBackendForDate(selectedDate, values, rooms); await fetchSchedules(); toast({ title: 'Timetable saved', status: 'success', duration: 2500, isClosable: true }); editDisc.onClose(); } catch (e) { toast({ title: 'Save failed', description: e?.message || 'Unable to save timetable', status: 'error', duration: 3500, isClosable: true }); } }}>Save</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

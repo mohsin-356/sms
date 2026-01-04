@@ -4,6 +4,7 @@ import { MdSettings, MdFileDownload, MdSave, MdRefresh } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 
 export default function SystemSettings() {
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
@@ -26,8 +27,8 @@ export default function SystemSettings() {
       </Flex>
 
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5} mb={5}>
-        <MiniStatistics name="Version" value="v1.0.0" startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#00c6ff 0%,#0072ff 100%)' icon={<Icon as={MdSettings} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Uptime" value="99.98%" startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#11998e 0%,#38ef7d 100%)' icon={<Icon as={MdSettings} w='28px' h='28px' color='white' />} />} />
+        <StatCard title="Version" value="v1.0.0" icon={MdSettings} colorScheme="blue" />
+        <StatCard title="Uptime" value="99.98%" icon={MdSettings} colorScheme="green" />
       </SimpleGrid>
 
       <Grid templateColumns={{ base: '1fr', lg: '1fr 1fr' }} gap={5}>
@@ -56,7 +57,7 @@ export default function SystemSettings() {
           </Card>
         </GridItem>
 
-        
+
       </Grid>
     </Box>
   );

@@ -45,6 +45,7 @@ import { MdPerson, MdSearch, MdAdd, MdThumbUp, MdFileDownload, MdPictureAsPdf, M
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 import * as driversApi from '../../../../services/api/drivers';
 import * as transportApi from '../../../../services/api/transport';
 
@@ -53,7 +54,7 @@ const normalize = (d) => ({
   name: d.name,
   phone: d.phone || '-',
   license: d.licenseNumber || '-',
-  status: String(d.status||'active').toLowerCase()==='active' ? 'On Duty' : 'Off Duty',
+  status: String(d.status || 'active').toLowerCase() === 'active' ? 'On Duty' : 'Off Duty',
   bus: d.busNumber || '-',
   busId: d.busId || '',
   busNumber: d.busNumber || null,
@@ -119,17 +120,17 @@ export default function DriverManagement() {
           <Text color={textColorSecondary}>Manage drivers, duty status, and licenses</Text>
         </Box>
         <ButtonGroup>
-          <Button leftIcon={<MdAdd />} colorScheme="blue" onClick={()=>{ setForm({ id: '', name: '', phone: '', license: '', status: 'On Duty', bus: '', busId: '', rating: 0 }); editDisc.onOpen(); }}>Add Driver</Button>
+          <Button leftIcon={<MdAdd />} colorScheme="blue" onClick={() => { setForm({ id: '', name: '', phone: '', license: '', status: 'On Duty', bus: '', busId: '', rating: 0 }); editDisc.onOpen(); }}>Add Driver</Button>
           <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
           <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue'>Export PDF</Button>
         </ButtonGroup>
       </Flex>
 
       <SimpleGrid columns={{ base: 1, md: 4 }} spacing={5} mb={5}>
-        <MiniStatistics name="Total Drivers" value={String(stats.total)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#00c6ff 0%,#0072ff 100%)' icon={<Icon as={MdPerson} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="On Duty" value={String(stats.onDuty)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#11998e 0%,#38ef7d 100%)' icon={<Icon as={MdThumbUp} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Off Duty" value={String(stats.offDuty)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<Icon as={MdPerson} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Avg Rating" value={`${stats.avgRating}/5`} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#FDBB2D 0%,#22C1C3 100%)' icon={<Icon as={MdThumbUp} w='28px' h='28px' color='white' />} />} />
+        <StatCard title="Total Drivers" value={String(stats.total)} icon={MdPerson} colorScheme="blue" />
+        <StatCard title="On Duty" value={String(stats.onDuty)} icon={MdThumbUp} colorScheme="green" />
+        <StatCard title="Off Duty" value={String(stats.offDuty)} icon={MdPerson} colorScheme="red" />
+        <StatCard title="Avg Rating" value={`${stats.avgRating}/5`} icon={MdThumbUp} colorScheme="orange" />
       </SimpleGrid>
 
       <Card p={4} mb={5}>
@@ -175,30 +176,30 @@ export default function DriverManagement() {
                   <Td isNumeric>{d.rating.toFixed(1)}</Td>
                   <Td>
                     <Flex align='center' gap={1}>
-                      <IconButton aria-label='View' icon={<MdRemoveRedEye />} size='sm' variant='ghost' onClick={()=>{ setSelected(d); viewDisc.onOpen(); }} />
+                      <IconButton aria-label='View' icon={<MdRemoveRedEye />} size='sm' variant='ghost' onClick={() => { setSelected(d); viewDisc.onOpen(); }} />
                       <Menu isLazy placement='bottom-end'>
                         <MenuButton as={IconButton} aria-label='More' icon={<MdMoreVert />} size='sm' variant='ghost' />
                         <Portal>
-                        <MenuList zIndex={1500}>
-                          <MenuItem onClick={()=>{ setSelected(d); viewDisc.onOpen(); }}>View Details</MenuItem>
-                          <MenuItem onClick={()=>{ setSelected(d); setForm({ ...d, busId: d.busId || '' }); editDisc.onOpen(); }}>Edit</MenuItem>
-                          <MenuItem color='red.500' onClick={async ()=>{
-                            if (!window.confirm('Delete this driver?')) return;
-                            try {
-                              await driversApi.remove(d.id);
-                              await loadDrivers();
-                              toast({ title: 'Driver deleted', status: 'success' });
-                            } catch (e) {
-                              if (e?.status === 409 && e?.data?.hasFinancialRecords) {
-                                if (window.confirm('This driver has financial records. Delete anyway?')) {
-                                  try { await driversApi.remove(d.id, { force: 'true' }); await loadDrivers(); toast({ title: 'Driver deleted', status: 'success' }); } catch (err) { toast({ title: 'Failed', status: 'error' }); }
+                          <MenuList zIndex={1500}>
+                            <MenuItem onClick={() => { setSelected(d); viewDisc.onOpen(); }}>View Details</MenuItem>
+                            <MenuItem onClick={() => { setSelected(d); setForm({ ...d, busId: d.busId || '' }); editDisc.onOpen(); }}>Edit</MenuItem>
+                            <MenuItem color='red.500' onClick={async () => {
+                              if (!window.confirm('Delete this driver?')) return;
+                              try {
+                                await driversApi.remove(d.id);
+                                await loadDrivers();
+                                toast({ title: 'Driver deleted', status: 'success' });
+                              } catch (e) {
+                                if (e?.status === 409 && e?.data?.hasFinancialRecords) {
+                                  if (window.confirm('This driver has financial records. Delete anyway?')) {
+                                    try { await driversApi.remove(d.id, { force: 'true' }); await loadDrivers(); toast({ title: 'Driver deleted', status: 'success' }); } catch (err) { toast({ title: 'Failed', status: 'error' }); }
+                                  }
+                                } else {
+                                  toast({ title: 'Failed to delete driver', status: 'error' });
                                 }
-                              } else {
-                                toast({ title: 'Failed to delete driver', status: 'error' });
                               }
-                            }
-                          }}>Delete</MenuItem>
-                        </MenuList>
+                            }}>Delete</MenuItem>
+                          </MenuList>
                         </Portal>
                       </Menu>
                     </Flex>
@@ -222,7 +223,7 @@ export default function DriverManagement() {
                 <Flex justify='space-between' mb={2}><Text fontWeight='600'>ID</Text><Text>{selected.id}</Text></Flex>
                 <Flex justify='space-between' mb={2}><Text fontWeight='600'>Phone</Text><Text>{selected.phone}</Text></Flex>
                 <Flex justify='space-between' mb={2}><Text fontWeight='600'>License</Text><Text>{selected.license}</Text></Flex>
-                <Flex justify='space-between' mb={2}><Text fontWeight='600'>Status</Text><Badge colorScheme={selected.status==='On Duty'?'green':'gray'}>{selected.status}</Badge></Flex>
+                <Flex justify='space-between' mb={2}><Text fontWeight='600'>Status</Text><Badge colorScheme={selected.status === 'On Duty' ? 'green' : 'gray'}>{selected.status}</Badge></Flex>
                 <Flex justify='space-between' mb={2}><Text fontWeight='600'>Assigned Bus</Text><Text>{selected.bus}</Text></Flex>
                 <Flex justify='space-between'><Text fontWeight='600'>Rating</Text><Text>{selected.rating.toFixed(1)}</Text></Flex>
               </Box>
@@ -242,49 +243,49 @@ export default function DriverManagement() {
           <ModalBody>
             <FormControl mb={3}>
               <FormLabel>Name</FormLabel>
-              <Input value={form.name} onChange={(e)=> setForm(f=>({ ...f, name: e.target.value }))} />
+              <Input value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} />
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Phone</FormLabel>
-              <Input value={form.phone} onChange={(e)=> setForm(f=>({ ...f, phone: e.target.value }))} />
+              <Input value={form.phone} onChange={(e) => setForm(f => ({ ...f, phone: e.target.value }))} />
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>License</FormLabel>
-              <Input value={form.license} onChange={(e)=> setForm(f=>({ ...f, license: e.target.value }))} />
+              <Input value={form.license} onChange={(e) => setForm(f => ({ ...f, license: e.target.value }))} />
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Status</FormLabel>
-              <Select value={form.status.toLowerCase()} onChange={(e)=> setForm(f=>({ ...f, status: e.target.value==='on duty'?'On Duty':'Off Duty' }))}>
+              <Select value={form.status.toLowerCase()} onChange={(e) => setForm(f => ({ ...f, status: e.target.value === 'on duty' ? 'On Duty' : 'Off Duty' }))}>
                 <option value='on duty'>On Duty</option>
                 <option value='off duty'>Off Duty</option>
               </Select>
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Assigned Bus</FormLabel>
-              <Select value={String(form.busId || '')} onChange={(e)=> setForm(f=>({ ...f, busId: e.target.value ? Number(e.target.value) : '' }))}>
+              <Select value={String(form.busId || '')} onChange={(e) => setForm(f => ({ ...f, busId: e.target.value ? Number(e.target.value) : '' }))}>
                 <option value=''>Unassigned</option>
-                {buses.map((b)=> (
+                {buses.map((b) => (
                   <option key={b.id} value={b.id}>{b.number}</option>
                 ))}
               </Select>
             </FormControl>
             <FormControl>
               <FormLabel>Rating</FormLabel>
-              <NumberInput min={0} max={5} step={0.1} value={form.rating} onChange={(v)=> setForm(f=>({ ...f, rating: Number(v)||0 }))}>
+              <NumberInput min={0} max={5} step={0.1} value={form.rating} onChange={(v) => setForm(f => ({ ...f, rating: Number(v) || 0 }))}>
                 <NumberInputField />
               </NumberInput>
             </FormControl>
           </ModalBody>
           <ModalFooter>
             <Button variant='ghost' mr={3} onClick={editDisc.onClose}>Cancel</Button>
-            <Button colorScheme='blue' onClick={async ()=>{
+            <Button colorScheme='blue' onClick={async () => {
               try {
                 if (form.id) {
                   await driversApi.update(form.id, {
                     name: form.name,
                     phone: form.phone,
                     licenseNumber: form.license,
-                    status: form.status==='On Duty'?'active':'inactive',
+                    status: form.status === 'On Duty' ? 'active' : 'inactive',
                     busId: form.busId || null,
                   });
                 } else {
@@ -292,7 +293,7 @@ export default function DriverManagement() {
                     name: form.name,
                     phone: form.phone,
                     licenseNumber: form.license,
-                    status: form.status==='On Duty'?'active':'inactive',
+                    status: form.status === 'On Duty' ? 'active' : 'inactive',
                     busId: form.busId || null,
                   });
                 }

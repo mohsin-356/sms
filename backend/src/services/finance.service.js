@@ -23,6 +23,138 @@ export const checkUsersExist = async () => {
   };
 };
 
+export const getDashboardAnalytics = async ({ userType, days = 14 } = {}) => {
+  const u = userType || null;
+  const safeDays = Math.max(1, Math.min(60, Number(days) || 14));
+
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(start.getDate() - (safeDays - 1));
+  const startDate = start.toISOString().slice(0, 10);
+
+  const categories = [];
+  const keys = [];
+  for (let i = safeDays - 1; i >= 0; i -= 1) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    keys.push(key);
+    categories.push(key.slice(5));
+  }
+
+  const { rows: trendRows } = await query(
+    `
+      SELECT TO_CHAR(DATE(paid_at), 'YYYY-MM-DD') AS day, COALESCE(SUM(amount), 0) AS total
+      FROM finance_payments
+      WHERE paid_at >= $2::date
+        AND ($1::text IS NULL OR user_type = $1::text)
+      GROUP BY DATE(paid_at)
+      ORDER BY day ASC
+    `,
+    [u, startDate]
+  );
+
+  const trendMap = new Map();
+  for (const r of trendRows) {
+    trendMap.set(String(r.day), Math.round(Number(r.total) || 0));
+  }
+  const trendData = keys.map((k) => Math.round(Number(trendMap.get(k) || 0)));
+  const trendHasAny = trendData.some((v) => v > 0);
+
+  const { rows: methodRows } = await query(
+    `
+      SELECT COALESCE(NULLIF(TRIM(LOWER(method)), ''), 'unknown') AS method,
+             COALESCE(SUM(amount), 0) AS total
+      FROM finance_payments
+      WHERE ($1::text IS NULL OR user_type = $1::text)
+      GROUP BY COALESCE(NULLIF(TRIM(LOWER(method)), ''), 'unknown')
+      ORDER BY total DESC
+      LIMIT 10
+    `,
+    [u]
+  );
+
+  const methodLabels = methodRows.map((r) => String(r.method || 'unknown'));
+  const methodSeries = methodRows.map((r) => Math.round(Number(r.total) || 0));
+  const methodHasAny = methodSeries.some((v) => v > 0);
+
+  const { rows: agingRows } = await query(
+    `
+      WITH inv AS (
+        SELECT
+          balance,
+          CASE WHEN due_date IS NOT NULL AND due_date < CURRENT_DATE THEN CURRENT_DATE - due_date ELSE 0 END AS days_overdue
+        FROM finance_invoices
+        WHERE status != 'paid'
+          AND status != 'cancelled'
+          AND balance > 0
+          AND ($1::text IS NULL OR user_type = $1::text)
+      )
+      SELECT
+        CASE
+          WHEN days_overdue BETWEEN 0 AND 7 THEN '0-7d'
+          WHEN days_overdue BETWEEN 8 AND 14 THEN '8-14d'
+          WHEN days_overdue BETWEEN 15 AND 30 THEN '15-30d'
+          WHEN days_overdue BETWEEN 31 AND 60 THEN '31-60d'
+          ELSE '60+d'
+        END AS bucket,
+        COALESCE(SUM(balance), 0) AS total
+      FROM inv
+      GROUP BY bucket
+    `,
+    [u]
+  );
+
+  const bucketOrder = ['0-7d', '8-14d', '15-30d', '31-60d', '60+d'];
+  const bucketMap = new Map();
+  for (const r of agingRows) {
+    bucketMap.set(String(r.bucket), Math.round(Number(r.total) || 0));
+  }
+  const agingData = bucketOrder.map((b) => Math.round(Number(bucketMap.get(b) || 0)));
+  const agingHasAny = agingData.some((v) => v > 0);
+
+  const { rows: topRows } = await query(
+    `
+      SELECT user_type AS "userType", user_id AS "userId", balance
+      FROM finance_invoices
+      WHERE status != 'paid'
+        AND status != 'cancelled'
+        AND balance > 0
+        AND ($1::text IS NULL OR user_type = $1::text)
+      ORDER BY balance DESC
+      LIMIT 8
+    `,
+    [u]
+  );
+
+  for (const row of topRows) {
+    row.userName = await getUserName(row.userType, row.userId);
+  }
+
+  const topCategories = topRows.map((r) => String(r.userName || 'Unknown').slice(0, 12));
+  const topData = topRows.map((r) => Math.round(Number(r.balance) || 0));
+  const topHasAny = topData.some((v) => v > 0);
+
+  return {
+    collectionsTrend: {
+      categories,
+      series: trendHasAny ? [{ name: 'Collected', data: trendData }] : [],
+    },
+    paymentMethods: {
+      labels: methodLabels,
+      series: methodHasAny ? methodSeries : [],
+    },
+    overdueAging: {
+      categories: bucketOrder,
+      series: agingHasAny ? [{ name: 'Outstanding', data: agingData }] : [],
+    },
+    topOutstanding: {
+      categories: topCategories,
+      series: topHasAny ? [{ name: 'Balance', data: topData }] : [],
+    },
+  };
+};
+
 // Get users by type for selection dropdown
 export const getUsersByType = async (userType) => {
   let sql, params = [];
@@ -70,34 +202,53 @@ export const validateUserExists = async (userType, userId) => {
 // DASHBOARD STATISTICS
 // ========================================
 
-export const getDashboardStats = async () => {
+export const getDashboardStats = async ({ userType } = {}) => {
+  const u = userType || null;
   const { rows } = await query(`
     SELECT
-      -- Student fees
-      COALESCE((SELECT SUM(total) FROM finance_invoices WHERE user_type = 'student' AND invoice_type = 'fee'), 0) AS "studentFeesTotal",
-      COALESCE((SELECT SUM(balance) FROM finance_invoices WHERE user_type = 'student' AND invoice_type = 'fee' AND status != 'paid'), 0) AS "studentFeesOutstanding",
-      COALESCE((SELECT SUM(total) FROM finance_invoices WHERE user_type = 'student' AND invoice_type = 'fee' AND status = 'paid'), 0) AS "studentFeesPaid",
+      -- Student fees (shown for all or student)
+      CASE WHEN $1::text IS NULL OR $1::text = 'student' THEN
+        COALESCE((SELECT SUM(total) FROM finance_invoices WHERE user_type = 'student' AND invoice_type = 'fee'), 0)
+      ELSE 0 END AS "studentFeesTotal",
+      CASE WHEN $1::text IS NULL OR $1::text = 'student' THEN
+        COALESCE((SELECT SUM(balance) FROM finance_invoices WHERE user_type = 'student' AND invoice_type = 'fee' AND status != 'paid'), 0)
+      ELSE 0 END AS "studentFeesOutstanding",
+      CASE WHEN $1::text IS NULL OR $1::text = 'student' THEN
+        COALESCE((SELECT SUM(total) FROM finance_invoices WHERE user_type = 'student' AND invoice_type = 'fee' AND status = 'paid'), 0)
+      ELSE 0 END AS "studentFeesPaid",
       
-      -- Teacher payroll
-      COALESCE((SELECT SUM(total_amount) FROM teacher_payrolls), 0) AS "teacherPayrollTotal",
-      COALESCE((SELECT SUM(total_amount) FROM teacher_payrolls WHERE status = 'paid'), 0) AS "teacherPayrollPaid",
-      COALESCE((SELECT SUM(total_amount) FROM teacher_payrolls WHERE status = 'pending'), 0) AS "teacherPayrollPending",
+      -- Teacher payroll (shown for all or teacher)
+      CASE WHEN $1::text IS NULL OR $1::text = 'teacher' THEN
+        COALESCE((SELECT SUM(total_amount) FROM teacher_payrolls), 0)
+      ELSE 0 END AS "teacherPayrollTotal",
+      CASE WHEN $1::text IS NULL OR $1::text = 'teacher' THEN
+        COALESCE((SELECT SUM(total_amount) FROM teacher_payrolls WHERE status = 'paid'), 0)
+      ELSE 0 END AS "teacherPayrollPaid",
+      CASE WHEN $1::text IS NULL OR $1::text = 'teacher' THEN
+        COALESCE((SELECT SUM(total_amount) FROM teacher_payrolls WHERE status = 'pending'), 0)
+      ELSE 0 END AS "teacherPayrollPending",
       
-      -- Driver payroll
-      COALESCE((SELECT SUM(total_amount) FROM driver_payrolls), 0) AS "driverPayrollTotal",
-      COALESCE((SELECT SUM(total_amount) FROM driver_payrolls WHERE status = 'paid'), 0) AS "driverPayrollPaid",
-      COALESCE((SELECT SUM(total_amount) FROM driver_payrolls WHERE status = 'pending'), 0) AS "driverPayrollPending",
+      -- Driver payroll (shown for all or driver)
+      CASE WHEN $1::text IS NULL OR $1::text = 'driver' THEN
+        COALESCE((SELECT SUM(total_amount) FROM driver_payrolls), 0)
+      ELSE 0 END AS "driverPayrollTotal",
+      CASE WHEN $1::text IS NULL OR $1::text = 'driver' THEN
+        COALESCE((SELECT SUM(total_amount) FROM driver_payrolls WHERE status = 'paid'), 0)
+      ELSE 0 END AS "driverPayrollPaid",
+      CASE WHEN $1::text IS NULL OR $1::text = 'driver' THEN
+        COALESCE((SELECT SUM(total_amount) FROM driver_payrolls WHERE status = 'pending'), 0)
+      ELSE 0 END AS "driverPayrollPending",
       
-      -- Invoice counts by status
-      (SELECT COUNT(*) FROM finance_invoices WHERE status = 'pending') AS "invoicesPending",
-      (SELECT COUNT(*) FROM finance_invoices WHERE status = 'paid') AS "invoicesPaid",
-      (SELECT COUNT(*) FROM finance_invoices WHERE status = 'overdue') AS "invoicesOverdue",
-      
-      -- Recent collections (last 30 days)
-      COALESCE((SELECT SUM(amount) FROM finance_payments WHERE paid_at >= NOW() - INTERVAL '30 days'), 0) AS "collectionsLast30Days",
-      COALESCE((SELECT SUM(amount) FROM finance_payments WHERE paid_at >= NOW() - INTERVAL '7 days'), 0) AS "collectionsLast7Days",
-      COALESCE((SELECT SUM(amount) FROM finance_payments WHERE DATE(paid_at) = CURRENT_DATE), 0) AS "collectionsToday"
-  `);
+      -- Invoice counts by status (scoped by userType when provided)
+      (SELECT COUNT(*) FROM finance_invoices WHERE status = 'pending' AND ($1::text IS NULL OR user_type = $1::text)) AS "invoicesPending",
+      (SELECT COUNT(*) FROM finance_invoices WHERE status = 'paid' AND ($1::text IS NULL OR user_type = $1::text)) AS "invoicesPaid",
+      (SELECT COUNT(*) FROM finance_invoices WHERE status = 'overdue' AND ($1::text IS NULL OR user_type = $1::text)) AS "invoicesOverdue",
+
+      -- Recent collections (scoped by userType when provided)
+      COALESCE((SELECT SUM(amount) FROM finance_payments WHERE paid_at >= NOW() - INTERVAL '30 days' AND ($1::text IS NULL OR user_type = $1::text)), 0) AS "collectionsLast30Days",
+      COALESCE((SELECT SUM(amount) FROM finance_payments WHERE paid_at >= NOW() - INTERVAL '7 days' AND ($1::text IS NULL OR user_type = $1::text)), 0) AS "collectionsLast7Days",
+      COALESCE((SELECT SUM(amount) FROM finance_payments WHERE DATE(paid_at) = CURRENT_DATE AND ($1::text IS NULL OR user_type = $1::text)), 0) AS "collectionsToday"
+  `, [u]);
 
   const stats = rows[0] || {};
   return {
@@ -173,7 +324,7 @@ export const listUnifiedInvoices = async ({ userType, userId, status, invoiceTyp
 };
 
 // Get user name helper
-const getUserName = async (userType, userId) => {
+async function getUserName(userType, userId) {
   let sql;
   switch (userType) {
     case 'student': sql = 'SELECT name FROM students WHERE id = $1'; break;
@@ -183,7 +334,7 @@ const getUserName = async (userType, userId) => {
   }
   const { rows } = await query(sql, [userId]);
   return rows[0]?.name || 'Unknown';
-};
+}
 
 // Create unified invoice
 export const createUnifiedInvoice = async (data, createdBy = null) => {

@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Ensure relative asset paths for Electron file:// loading
+  base: './',
   plugins: [
     react({
       jsxRuntime: 'automatic',

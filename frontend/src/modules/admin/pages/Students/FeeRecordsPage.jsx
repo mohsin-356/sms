@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 // Icons
 import {
   MdAttachMoney, MdCheckCircle, MdAccessTime,
@@ -110,7 +111,7 @@ export default function FeeRecordsPage() {
     onOpen();
   };
   const openView = (invoice) => setViewInv(invoice);
-  const openEdit = (invoice) => setEditInv({ id: invoice.id, amount: String(invoice.amount), dueDate: invoice.dueDate ? String(invoice.dueDate).slice(0,10) : '' });
+  const openEdit = (invoice) => setEditInv({ id: invoice.id, amount: String(invoice.amount), dueDate: invoice.dueDate ? String(invoice.dueDate).slice(0, 10) : '' });
   const openChangeStatus = (invoice) => { setStatusInv(invoice); setStatusVal(invoice.status || 'pending'); };
 
   const submitPayment = async () => {
@@ -161,7 +162,7 @@ export default function FeeRecordsPage() {
   };
 
   const exportCSV = () => {
-    const header = ['Invoice ID','Amount','Paid','Outstanding','Status','Due Date','Issued'];
+    const header = ['Invoice ID', 'Amount', 'Paid', 'Outstanding', 'Status', 'Due Date', 'Issued'];
     const rows = (fees.invoices || []).map(inv => [
       `INV-${inv.id}`,
       Math.round(inv.amount),
@@ -171,7 +172,7 @@ export default function FeeRecordsPage() {
       inv.dueDate || '',
       inv.issuedAt || ''
     ]);
-    const csv = [header, ...rows].map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',')).join('\n');
+    const csv = [header, ...rows].map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -196,7 +197,7 @@ export default function FeeRecordsPage() {
           </Text>
         </Box>
         <Flex gap={3} align='center'>
-          <Select maxW='280px' value={selectedId} onChange={(e)=>setSelectedId(e.target.value)}>
+          <Select maxW='280px' value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
             {students.map(s => (
               <option key={s.id} value={s.id}>{s.name} ({s.class}-{s.section})</option>
             ))}
@@ -212,56 +213,34 @@ export default function FeeRecordsPage() {
 
       {/* Statistics Cards */}
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap='20px' mb='20px'>
-        <MiniStatistics
-          startContent={
-            <IconBox
-              w='56px'
-              h='56px'
-              bg='linear-gradient(90deg, #4481EB 0%, #04BEFE 100%)'
-              icon={<MdAttachMoney w='28px' h='28px' color='white' />}
-            />
-          }
-          name='Total Invoiced'
+        <StatCard
+          title='Total Invoiced'
           value={`PKR ${Math.round(totals.totalInvoiced).toLocaleString()}`}
+          icon={MdAttachMoney}
+          colorScheme='blue'
         />
-        
-        <MiniStatistics
-          startContent={
-            <IconBox
-              w='56px'
-              h='56px'
-              bg='linear-gradient(90deg, #01B574 0%, #51CB97 100%)'
-              icon={<MdCheckCircle w='28px' h='28px' color='white' />}
-            />
-          }
-          name='Total Paid'
+
+        <StatCard
+          title='Total Paid'
           value={`PKR ${Math.round(totals.totalPaid).toLocaleString()}`}
+          icon={MdCheckCircle}
+          colorScheme='green'
         />
-        
-        <MiniStatistics
-          startContent={
-            <IconBox
-              w='56px'
-              h='56px'
-              bg='linear-gradient(90deg, #FFB36D 0%, #FD7853 100%)'
-              icon={<MdAccessTime w='28px' h='28px' color='white' />}
-            />
-          }
-          name='Outstanding'
+
+        <StatCard
+          title='Outstanding'
           value={`PKR ${Math.round(totals.totalOutstanding).toLocaleString()}`}
+          icon={MdAccessTime}
+          colorScheme='orange'
+          note='Pending payments'
         />
-        
-        <MiniStatistics
-          startContent={
-            <IconBox
-              w='56px'
-              h='56px'
-              bg='linear-gradient(90deg, #E31A1A 0%, #FF8080 100%)'
-              icon={<MdWarning w='28px' h='28px' color='white' />}
-            />
-          }
-          name='Overdue'
+
+        <StatCard
+          title='Overdue'
           value={`PKR ${Math.round((fees.totals?.overdueOutstanding || 0)).toLocaleString()}`}
+          icon={MdWarning}
+          colorScheme='red'
+          note='Needs attention'
         />
       </SimpleGrid>
 
@@ -290,7 +269,7 @@ export default function FeeRecordsPage() {
                   <Td isNumeric>PKR {Math.round(inv.outstanding).toLocaleString()}</Td>
                   <Td>
                     <Badge colorScheme={getStatusColor(inv.status)}>
-                      {String(inv.status || '').replace(/_/g,' ').toUpperCase()}
+                      {String(inv.status || '').replace(/_/g, ' ').toUpperCase()}
                     </Badge>
                   </Td>
                   <Td>{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '-'}</Td>
@@ -300,10 +279,10 @@ export default function FeeRecordsPage() {
                       <MenuButton as={Button} size='sm' variant='outline' leftIcon={<MdMoreVert />}>Actions</MenuButton>
                       <Portal>
                         <MenuList zIndex={1500}>
-                          <MenuItem icon={<MdVisibility />} onClick={()=>openView(inv)}>View</MenuItem>
-                          <MenuItem icon={<MdEdit />} onClick={()=>openEdit(inv)}>Edit</MenuItem>
-                          <MenuItem icon={<MdUpdate />} onClick={()=>openChangeStatus(inv)}>Change Status</MenuItem>
-                          <MenuItem icon={<MdPayment />} onClick={()=>openPayment(inv.id, inv.outstanding)} isDisabled={(inv.outstanding||0)<=0}>Record Payment</MenuItem>
+                          <MenuItem icon={<MdVisibility />} onClick={() => openView(inv)}>View</MenuItem>
+                          <MenuItem icon={<MdEdit />} onClick={() => openEdit(inv)}>Edit</MenuItem>
+                          <MenuItem icon={<MdUpdate />} onClick={() => openChangeStatus(inv)}>Change Status</MenuItem>
+                          <MenuItem icon={<MdPayment />} onClick={() => openPayment(inv.id, inv.outstanding)} isDisabled={(inv.outstanding || 0) <= 0}>Record Payment</MenuItem>
                         </MenuList>
                       </Portal>
                     </Menu>
@@ -327,7 +306,7 @@ export default function FeeRecordsPage() {
           <ModalBody>
             <FormControl mb={3}>
               <FormLabel>Invoice</FormLabel>
-              <Select value={payment.invoiceId} onChange={(e)=>setPayment(p=>({ ...p, invoiceId: e.target.value }))}>
+              <Select value={payment.invoiceId} onChange={(e) => setPayment(p => ({ ...p, invoiceId: e.target.value }))}>
                 {fees.invoices.map(inv => (
                   <option key={inv.id} value={inv.id}>INV-{inv.id} (Outstanding PKR {Math.round(inv.outstanding).toLocaleString()})</option>
                 ))}
@@ -335,11 +314,11 @@ export default function FeeRecordsPage() {
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Amount</FormLabel>
-              <Input type='number' value={payment.amount} onChange={(e)=>setPayment(p=>({ ...p, amount: e.target.value }))} />
+              <Input type='number' value={payment.amount} onChange={(e) => setPayment(p => ({ ...p, amount: e.target.value }))} />
             </FormControl>
             <FormControl>
               <FormLabel>Method</FormLabel>
-              <Select value={payment.method} onChange={(e)=>setPayment(p=>({ ...p, method: e.target.value }))}>
+              <Select value={payment.method} onChange={(e) => setPayment(p => ({ ...p, method: e.target.value }))}>
                 <option>Cash</option>
                 <option>Card</option>
                 <option>Bank Transfer</option>
@@ -354,7 +333,7 @@ export default function FeeRecordsPage() {
       </Modal>
 
       {/* View Invoice Modal */}
-      <Modal isOpen={!!viewInv} onClose={()=>setViewInv(null)} isCentered>
+      <Modal isOpen={!!viewInv} onClose={() => setViewInv(null)} isCentered>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Invoice Details</ModalHeader>
@@ -365,21 +344,21 @@ export default function FeeRecordsPage() {
                 <HStack justify='space-between' mb={2}><Text fontWeight='600'>Invoice</Text><Text>INV-{viewInv.id}</Text></HStack>
                 <HStack justify='space-between' mb={2}><Text fontWeight='600'>Amount</Text><Text>PKR {Math.round(viewInv.amount).toLocaleString()}</Text></HStack>
                 <HStack justify='space-between' mb={2}><Text fontWeight='600'>Paid</Text><Text>PKR {Math.round(viewInv.paid).toLocaleString()}</Text></HStack>
-                <HStack justify='space-between' mb={2}><Text fontWeight='600'>Outstanding</Text><Text>PKR {Math.round(viewInv.outstanding||0).toLocaleString()}</Text></HStack>
-                <HStack justify='space-between' mb={2}><Text fontWeight='600'>Status</Text><Badge colorScheme={getStatusColor(viewInv.status)}>{String(viewInv.status||'').replace(/_/g,' ').toUpperCase()}</Badge></HStack>
+                <HStack justify='space-between' mb={2}><Text fontWeight='600'>Outstanding</Text><Text>PKR {Math.round(viewInv.outstanding || 0).toLocaleString()}</Text></HStack>
+                <HStack justify='space-between' mb={2}><Text fontWeight='600'>Status</Text><Badge colorScheme={getStatusColor(viewInv.status)}>{String(viewInv.status || '').replace(/_/g, ' ').toUpperCase()}</Badge></HStack>
                 <HStack justify='space-between' mb={2}><Text fontWeight='600'>Due Date</Text><Text>{viewInv.dueDate ? new Date(viewInv.dueDate).toLocaleDateString() : '-'}</Text></HStack>
                 <HStack justify='space-between'><Text fontWeight='600'>Issued</Text><Text>{viewInv.issuedAt ? new Date(viewInv.issuedAt).toLocaleDateString() : '-'}</Text></HStack>
               </Box>
             )}
           </ModalBody>
           <ModalFooter>
-            <Button onClick={()=>setViewInv(null)}>Close</Button>
+            <Button onClick={() => setViewInv(null)}>Close</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
 
       {/* Edit Invoice Modal */}
-      <Modal isOpen={!!editInv} onClose={()=>setEditInv(null)} isCentered>
+      <Modal isOpen={!!editInv} onClose={() => setEditInv(null)} isCentered>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Edit Invoice</ModalHeader>
@@ -389,24 +368,24 @@ export default function FeeRecordsPage() {
               <>
                 <FormControl mb={3} isRequired>
                   <FormLabel>Amount</FormLabel>
-                  <Input type='number' value={editInv.amount} onChange={(e)=>setEditInv(v=>({ ...v, amount: e.target.value }))} />
+                  <Input type='number' value={editInv.amount} onChange={(e) => setEditInv(v => ({ ...v, amount: e.target.value }))} />
                 </FormControl>
                 <FormControl>
                   <FormLabel>Due Date</FormLabel>
-                  <Input type='date' value={editInv.dueDate||''} onChange={(e)=>setEditInv(v=>({ ...v, dueDate: e.target.value }))} />
+                  <Input type='date' value={editInv.dueDate || ''} onChange={(e) => setEditInv(v => ({ ...v, dueDate: e.target.value }))} />
                 </FormControl>
               </>
             )}
           </ModalBody>
           <ModalFooter>
-            <Button variant='ghost' onClick={()=>setEditInv(null)}>Cancel</Button>
+            <Button variant='ghost' onClick={() => setEditInv(null)}>Cancel</Button>
             <Button colorScheme='blue' onClick={submitEdit} isLoading={busy} isDisabled={!editInv || !editInv.amount}>Save</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
 
       {/* Change Status Modal */}
-      <Modal isOpen={!!statusInv} onClose={()=>setStatusInv(null)} isCentered>
+      <Modal isOpen={!!statusInv} onClose={() => setStatusInv(null)} isCentered>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Change Status</ModalHeader>
@@ -414,7 +393,7 @@ export default function FeeRecordsPage() {
           <ModalBody>
             <FormControl>
               <FormLabel>Status</FormLabel>
-              <Select value={statusVal} onChange={(e)=>setStatusVal(e.target.value)}>
+              <Select value={statusVal} onChange={(e) => setStatusVal(e.target.value)}>
                 <option value='pending'>Pending</option>
                 <option value='in_progress'>In Progress</option>
                 <option value='paid'>Paid</option>
@@ -423,7 +402,7 @@ export default function FeeRecordsPage() {
             </FormControl>
           </ModalBody>
           <ModalFooter>
-            <Button variant='ghost' onClick={()=>setStatusInv(null)}>Cancel</Button>
+            <Button variant='ghost' onClick={() => setStatusInv(null)}>Cancel</Button>
             <Button colorScheme='blue' onClick={submitStatus} isLoading={busy}>Update</Button>
           </ModalFooter>
         </ModalContent>
@@ -438,15 +417,15 @@ export default function FeeRecordsPage() {
           <ModalBody>
             <FormControl mb={3} isRequired>
               <FormLabel>Amount</FormLabel>
-              <Input type='number' value={newInvoice.amount} onChange={(e)=>setNewInvoice(v=>({ ...v, amount: e.target.value }))} />
+              <Input type='number' value={newInvoice.amount} onChange={(e) => setNewInvoice(v => ({ ...v, amount: e.target.value }))} />
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Due Date</FormLabel>
-              <Input type='date' value={newInvoice.dueDate} onChange={(e)=>setNewInvoice(v=>({ ...v, dueDate: e.target.value }))} />
+              <Input type='date' value={newInvoice.dueDate} onChange={(e) => setNewInvoice(v => ({ ...v, dueDate: e.target.value }))} />
             </FormControl>
             <FormControl>
               <FormLabel>Status</FormLabel>
-              <Select value={newInvoice.status} onChange={(e)=>setNewInvoice(v=>({ ...v, status: e.target.value }))}>
+              <Select value={newInvoice.status} onChange={(e) => setNewInvoice(v => ({ ...v, status: e.target.value }))}>
                 <option value='pending'>Pending</option>
                 <option value='in_progress'>In Progress</option>
                 <option value='paid'>Paid</option>

@@ -11,7 +11,7 @@ import {
 } from "@chakra-ui/react";
 // Custom components
 import Card from "components/card/Card.js";
-import SparklineChart from "components/charts/SparklineChart";
+import Sparkline from "components/charts/Sparkline.tsx";
 // Custom icons
 import React from "react";
 
@@ -104,7 +104,14 @@ export default function Default(props) {
       {/* Bottom row: full-width sparkline graph */}
       {trendData && trendData.length > 0 && (
         <Box w='100%' h={compact ? '36px' : '48px'} mt={compact ? 3 : 4}>
-          <SparklineChart data={trendData} color={trendColor} height={compact ? 36 : 48} valueFormatter={trendFormatter} />
+          <Sparkline
+            ariaLabel={`${name || 'Metric'} trend`}
+            data={trendData}
+            color={trendColor}
+            height={compact ? 36 : 48}
+            type="line"
+            valueFormatter={trendFormatter}
+          />
         </Box>
       )}
     </Card>

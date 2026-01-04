@@ -26,7 +26,24 @@ router.get(
 // DASHBOARD
 // ========================================
 
-router.get('/dashboard-stats', authenticate, controller.getDashboardStats);
+router.get(
+  '/dashboard-stats',
+  authenticate,
+  [query('userType').optional().isIn(['student', 'teacher', 'driver'])],
+  validate,
+  controller.getDashboardStats
+);
+
+router.get(
+  '/dashboard-analytics',
+  authenticate,
+  [
+    query('userType').optional().isIn(['student', 'teacher', 'driver']),
+    query('days').optional().isInt({ min: 1, max: 60 }),
+  ],
+  validate,
+  controller.getDashboardAnalytics
+);
 
 // ========================================
 // UNIFIED INVOICES

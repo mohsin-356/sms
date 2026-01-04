@@ -63,6 +63,7 @@ import {
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 import * as teacherApi from '../../../../services/api/teachers';
 
 const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -648,62 +649,9 @@ const TeacherSchedule = () => {
       </Modal>
 
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={5} mb={5}>
-        <MiniStatistics
-          compact
-          startContent={
-            <IconBox
-              w="48px"
-              h="48px"
-              bg="linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)"
-              icon={<Icon as={MdSchedule} w="24px" h="24px" color="white" />}
-            />
-          }
-          name="Total Classes"
-          value={String(scheduleStats.totalClasses)}
-          growth="Across all teachers"
-          trendData={[
-            Math.max(scheduleStats.totalClasses - 5, 0),
-            Math.max(scheduleStats.totalClasses - 2, 0),
-            scheduleStats.totalClasses,
-          ]}
-          trendColor="#4facfe"
-        />
-        <MiniStatistics
-          compact
-          startContent={
-            <IconBox
-              w="48px"
-              h="48px"
-              bg="linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)"
-              icon={<Icon as={MdToday} w="24px" h="24px" color="white" />}
-            />
-          }
-          name="Busiest Day"
-          value={scheduleStats.busiestDay.day}
-          growth={`${scheduleStats.busiestDay.count} classes scheduled`}
-          trendData={weekDays.map((day) => schedules.filter((sched) => sched.dayName === day).length)}
-          trendColor="#43e97b"
-        />
-        <MiniStatistics
-          compact
-          startContent={
-            <IconBox
-              w="48px"
-              h="48px"
-              bg="linear-gradient(135deg,#a18cd1 0%,#fbc2eb 100%)"
-              icon={<Icon as={MdSupervisorAccount} w="24px" h="24px" color="white" />}
-            />
-          }
-          name="Most Classes"
-          value={resolveTeacherName(scheduleStats.busiestTeacher.teacher)}
-          growth={`${scheduleStats.busiestTeacher.classes} classes/week`}
-          trendData={[
-            Math.max(scheduleStats.busiestTeacher.classes - 2, 0),
-            Math.max(scheduleStats.busiestTeacher.classes - 1, 0),
-            scheduleStats.busiestTeacher.classes,
-          ]}
-          trendColor="#a18cd1"
-        />
+        <StatCard title="Total Classes" value={String(scheduleStats.totalClasses)} icon={MdSchedule} colorScheme="blue" note="Across all teachers" />
+        <StatCard title="Busiest Day" value={scheduleStats.busiestDay.day} icon={MdToday} colorScheme="green" note={`${scheduleStats.busiestDay.count} classes scheduled`} />
+        <StatCard title="Most Classes" value={resolveTeacherName(scheduleStats.busiestTeacher.teacher)} icon={MdSupervisorAccount} colorScheme="purple" note={`${scheduleStats.busiestTeacher.classes} classes/week`} />
       </SimpleGrid>
 
       <Card mb={5}>

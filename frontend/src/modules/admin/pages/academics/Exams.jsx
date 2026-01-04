@@ -39,6 +39,7 @@ import { AddIcon } from '@chakra-ui/icons';
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 import { MdEvent, MdSchedule, MdDoneAll, MdPlaylistAdd, MdAssignment, MdFileDownload, MdPictureAsPdf, MdSearch, MdRemoveRedEye, MdEdit } from 'react-icons/md';
 import * as examsApi from '../../../../services/api/exams';
 import * as teacherApi from '../../../../services/api/teachers';
@@ -224,25 +225,29 @@ export default function Exams() {
       </Flex>
 
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap="20px" mb={5}>
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)" icon={<MdEvent color="white" />} />}
-          name="Total Exams"
+        <StatCard
+          title="Total Exams"
           value={String(totals.all)}
+          icon={MdEvent}
+          colorScheme="blue"
         />
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#01B574 0%,#51CB97 100%)" icon={<MdPlaylistAdd color="white" />} />}
-          name="Planned"
+        <StatCard
+          title="Planned"
           value={String(totals.planned)}
+          icon={MdPlaylistAdd}
+          colorScheme="green"
         />
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)" icon={<MdSchedule color="white" />} />}
-          name="Scheduled"
+        <StatCard
+          title="Scheduled"
           value={String(totals.scheduled)}
+          icon={MdSchedule}
+          colorScheme="orange"
         />
-        <MiniStatistics
-          startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#8952FF 0%,#AA80FF 100%)" icon={<MdDoneAll color="white" />} />}
-          name="Completed"
+        <StatCard
+          title="Completed"
           value={String(totals.completed)}
+          icon={MdDoneAll}
+          colorScheme="purple"
         />
       </SimpleGrid>
 
@@ -253,7 +258,7 @@ export default function Exams() {
               <InputLeftElement pointerEvents='none'>
                 <MdSearch color='gray.400' />
               </InputLeftElement>
-              <Input placeholder='Search exam name, status...' value={query} onChange={(e)=>setQuery(e.target.value)} />
+              <Input placeholder='Search exam name, status...' value={query} onChange={(e) => setQuery(e.target.value)} />
             </InputGroup>
             <Select w="200px" value={filter} onChange={(e) => setFilter(e.target.value)}>
               <option>All</option>
@@ -264,7 +269,7 @@ export default function Exams() {
           </HStack>
           <HStack>
             <Button leftIcon={<AddIcon />} colorScheme="blue" onClick={openCreate}>Create Exam</Button>
-            <Button leftIcon={<MdDoneAll />} variant='outline' colorScheme='green' isDisabled={!selectedIds.length} isLoading={loading} onClick={()=>markCompleted(selectedIds)}>Mark Completed</Button>
+            <Button leftIcon={<MdDoneAll />} variant='outline' colorScheme='green' isDisabled={!selectedIds.length} isLoading={loading} onClick={() => markCompleted(selectedIds)}>Mark Completed</Button>
             <Button leftIcon={<MdAssignment />} variant="outline" colorScheme="blue">Generate Report</Button>
           </HStack>
         </Flex>
@@ -279,7 +284,7 @@ export default function Exams() {
             <Thead bg={useColorModeValue('gray.50', 'gray.800')}>
               <Tr>
                 <Th>
-                  <Checkbox isChecked={selectedIds.length===data.length && data.length>0} isIndeterminate={selectedIds.length>0 && selectedIds.length<data.length} onChange={(e)=> setSelectedIds(e.target.checked ? data.map(d=>d.id) : [])} />
+                  <Checkbox isChecked={selectedIds.length === data.length && data.length > 0} isIndeterminate={selectedIds.length > 0 && selectedIds.length < data.length} onChange={(e) => setSelectedIds(e.target.checked ? data.map(d => d.id) : [])} />
                 </Th>
                 <Th>Name</Th>
                 <Th>Start</Th>
@@ -297,7 +302,7 @@ export default function Exams() {
                 <Tr><Td colSpan={10}><Flex align="center" justify="center" py={6}><Spinner size="sm" mr={3} />Loading...</Flex></Td></Tr>
               ) : data.map((e) => (
                 <Tr key={e.id}>
-                  <Td><Checkbox isChecked={selectedIds.includes(e.id)} onChange={()=> setSelectedIds(prev => prev.includes(e.id) ? prev.filter(id=>id!==e.id) : [...prev, e.id])} /></Td>
+                  <Td><Checkbox isChecked={selectedIds.includes(e.id)} onChange={() => setSelectedIds(prev => prev.includes(e.id) ? prev.filter(id => id !== e.id) : [...prev, e.id])} /></Td>
                   <Td>{e.name}</Td>
                   <Td>{fmtDt(e.start)}</Td>
                   <Td>{fmtDt(e.end)}</Td>
@@ -308,8 +313,8 @@ export default function Exams() {
                   <Td><Badge colorScheme={e.status === 'Completed' ? 'green' : e.status === 'Scheduled' ? 'blue' : 'orange'}>{e.status}</Badge></Td>
                   <Td>
                     <HStack spacing={1}>
-                      <IconButton aria-label='View' icon={<MdRemoveRedEye />} size='sm' variant='ghost' onClick={()=>{ setSelected(e); viewDisc.onOpen(); }} />
-                      <IconButton aria-label='Edit' icon={<MdEdit />} size='sm' variant='ghost' onClick={()=>openEdit(e)} />
+                      <IconButton aria-label='View' icon={<MdRemoveRedEye />} size='sm' variant='ghost' onClick={() => { setSelected(e); viewDisc.onOpen(); }} />
+                      <IconButton aria-label='Edit' icon={<MdEdit />} size='sm' variant='ghost' onClick={() => openEdit(e)} />
                     </HStack>
                   </Td>
                 </Tr>
@@ -341,7 +346,7 @@ export default function Exams() {
           </ModalBody>
           <ModalFooter>
             <Button variant='ghost' mr={3} onClick={viewDisc.onClose}>Close</Button>
-            {selected && <Button colorScheme='blue' onClick={()=>{ viewDisc.onClose(); openEdit(selected); }}>Edit</Button>}
+            {selected && <Button colorScheme='blue' onClick={() => { viewDisc.onClose(); openEdit(selected); }}>Edit</Button>}
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -355,49 +360,49 @@ export default function Exams() {
           <ModalBody>
             <FormControl mb={3}>
               <FormLabel>Name</FormLabel>
-              <Input value={form.name} onChange={(e)=>setForm(f=>({ ...f, name: e.target.value }))} />
+              <Input value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} />
             </FormControl>
             <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
               <FormControl>
                 <FormLabel>Class</FormLabel>
-                <Select placeholder='Select class' value={form.className || ''} onChange={(e)=> setForm(f=>({ ...f, className: e.target.value, section: '' }))}>
+                <Select placeholder='Select class' value={form.className || ''} onChange={(e) => setForm(f => ({ ...f, className: e.target.value, section: '' }))}>
                   {classOptions.map(c => <option key={c} value={c}>{c}</option>)}
                 </Select>
               </FormControl>
               <FormControl>
                 <FormLabel>Section (optional)</FormLabel>
-                <Select placeholder='Select section' value={form.section || ''} onChange={(e)=> setForm(f=>({ ...f, section: e.target.value }))} isDisabled={!form.className}>
+                <Select placeholder='Select section' value={form.section || ''} onChange={(e) => setForm(f => ({ ...f, section: e.target.value }))} isDisabled={!form.className}>
                   {(sectionsByClass[form.className] || []).map(s => <option key={s} value={s}>{s}</option>)}
                 </Select>
               </FormControl>
             </SimpleGrid>
             <FormControl mb={3} mt={3}>
               <FormLabel>Subject</FormLabel>
-              <Select placeholder='Select subject' value={form.subject || ''} onChange={(e)=> setForm(f=>({ ...f, subject: e.target.value }))}>
+              <Select placeholder='Select subject' value={form.subject || ''} onChange={(e) => setForm(f => ({ ...f, subject: e.target.value }))}>
                 {subjects.map(s => <option key={s.id ?? s.name} value={s.name || s.code || ''}>{s.name || s.code}</option>)}
               </Select>
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Invigilator (Teacher)</FormLabel>
-              <Select placeholder='Select invigilator' value={form.invigilatorId || ''} onChange={(e)=> setForm(f=>({ ...f, invigilatorId: e.target.value }))}>
+              <Select placeholder='Select invigilator' value={form.invigilatorId || ''} onChange={(e) => setForm(f => ({ ...f, invigilatorId: e.target.value }))}>
                 {teachers.map(t => <option key={t.id ?? t.teacherId} value={String(t.id ?? t.teacherId)}>{t.name || t.fullName || 'Unnamed'}</option>)}
               </Select>
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Start</FormLabel>
-              <Input type='datetime-local' value={toDt(form.start)} onChange={(e)=>setForm(f=>({ ...f, start: e.target.value }))} />
+              <Input type='datetime-local' value={toDt(form.start)} onChange={(e) => setForm(f => ({ ...f, start: e.target.value }))} />
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>End</FormLabel>
-              <Input type='datetime-local' value={toDt(form.end)} onChange={(e)=>setForm(f=>({ ...f, end: e.target.value }))} />
+              <Input type='datetime-local' value={toDt(form.end)} onChange={(e) => setForm(f => ({ ...f, end: e.target.value }))} />
             </FormControl>
             <FormControl mb={3}>
               <FormLabel>Classes</FormLabel>
-              <Input placeholder='e.g., 1-5' value={form.classes} onChange={(e)=>setForm(f=>({ ...f, classes: e.target.value }))} />
+              <Input placeholder='e.g., 1-5' value={form.classes} onChange={(e) => setForm(f => ({ ...f, classes: e.target.value }))} />
             </FormControl>
             <FormControl>
               <FormLabel>Status</FormLabel>
-              <Select value={form.status} onChange={(e)=>setForm(f=>({ ...f, status: e.target.value }))}>
+              <Select value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))}>
                 <option>Planned</option>
                 <option>Scheduled</option>
                 <option>Completed</option>

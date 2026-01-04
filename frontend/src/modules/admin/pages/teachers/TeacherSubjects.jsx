@@ -55,6 +55,7 @@ import {
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 import {
   MdAdd,
   MdAssignment,
@@ -109,6 +110,37 @@ const getSubjectColor = (name = '') => {
   if (normalized.includes('geo')) return 'yellow';
   if (normalized.includes('art')) return 'gray';
   return 'blue';
+};
+
+const toClassId = (cls) => {
+  if (cls === undefined || cls === null) return '';
+  if (typeof cls === 'string' || typeof cls === 'number') return String(cls);
+  if (typeof cls === 'object') {
+    if (cls.id) return String(cls.id);
+    if (cls.classId) return String(cls.classId);
+    if (cls.code) return String(cls.code);
+    const section = cls.section ?? cls.sectionName;
+    const className = cls.className ?? cls.class ?? cls.grade ?? cls.name;
+    const digits = className ? String(className).match(/\d+/)?.[0] : '';
+    if (digits && section) return `${digits}${section}`;
+    if (className && section) return `${className}${section}`;
+    if (className) return String(className);
+  }
+  return '';
+};
+
+const formatClassLabel = (cls) => {
+  if (cls === undefined || cls === null) return '—';
+  if (typeof cls === 'string' || typeof cls === 'number') return String(cls);
+  if (typeof cls === 'object') {
+    const section = cls.section ?? cls.sectionName;
+    const className = cls.className ?? cls.class ?? cls.grade ?? cls.name;
+    const year = cls.academicYear ?? cls.year;
+    const base = [className, section].filter(Boolean).join('-') || toClassId(cls) || '—';
+    const y = year === undefined || year === null ? '' : String(year);
+    return y ? `${String(base)} (${y})` : String(base);
+  }
+  return String(cls);
 };
 
 const formatDate = (value) => {
@@ -255,7 +287,10 @@ const TeacherSubjects = () => {
       const secondarySubjects = [];
       let primarySubject = null;
       rows.forEach((row) => {
-        (row.classes || []).forEach((cls) => classesSet.add(cls));
+        (row.classes || []).forEach((cls) => {
+          const label = formatClassLabel(cls);
+          if (label && label !== '—') classesSet.add(label);
+        });
         if (row.isPrimary) primarySubject = row.subjectName;
         if (!row.isPrimary) secondarySubjects.push(row.subjectName);
       });
@@ -330,7 +365,7 @@ const TeacherSubjects = () => {
     setAssignmentType('edit');
     setAssignmentForm({
       subjectId: assignment.subjectId ? String(assignment.subjectId) : '',
-      classes: Array.isArray(assignment.classes) ? assignment.classes : [],
+      classes: Array.isArray(assignment.classes) ? assignment.classes.map((c) => toClassId(c)).filter(Boolean) : [],
       isPrimary: Boolean(assignment.isPrimary),
       academicYear: assignment.academicYear || '',
       assignmentId: assignment.id,
@@ -530,32 +565,26 @@ const TeacherSubjects = () => {
       </Flex>
 
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={5} mb={5}>
-        <MiniStatistics
-          compact
-          startContent={<IconBox w="48px" h="48px" bg="linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)" icon={<Icon as={MdBook} w="24px" h="24px" color="white" />} />}
-          name="Total Subjects"
+        <StatCard
+          title='Total Subjects'
           value={subjectLoading ? '…' : String(subjectStats.totalSubjects)}
-          growth={`Across ${subjectStats.departmentCount} departments`}
-          trendData={[Math.max(subjectStats.totalSubjects - 2, 0), Math.max(subjectStats.totalSubjects - 1, 0), subjectStats.totalSubjects]}
-          trendColor="#4facfe"
+          subValue={`Across ${subjectStats.departmentCount} depts`}
+          icon={MdBook}
+          colorScheme='blue'
         />
-        <MiniStatistics
-          compact
-          startContent={<IconBox w="48px" h="48px" bg="linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)" icon={<Icon as={MdAssignment} w="24px" h="24px" color="white" />} />}
-          name="Subject Allocations"
+        <StatCard
+          title='Subject Allocations'
           value={assignmentLoading ? '…' : String(subjectStats.totalAssignments)}
-          growth={`${subjectStats.averagePerTeacher} per teacher`}
-          trendData={[Math.max(subjectStats.totalAssignments - 3, 0), Math.max(subjectStats.totalAssignments - 1, 0), subjectStats.totalAssignments]}
-          trendColor="#43e97b"
+          subValue={`${subjectStats.averagePerTeacher} per teacher`}
+          icon={MdAssignment}
+          colorScheme='green'
         />
-        <MiniStatistics
-          compact
-          startContent={<IconBox w="48px" h="48px" bg="linear-gradient(135deg,#a18cd1 0%,#fbc2eb 100%)" icon={<Icon as={MdPersonAdd} w="24px" h="24px" color="white" />} />}
-          name="Teachers Covered"
+        <StatCard
+          title='Teachers Covered'
           value={teacherLoading ? '…' : String(subjectStats.teacherCount)}
-          growth="Active in timetable"
-          trendData={[Math.max(subjectStats.teacherCount - 1, 0), subjectStats.teacherCount, subjectStats.teacherCount]}
-          trendColor="#a18cd1"
+          subValue='Active in timetable'
+          icon={MdPersonAdd}
+          colorScheme='purple'
         />
       </SimpleGrid>
 
@@ -654,9 +683,9 @@ const TeacherSubjects = () => {
                     <Td>
                       <HStack spacing={1} flexWrap="wrap">
                         {allocation.classes.length ? (
-                          allocation.classes.map((cls) => (
-                            <Tag key={cls} size="sm" borderRadius="full" colorScheme="cyan">
-                              <TagLabel>{cls}</TagLabel>
+                          allocation.classes.map((cls, idx) => (
+                            <Tag key={`${formatClassLabel(cls)}-${idx}`} size="sm" borderRadius="full" colorScheme="cyan">
+                              <TagLabel>{formatClassLabel(cls)}</TagLabel>
                             </Tag>
                           ))
                         ) : (
@@ -982,9 +1011,9 @@ const TeacherSubjects = () => {
                               </Badge>
                               <Text fontSize="xs" color={textColorSecondary}>{assignment.academicYear || '—'}</Text>
                               <HStack spacing={1}>
-                                {assignment.classes?.map((cls) => (
-                                  <Tag key={cls} size="sm" borderRadius="full" colorScheme="cyan">
-                                    <TagLabel>{cls}</TagLabel>
+                                {assignment.classes?.map((cls, idx) => (
+                                  <Tag key={`${toClassId(cls) || formatClassLabel(cls)}-${idx}`} size="sm" borderRadius="full" colorScheme="cyan">
+                                    <TagLabel>{formatClassLabel(cls)}</TagLabel>
                                   </Tag>
                                 ))}
                                 {!assignment.classes?.length && <Text color={textColorSecondary} fontSize="xs">No classes</Text>}

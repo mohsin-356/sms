@@ -11,6 +11,7 @@ import { FaChalkboardTeacher, FaTruck } from 'react-icons/fa';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 import BarChart from '../../../../components/charts/BarChart';
 import PieChart from '../../../../components/charts/PieChart';
 import UserSelector from './components/UserSelector';
@@ -233,10 +234,10 @@ export default function Payroll() {
 
       {/* Stats */}
       <SimpleGrid columns={{ base: 1, md: 4 }} spacing={5} mb={5}>
-        <MiniStatistics name="Total Net" value={`Rs. ${stats.total.toLocaleString()}`} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#11998e 0%,#38ef7d 100%)' icon={<Icon as={MdWork} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Pending" value={String(stats.pending)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#FDBB2D 0%,#22C1C3 100%)' icon={<Icon as={MdWork} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Teachers Total" value={`Rs. ${stats.teachersTotal.toLocaleString()}`} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#00c6ff 0%,#0072ff 100%)' icon={<Icon as={FaChalkboardTeacher} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Drivers Total" value={`Rs. ${stats.driversTotal.toLocaleString()}`} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#f5576c 0%,#f093fb 100%)' icon={<Icon as={FaTruck} w='28px' h='28px' color='white' />} />} />
+        <StatCard title="Total Net" value={`Rs. ${stats.total.toLocaleString()}`} icon={MdWork} colorScheme="green" />
+        <StatCard title="Pending" value={String(stats.pending)} icon={MdWork} colorScheme="orange" />
+        <StatCard title="Teachers Total" value={`Rs. ${stats.teachersTotal.toLocaleString()}`} icon={FaChalkboardTeacher} colorScheme="blue" />
+        <StatCard title="Drivers Total" value={`Rs. ${stats.driversTotal.toLocaleString()}`} icon={FaTruck} colorScheme="red" />
       </SimpleGrid>
 
       {/* Charts */}

@@ -22,6 +22,7 @@ import {
   useToast,
   useDisclosure,
   Spinner,
+  useBreakpointValue,
   FormControl,
   FormLabel,
   Input,
@@ -42,9 +43,13 @@ import {
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
-import { 
-  MdStarRate, 
-  MdTrendingUp, 
+import StatCard from '../../../../components/card/StatCard';
+import BarChart from 'components/charts/BarChart.tsx';
+import DonutChart from 'components/charts/v2/DonutChart.tsx';
+import LineChart from 'components/charts/LineChart';
+import {
+  MdStarRate,
+  MdTrendingUp,
   MdMoreVert,
   MdEdit,
   MdPreview,
@@ -62,6 +67,61 @@ const periodOptions = [
 ];
 
 const statusOptions = ['excellent', 'good', 'average', 'needs improvement', 'pending'];
+
+const DEMO_REVIEWS = [
+  {
+    id: 'demo-1',
+    teacherId: 1,
+    teacherName: 'Ayesha',
+    subject: 'English',
+    overallScore: 86,
+    studentFeedbackScore: 84,
+    attendanceScore: 92,
+    classManagementScore: 80,
+    examResultsScore: 83,
+    status: 'good',
+    periodEnd: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45).toISOString(),
+  },
+  {
+    id: 'demo-2',
+    teacherId: 2,
+    teacherName: 'Bilal',
+    subject: 'Mathematics',
+    overallScore: 91,
+    studentFeedbackScore: 88,
+    attendanceScore: 95,
+    classManagementScore: 89,
+    examResultsScore: 92,
+    status: 'excellent',
+    periodEnd: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
+  },
+  {
+    id: 'demo-3',
+    teacherId: 3,
+    teacherName: 'Hassan',
+    subject: 'Physics',
+    overallScore: 74,
+    studentFeedbackScore: 76,
+    attendanceScore: 70,
+    classManagementScore: 73,
+    examResultsScore: 75,
+    status: 'average',
+    periodEnd: new Date(Date.now() - 1000 * 60 * 60 * 24 * 18).toISOString(),
+  },
+  {
+    id: 'demo-4',
+    teacherId: 4,
+    teacherName: 'Sana',
+    subject: 'Chemistry',
+    overallScore: 67,
+    studentFeedbackScore: 62,
+    attendanceScore: 78,
+    classManagementScore: 66,
+    examResultsScore: 63,
+    status: 'needs improvement',
+    periodEnd: new Date(Date.now() - 1000 * 60 * 60 * 24 * 8).toISOString(),
+  },
+];
 
 const TeacherPerformance = () => {
   const [selectedPeriod, setSelectedPeriod] = useState(periodOptions[0].value);
@@ -100,6 +160,8 @@ const TeacherPerformance = () => {
   const textColor = useColorModeValue('gray.800', 'white');
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
+
+  const chartH = useBreakpointValue({ base: 240, md: 280, lg: 320 });
 
   const getColorScheme = (score) => {
     const value = Number(score || 0);
@@ -175,15 +237,85 @@ const TeacherPerformance = () => {
     loadTeachers();
   }, [loadTeachers]);
 
+  const chartData = useMemo(() => (performanceData.length ? performanceData : DEMO_REVIEWS), [performanceData]);
+  const hasRealData = Boolean(performanceData.length);
+
   const averageOverall = useMemo(() => {
-    if (!performanceData.length) return 0;
-    const total = performanceData.reduce((sum, item) => sum + Number(item.overallScore || 0), 0);
-    return total / performanceData.length;
-  }, [performanceData]);
+    if (!chartData.length) return 0;
+    const total = chartData.reduce((sum, item) => sum + Number(item.overallScore || 0), 0);
+    return total / chartData.length;
+  }, [chartData]);
 
-  const excellentCount = useMemo(() => performanceData.filter((item) => (item.status || '').toLowerCase() === 'excellent').length, [performanceData]);
+  const excellentCount = useMemo(() => chartData.filter((item) => (item.status || '').toLowerCase() === 'excellent').length, [chartData]);
 
-  const needsImprovementCount = useMemo(() => performanceData.filter((item) => (item.status || '').toLowerCase() === 'needs improvement').length, [performanceData]);
+  const needsImprovementCount = useMemo(() => chartData.filter((item) => (item.status || '').toLowerCase() === 'needs improvement').length, [chartData]);
+
+  const trendChart = useMemo(() => {
+    const rows = [...chartData]
+      .map((r, idx) => {
+        const d = r.periodEnd || r.periodStart || r.updatedAt || r.createdAt;
+        const stamp = d ? new Date(d).getTime() : 0;
+        return { ...r, _stamp: stamp, _idx: idx };
+      })
+      .sort((a, b) => (a._stamp || a._idx) - (b._stamp || b._idx))
+      .slice(-8);
+
+    const categories = rows.map((r) => {
+      const d = r.periodEnd || r.periodStart || r.updatedAt || r.createdAt;
+      if (d) {
+        try {
+          return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        } catch {
+          return String(r.teacherName || `#${r.teacherId}`);
+        }
+      }
+      return String(r.teacherName || `#${r.teacherId || r._idx + 1}`);
+    });
+
+    return {
+      categories,
+      series: [{ name: 'Overall', data: rows.map((r) => Math.round(Number(r.overallScore || 0))) }],
+    };
+  }, [chartData]);
+
+  const statusDonut = useMemo(() => {
+    const order = ['excellent', 'good', 'average', 'needs improvement', 'pending'];
+    const counts = {};
+    chartData.forEach((r) => {
+      const s = String(r.status || 'pending').toLowerCase();
+      counts[s] = (counts[s] || 0) + 1;
+    });
+    const labels = order.filter((k) => counts[k]).map((k) => k.replace(/(^.|\s.)/g, (m) => m.toUpperCase()));
+    const series = labels.map((l) => counts[l.toLowerCase()]);
+    return { labels, series };
+  }, [chartData]);
+
+  const metricAvgBar = useMemo(() => {
+    const avg = (key) => {
+      if (!chartData.length) return 0;
+      const total = chartData.reduce((sum, r) => sum + Number(r[key] || 0), 0);
+      return Math.round(total / chartData.length);
+    };
+    const categories = ['Student Feedback', 'Attendance', 'Class Mgmt', 'Exam Results'];
+    const data = [
+      avg('studentFeedbackScore'),
+      avg('attendanceScore'),
+      avg('classManagementScore'),
+      avg('examResultsScore'),
+    ];
+    return { categories, series: [{ name: 'Avg %', data }] };
+  }, [chartData]);
+
+  const topBar = useMemo(() => {
+    const rows = [...chartData]
+      .map((r) => ({ name: r.teacherName || `#${r.teacherId}`, value: Number(r.overallScore || 0) }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+    return {
+      categories: rows.map((r) => r.name),
+      series: [{ name: 'Overall', data: rows.map((r) => Math.round(r.value)) }],
+    };
+  }, [chartData]);
 
   const handleOpenDetail = (review) => {
     setDetailReview(review);
@@ -300,7 +432,7 @@ const TeacherPerformance = () => {
         status: newForm.status || 'pending',
         remarks: newForm.remarks || null,
       };
-      ['overallScore','studentFeedbackScore','attendanceScore','classManagementScore','examResultsScore','improvement'].forEach((f) => {
+      ['overallScore', 'studentFeedbackScore', 'attendanceScore', 'classManagementScore', 'examResultsScore', 'improvement'].forEach((f) => {
         const v = newForm[f];
         payload[f] = v === '' || v === null || v === undefined ? null : Number(v);
       });
@@ -337,38 +469,154 @@ const TeacherPerformance = () => {
           ))}
         </Select>
       </Flex>
-      
+
       {/* Performance Overview Cards - redesigned */}
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={5} mb={5}>
-        <MiniStatistics
-          compact
-          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)' icon={<Icon as={MdStarRate} w='24px' h='24px' color='white' />} />}
-          name='Average Rating'
+        <StatCard
+          title='Average Rating'
           value={`${averageOverall.toFixed(1)}/100`}
-          growth='Current index'
-          trendData={[70,75,80,85,averageOverall]}
-          trendColor='#4facfe'
+          subValue={hasRealData ? 'Current index' : 'Demo index'}
+          icon={MdStarRate}
+          colorScheme='blue'
+          trend='up'
+          trendValue={2}
         />
-        <MiniStatistics
-          compact
-          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)' icon={<Icon as={MdTrendingUp} w='24px' h='24px' color='white' />} />}
-          name='Excellent Performers'
+        <StatCard
+          title='Excellent Performers'
           value={String(excellentCount)}
-          growth={`${performanceData.length ? Math.round((excellentCount / performanceData.length) * 100) : 0}% of total`}
-          trendData={[1,2,2,3,excellentCount]}
-          trendColor='#43e97b'
+          subValue={`${chartData.length ? Math.round((excellentCount / chartData.length) * 100) : 0}%`}
+          icon={MdTrendingUp}
+          colorScheme='green'
+          note={hasRealData ? 'Of total reviews' : 'Demo data'}
         />
-        <MiniStatistics
-          compact
-          startContent={<IconBox w='48px' h='48px' bg='linear-gradient(135deg,#FFB36D 0%,#FD7853 100%)' icon={<Icon as={MdTimer} w='24px' h='24px' color='white' />} />}
-          name='Needs Improvement'
+        <StatCard
+          title='Needs Improvement'
           value={String(needsImprovementCount || 0)}
-          growth={`${performanceData.length ? Math.round(((needsImprovementCount || 0) / performanceData.length) * 100) : 0}% require attention`}
-          trendData={[0,1,1,2,needsImprovementCount || 0]}
-          trendColor='#FD7853'
+          subValue={`${chartData.length ? Math.round(((needsImprovementCount || 0) / chartData.length) * 100) : 0}%`}
+          icon={MdTimer}
+          colorScheme='orange'
+          note={hasRealData ? 'Require attention' : 'Demo data'}
         />
       </SimpleGrid>
-      
+
+      <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={5} mb={5}>
+        <Card p='20px' gridColumn={{ base: 'auto', lg: 'span 2' }}>
+          <Flex justify='space-between' align='center' mb='12px'>
+            <Box>
+              <Text fontSize='lg' fontWeight='bold'>Overall Trend</Text>
+              <Text fontSize='sm' color={textColorSecondary}>Score trend for selected period</Text>
+            </Box>
+            <Badge colorScheme='blue'>{hasRealData ? `${performanceData.length} reviews` : 'Demo'}</Badge>
+          </Flex>
+          <LineChart
+            height={chartH || 280}
+            chartData={trendChart.series}
+            chartOptions={{
+              stroke: { curve: 'smooth', width: 3 },
+              colors: ['#60a5fa'],
+              xaxis: { categories: trendChart.categories },
+              yaxis: { min: 0, max: 100 },
+              responsive: [
+                {
+                  breakpoint: 640,
+                  options: {
+                    xaxis: { labels: { rotate: -45, hideOverlappingLabels: true } },
+                    legend: { position: 'bottom' },
+                  },
+                },
+              ],
+              tooltip: { shared: true, intersect: false },
+            }}
+          />
+        </Card>
+
+        <Card p='20px'>
+          <Flex justify='space-between' align='center' mb='12px'>
+            <Box>
+              <Text fontSize='lg' fontWeight='bold'>Status Distribution</Text>
+              <Text fontSize='sm' color={textColorSecondary}>Review outcomes</Text>
+            </Box>
+            <Badge colorScheme='purple'>Donut</Badge>
+          </Flex>
+          <DonutChart
+            ariaLabel='Performance status donut'
+            height={chartH || 280}
+            labels={statusDonut.labels}
+            series={statusDonut.series}
+            options={{
+              colors: ['#22c55e', '#60a5fa', '#f59e0b', '#fb923c', '#94a3b8'],
+              legend: { position: 'bottom' },
+            }}
+          />
+        </Card>
+      </SimpleGrid>
+
+      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={5} mb={5}>
+        <Card p='20px'>
+          <Flex justify='space-between' align='center' mb='12px'>
+            <Box>
+              <Text fontSize='lg' fontWeight='bold'>Metric Averages</Text>
+              <Text fontSize='sm' color={textColorSecondary}>Average % across reviews</Text>
+            </Box>
+            <Badge colorScheme='green'>Avg</Badge>
+          </Flex>
+          <BarChart
+            ariaLabel='Metric averages'
+            height={chartH || 280}
+            categories={metricAvgBar.categories}
+            series={metricAvgBar.series}
+            options={{
+              colors: ['#60a5fa'],
+              yaxis: { min: 0, max: 100 },
+              plotOptions: { bar: { borderRadius: 8, columnWidth: '55%' } },
+              responsive: [
+                {
+                  breakpoint: 640,
+                  options: {
+                    legend: { position: 'bottom' },
+                    plotOptions: { bar: { columnWidth: '70%' } },
+                    xaxis: { labels: { rotate: -35, hideOverlappingLabels: true } },
+                  },
+                },
+              ],
+              tooltip: { y: { formatter: (v) => `${Math.round(v)}%` } },
+            }}
+          />
+        </Card>
+
+        <Card p='20px'>
+          <Flex justify='space-between' align='center' mb='12px'>
+            <Box>
+              <Text fontSize='lg' fontWeight='bold'>Top Performers</Text>
+              <Text fontSize='sm' color={textColorSecondary}>Highest overall scores</Text>
+            </Box>
+            <Badge colorScheme='blue'>Top 6</Badge>
+          </Flex>
+          <BarChart
+            ariaLabel='Top performers'
+            height={chartH || 280}
+            categories={topBar.categories}
+            series={topBar.series}
+            options={{
+              colors: ['#60a5fa'],
+              yaxis: { min: 0, max: 100 },
+              plotOptions: { bar: { borderRadius: 8, columnWidth: '55%' } },
+              responsive: [
+                {
+                  breakpoint: 640,
+                  options: {
+                    legend: { position: 'bottom' },
+                    plotOptions: { bar: { columnWidth: '70%' } },
+                    xaxis: { labels: { rotate: -35, hideOverlappingLabels: true } },
+                  },
+                },
+              ],
+              tooltip: { y: { formatter: (v) => `${Math.round(v)}%` } },
+            }}
+          />
+        </Card>
+      </SimpleGrid>
+
       {/* Performance Table */}
       <Card overflow="hidden">
         <Flex p={4} justifyContent="space-between" alignItems="center" borderBottomWidth={1} borderColor={borderColor}>
@@ -382,7 +630,7 @@ const TeacherPerformance = () => {
             </Button>
           </HStack>
         </Flex>
-        
+
         <Box overflowX="auto">
           <Table variant="simple">
             <Thead bg={useColorModeValue('gray.50', 'gray.800')}>
@@ -616,7 +864,7 @@ const TeacherPerformance = () => {
                 <FormLabel>End Date</FormLabel>
                 <Input type="date" value={newForm.periodEnd} onChange={(e) => setNewForm((p) => ({ ...(p || {}), periodEnd: e.target.value }))} />
               </FormControl>
-              {[ 
+              {[
                 { label: 'Overall Score', field: 'overallScore' },
                 { label: 'Student Feedback', field: 'studentFeedbackScore' },
                 { label: 'Attendance', field: 'attendanceScore' },

@@ -41,6 +41,7 @@ import { MdSearch, MdAdd, MdEdit, MdDelete, MdDoneAll, MdRefresh } from 'react-i
 import Card from 'components/card/Card.js';
 import MiniStatistics from 'components/card/MiniStatistics';
 import IconBox from 'components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 import { MdTrendingUp, MdCheckCircle, MdWarning } from 'react-icons/md';
 import * as syllabusApi from '../../../../services/api/syllabus';
 import * as teacherApi from '../../../../services/api/teachers';
@@ -262,10 +263,10 @@ export default function TeacherSyllabus() {
       </Card>
 
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap="20px" mb={5}>
-        <MiniStatistics startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)" icon={<MdTrendingUp color="white" />} />} name="Avg Coverage" value={`${avgCoverage}%`} />
-        <MiniStatistics startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#01B574 0%,#51CB97 100%)" icon={<MdCheckCircle color="white" />} />} name=">= 70% Covered" value={String(completed)} />
-        <MiniStatistics startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)" icon={<MdWarning color="white" />} />} name="< 40% Covered" value={String(behind)} />
-        <MiniStatistics startContent={<IconBox w="56px" h="56px" bg="linear-gradient(90deg,#8952FF 0%,#AA80FF 100%)" icon={<MdTrendingUp color="white" />} />} name="Subjects" value={String(data.length)} />
+        <StatCard title="Avg Coverage" value={`${avgCoverage}%`} icon={MdTrendingUp} colorScheme="blue" />
+        <StatCard title=">= 70% Covered" value={String(completed)} icon={MdCheckCircle} colorScheme="green" />
+        <StatCard title="< 40% Covered" value={String(behind)} icon={MdWarning} colorScheme="orange" />
+        <StatCard title="Subjects" value={String(data.length)} icon={MdTrendingUp} colorScheme="purple" />
       </SimpleGrid>
 
       <Card overflow="hidden">

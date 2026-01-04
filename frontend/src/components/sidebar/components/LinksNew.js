@@ -73,6 +73,7 @@ export function SidebarLinks(props) {
             spacing="22px"
             py="8px"
             ps="52px"
+            position="relative"
             _hover={{
               bg: useColorModeValue("gray.100", "whiteAlpha.100"),
               borderRadius: "8px"
@@ -140,7 +141,7 @@ export function SidebarLinks(props) {
                       <Flex w="100%" alignItems="center" justifyContent="center">
                         <Box
                           color={hasActive ? activeIcon : textColor}
-                          me="18px"
+                          me="0px"
                           p="6px"
                           borderRadius="md"
                           bg={hasActive ? useColorModeValue("blue.50", "whiteAlpha.100") : "transparent"}
@@ -152,12 +153,13 @@ export function SidebarLinks(props) {
                     {hasActive && (
                       <Box
                         position="absolute"
-                        right="0"
-                        top="8px"
-                        bottom="8px"
-                        w="3px"
+                        right="8px"
+                        top="50%"
+                        transform="translateY(-50%)"
+                        w="6px"
+                        h="6px"
                         bg={brandColor}
-                        borderRadius="5px 0 0 5px"
+                        borderRadius="full"
                       />
                     )}
                   </Box>
@@ -210,6 +212,7 @@ export function SidebarLinks(props) {
                 py="10px"
                 ps="10px"
                 pe="10px"
+                position="relative"
               >
                 <Flex w="100%" alignItems="center">
                   <Box
@@ -298,6 +301,7 @@ export function SidebarLinks(props) {
                   }
                   py="10px"
                   ps="10px"
+                  position="relative"
                   _hover={{
                     bg: useColorModeValue("gray.100", "whiteAlpha.100"),
                     borderRadius: "8px"
@@ -310,7 +314,7 @@ export function SidebarLinks(props) {
                           ? activeIcon
                           : textColor
                       }
-                      me="18px"
+                      me={isCollapsed ? "0px" : "18px"}
                     >
                       {route.icon}
                     </Box>
@@ -333,12 +337,25 @@ export function SidebarLinks(props) {
                     </Text>
                   </Flex>
                   {activeRoute(route.path.toLowerCase()) && (
-                    <Box
-                      h="36px"
-                      w="4px"
-                      bg={brandColor}
-                      borderRadius="5px"
-                    />
+                    isCollapsed ? (
+                      <Box
+                        position="absolute"
+                        right="8px"
+                        top="50%"
+                        transform="translateY(-50%)"
+                        w="6px"
+                        h="6px"
+                        bg={brandColor}
+                        borderRadius="full"
+                      />
+                    ) : (
+                      <Box
+                        h="36px"
+                        w="4px"
+                        bg={brandColor}
+                        borderRadius="5px"
+                      />
+                    )
                   )}
                 </HStack>
               </Box>

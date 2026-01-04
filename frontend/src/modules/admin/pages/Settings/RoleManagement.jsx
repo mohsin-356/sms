@@ -4,10 +4,11 @@ import { MdAdminPanelSettings, MdGroup, MdSecurity, MdFileDownload, MdAdd, MdRef
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 import { rbacApi } from '../../../../services/api';
 import { getSMSRoutes } from '../../../../smsRoutesConfig';
 
-const allPerms = ['students.view','students.edit','teachers.view','teachers.edit','finance.view','finance.edit','transport.view','transport.edit','attendance.view','attendance.edit','attendance.export','reports.view','reports.export','communication.send','settings.manage'];
+const allPerms = ['students.view', 'students.edit', 'teachers.view', 'teachers.edit', 'finance.view', 'finance.edit', 'transport.view', 'transport.edit', 'attendance.view', 'attendance.edit', 'attendance.export', 'reports.view', 'reports.export', 'communication.send', 'settings.manage'];
 
 export default function RoleManagement() {
   const [search, setSearch] = useState('');
@@ -29,15 +30,15 @@ export default function RoleManagement() {
       try {
         const res = await rbacApi.getRoles();
         setRoles(Array.isArray(res?.items) ? res.items : []);
-      } catch (_) {}
+      } catch (_) { }
       try {
         const perms = await rbacApi.getPermissions();
         setPermAssignments(perms?.assignments || {});
-      } catch (_) {}
+      } catch (_) { }
       try {
         const mods = await rbacApi.getModules();
         setModuleAssignments(mods?.assignments || {});
-      } catch (_) {}
+      } catch (_) { }
       try {
         const smsRoutes = getSMSRoutes();
         const defs = smsRoutes
@@ -49,7 +50,7 @@ export default function RoleManagement() {
             return { name: r.name, subroutes: r.path ? [r.path] : [] };
           });
         setModuleDefs(defs);
-      } catch (_) {}
+      } catch (_) { }
     };
     load();
   }, []);
@@ -96,7 +97,7 @@ export default function RoleManagement() {
       await rbacApi.setModules(selectedRole, payload);
       const mods = await rbacApi.getModules();
       setModuleAssignments(mods?.assignments || {});
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const stats = useMemo(() => ({ roles: roles.length, users: roles.reduce((s, r) => s + (r.users || 0), 0), perms: Object.values(permAssignments || {}).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0) }), [roles, permAssignments]);
@@ -104,7 +105,7 @@ export default function RoleManagement() {
   const filtered = useMemo(() => roles.filter(r => {
     const name = r.name || r.id;
     const bySearch = !search || String(name).toLowerCase().includes(search.toLowerCase());
-    const byStatus = status==='all' || (status==='active' ? r.active : !r.active);
+    const byStatus = status === 'all' || (status === 'active' ? r.active : !r.active);
     return bySearch && byStatus;
   }), [roles, search, status]);
 
@@ -123,9 +124,9 @@ export default function RoleManagement() {
       </Flex>
 
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={5} mb={5}>
-        <MiniStatistics name="Total Roles" value={String(stats.roles)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#00c6ff 0%,#0072ff 100%)' icon={<Icon as={MdAdminPanelSettings} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Total Users" value={String(stats.users)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#11998e 0%,#38ef7d 100%)' icon={<Icon as={MdGroup} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Permissions" value={String(stats.perms)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#FDBB2D 0%,#22C1C3 100%)' icon={<Icon as={MdSecurity} w='28px' h='28px' color='white' />} />} />
+        <StatCard title="Total Roles" value={String(stats.roles)} icon={MdAdminPanelSettings} colorScheme="blue" />
+        <StatCard title="Total Users" value={String(stats.users)} icon={MdGroup} colorScheme="green" />
+        <StatCard title="Permissions" value={String(stats.perms)} icon={MdSecurity} colorScheme="orange" />
       </SimpleGrid>
 
       <Card p={4} mb={5}>
@@ -180,25 +181,25 @@ export default function RoleManagement() {
         <Flex justify="space-between" align="center" mb={4} direction={{ base: 'column', md: 'row' }} gap={3}>
           <Heading size='md'>Module Access</Heading>
           <Flex gap={3} align='center'>
-            <Select maxW='220px' value={selectedRole} onChange={(e)=> setSelectedRole(e.target.value)}>
-              {roles.filter(r=> r.id !== 'admin').map(r => (
+            <Select maxW='220px' value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)}>
+              {roles.filter(r => r.id !== 'admin').map(r => (
                 <option key={r.id} value={r.id}>{r.name}</option>
               ))}
             </Select>
-            <Button variant='outline' onClick={()=> { setAllowModules(new Set()); setAllowSubroutes(new Set()); }}>Reset</Button>
+            <Button variant='outline' onClick={() => { setAllowModules(new Set()); setAllowSubroutes(new Set()); }}>Reset</Button>
             <Button colorScheme='blue' onClick={saveModules}>Save</Button>
           </Flex>
         </Flex>
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
           {moduleDefs.map((m) => (
             <Box key={m.name} borderWidth='1px' borderRadius='md' p={4}>
-              <Checkbox isChecked={allowModules.has(m.name)} onChange={(e)=> toggleModule(m.name, e.target.checked)}>
+              <Checkbox isChecked={allowModules.has(m.name)} onChange={(e) => toggleModule(m.name, e.target.checked)}>
                 <Text fontWeight='600'>{m.name}</Text>
               </Checkbox>
               {allowModules.has(m.name) && m.subroutes?.length > 0 && (
                 <Stack mt={3} pl={6} spacing={2}>
                   {m.subroutes.map((p) => (
-                    <Checkbox key={p} isChecked={allowSubroutes.has(p)} onChange={(e)=> toggleSubroute(p, e.target.checked)}>
+                    <Checkbox key={p} isChecked={allowSubroutes.has(p)} onChange={(e) => toggleSubroute(p, e.target.checked)}>
                       {p}
                     </Checkbox>
                   ))}
@@ -226,7 +227,7 @@ export default function RoleManagement() {
             </FormControl>
             <FormControl>
               <FormLabel>Permissions</FormLabel>
-              <CheckboxGroup defaultValue={['students.view','reports.view']}>
+              <CheckboxGroup defaultValue={['students.view', 'reports.view']}>
                 <Stack spacing={3} maxH='220px' overflowY='auto'>
                   {allPerms.map((p) => (
                     <Checkbox key={p} value={p}>{p}</Checkbox>
@@ -257,7 +258,7 @@ export default function RoleManagement() {
                 </FormControl>
                 <FormControl display='flex' alignItems='center' mb={4}>
                   <FormLabel mb='0' flex='1'>Active</FormLabel>
-                  <Switch defaultChecked={selected.active} onChange={(e)=> setSelected(s => ({ ...s, active: e.target.checked }))} />
+                  <Switch defaultChecked={selected.active} onChange={(e) => setSelected(s => ({ ...s, active: e.target.checked }))} />
                 </FormControl>
                 <FormControl>
                   <FormLabel>Permissions</FormLabel>
@@ -274,13 +275,13 @@ export default function RoleManagement() {
           </ModalBody>
           <ModalFooter>
             <Button mr={3} onClick={editDisc.onClose}>Close</Button>
-            <Button colorScheme='blue' onClick={async ()=> {
+            <Button colorScheme='blue' onClick={async () => {
               try {
                 await rbacApi.setRoleActive(selected.id, selected.active);
                 const res = await rbacApi.getRoles();
                 setRoles(Array.isArray(res?.items) ? res.items : []);
                 editDisc.onClose();
-              } catch (_) {}
+              } catch (_) { }
             }}>Save</Button>
           </ModalFooter>
         </ModalContent>

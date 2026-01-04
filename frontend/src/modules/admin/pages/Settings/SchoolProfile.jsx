@@ -4,6 +4,7 @@ import { MdBusiness, MdSave, MdRefresh, MdFileDownload } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 import { settingsApi } from '../../../../services/api';
 
 export default function SchoolProfile() {
@@ -48,7 +49,7 @@ export default function SchoolProfile() {
       try {
         const hook = await settingsApi.get('whatsapp.webhook.url');
         setWhatsappWebhook(hook?.value || '');
-      } catch (_) {}
+      } catch (_) { }
     } catch (_) {
       // keep defaults
     } finally {
@@ -100,9 +101,9 @@ export default function SchoolProfile() {
       </Flex>
 
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={5} mb={5}>
-        <MiniStatistics name="Branches" value="3" startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#00c6ff 0%,#0072ff 100%)' icon={<Icon as={MdBusiness} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Students" value="1,240" startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#11998e 0%,#38ef7d 100%)' icon={<Icon as={MdBusiness} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Teachers" value="84" startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#FDBB2D 0%,#22C1C3 100%)' icon={<Icon as={MdBusiness} w='28px' h='28px' color='white' />} />} />
+        <StatCard title="Branches" value="3" icon={MdBusiness} colorScheme="blue" />
+        <StatCard title="Students" value="1,240" icon={MdBusiness} colorScheme="green" />
+        <StatCard title="Teachers" value="84" icon={MdBusiness} colorScheme="orange" />
       </SimpleGrid>
 
       <Grid templateColumns={{ base: '1fr', lg: '1fr 1fr' }} gap={5}>

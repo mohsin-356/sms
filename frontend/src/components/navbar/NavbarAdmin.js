@@ -18,7 +18,7 @@ export default function AdminNavbar(props) {
 		};
 	});
 
-	const { secondary, message, brandText } = props;
+	const { secondary, message } = props;
 
 	// Here are all the props that may change depending on navbar's type or state.(secondary, variant, scrolled)
 	let mainText = useColorModeValue('navy.700', 'white');
@@ -50,8 +50,8 @@ export default function AdminNavbar(props) {
 			backdropFilter={navbarBackdrop}
 			backgroundPosition='center'
 			backgroundSize='cover'
-			borderRadius='16px'
-			borderWidth='1.5px'
+			borderRadius='0px 0px 0px 0px'
+			borderWidth='0px'
 			borderStyle='solid'
 			transitionDelay='0s, 0s, 0s, 0s'
 			transitionDuration=' 0.25s, 0.25s, 0.25s, 0s'
@@ -74,7 +74,7 @@ export default function AdminNavbar(props) {
 				xl: '12px'
 			}}
 			pt='8px'
-			top={{ base: '12px', md: '16px', lg: '20px', xl: '20px' }}
+			top='0px'
 			left={{ base: '12px', md: '30px', lg: '30px', xl: `${sidebarWidth}px` }}
 			w={{
 				base: 'calc(100vw - 6%)',
@@ -109,7 +109,7 @@ export default function AdminNavbar(props) {
 						_focus={{
 							boxShadow: 'none'
 						}}>
-						{brandText}
+						Academia Pro
 					</Link>
 				</Box>
 				<Box ms='auto' w={{ sm: '100%', md: 'unset' }}>

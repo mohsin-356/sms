@@ -4,6 +4,7 @@ import { MdPeople, MdAdminPanelSettings, MdSecurity, MdFileDownload, MdAdd, MdRe
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
+import StatCard from '../../../../components/card/StatCard';
 
 const mockUsers = [
   { id: 'U-001', name: 'Admin User', email: 'admin@school.com', role: 'Administrator', status: 'Active', lastLogin: '2025-11-12 09:22' },
@@ -20,11 +21,11 @@ export default function UserManagement() {
   const detailDisc = useDisclosure();
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
 
-  const stats = useMemo(() => ({ users: mockUsers.length, active: mockUsers.filter(u=>u.status==='Active').length, roles: new Set(mockUsers.map(u=>u.role)).size }), []);
+  const stats = useMemo(() => ({ users: mockUsers.length, active: mockUsers.filter(u => u.status === 'Active').length, roles: new Set(mockUsers.map(u => u.role)).size }), []);
 
   const filtered = useMemo(() => mockUsers.filter(u => {
-    const byRole = role==='all' || u.role===role;
-    const byStatus = status==='all' || u.status===status;
+    const byRole = role === 'all' || u.role === role;
+    const byStatus = status === 'all' || u.status === status;
     const bySearch = !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()) || u.id.toLowerCase().includes(search.toLowerCase());
     return byRole && byStatus && bySearch;
   }), [role, status, search]);
@@ -44,9 +45,9 @@ export default function UserManagement() {
       </Flex>
 
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={5} mb={5}>
-        <MiniStatistics name="Total Users" value={String(stats.users)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#00c6ff 0%,#0072ff 100%)' icon={<Icon as={MdPeople} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Active" value={String(stats.active)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#11998e 0%,#38ef7d 100%)' icon={<Icon as={MdAdminPanelSettings} w='28px' h='28px' color='white' />} />} />
-        <MiniStatistics name="Roles" value={String(stats.roles)} startContent={<IconBox w='56px' h='56px' bg='linear-gradient(90deg,#FDBB2D 0%,#22C1C3 100%)' icon={<Icon as={MdSecurity} w='28px' h='28px' color='white' />} />} />
+        <StatCard title="Total Users" value={String(stats.users)} icon={MdPeople} colorScheme="blue" />
+        <StatCard title="Active" value={String(stats.active)} icon={MdAdminPanelSettings} colorScheme="green" />
+        <StatCard title="Roles" value={String(stats.roles)} icon={MdSecurity} colorScheme="orange" />
       </SimpleGrid>
 
       <Card p={4} mb={5}>
@@ -92,11 +93,11 @@ export default function UserManagement() {
                   <Td>{u.id}</Td>
                   <Td>{u.email}</Td>
                   <Td><Badge colorScheme='blue'>{u.role}</Badge></Td>
-                  <Td><Badge colorScheme={u.status==='Active'?'green':'gray'}>{u.status}</Badge></Td>
+                  <Td><Badge colorScheme={u.status === 'Active' ? 'green' : 'gray'}>{u.status}</Badge></Td>
                   <Td><Text color={textColorSecondary}>{u.lastLogin}</Text></Td>
                   <Td>
                     <Button size='sm' variant='outline' mr={2} onClick={() => { setSelected(u); detailDisc.onOpen(); }}>Details</Button>
-                    <Button size='sm' colorScheme={u.status==='Active'?'red':'green'}>{u.status==='Active'?'Deactivate':'Activate'}</Button>
+                    <Button size='sm' colorScheme={u.status === 'Active' ? 'red' : 'green'}>{u.status === 'Active' ? 'Deactivate' : 'Activate'}</Button>
                   </Td>
                 </Tr>
               ))}
